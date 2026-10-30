@@ -288,29 +288,57 @@ function updateMe(dt: number) {
 let lastTickerAt = 0, lastWokeNote = 0;
 function ticker(msg: string) { $('ticker').textContent = msg; lastTickerAt = performance.now(); }
 
+// 상단 안내: 처음과 중요한 순간에만 크게 보여주고, 나머지는 작은 알약으로 접어 둠
+let expandedUntil = 0, lastAltForBanner = -90, minuteWarned = 0;
+function expandBanner(ms = 7000) { expandedUntil = Math.max(expandedUntil, Date.now() + ms); }
+function toggleBanner() {
+  if (Date.now() < expandedUntil) expandedUntil = 0; else expandBanner();
+  lastUI = 0; // 바로 다시 그리기
+}
+
 function updateUI(now: number, alt: number, t: number) {
   const info = sunriseInfo(place, now), tz = place.tz, live = !replay && !!info.windowSR;
+  const wx = weatherNow ? ` · ${windLabel(weatherNow)}` : '';
   $('liveDot').className = 'dot' + (live || replay ? '' : ' off');
   $('progress').style.display = replay ? 'block' : 'none';
+  // 해가 지평선을 넘는 순간, 해 뜨기 1분 전에는 자동으로 펼침
+  if (lastAltForBanner < 0 && alt >= 0 && (live || replay)) expandBanner(10000);
+  lastAltForBanner = alt;
+  if (live && info.windowSR && info.windowSR - now < 60000 && info.windowSR > now && minuteWarned !== info.windowSR) {
+    minuteWarned = info.windowSR; expandBanner(65000);
+  }
+  let full: string, compact: string;
   if (replay) {
     const k = Math.min(1, (Date.now() - replay.start) / replay.duration);
     $('progressBar').style.width = `${k * 100}%`;
-    $('status').textContent = `다시보기 · ${dayName(replay.sr, tz)}`;
+    full = `다시보기 · ${dayName(replay.sr, tz)}`;
+    compact = `다시보기 · ${place.name} ${alt < -0.8 ? '곧 해가 떠요' : '해가 떴어요'}`;
     $('headline').textContent = alt < -0.8 ? '곧 해가 떠요' : '해가 떴어요';
     $('sub').textContent = `${place.name} 일출 ${hm(replay.sr, tz)}`;
     if (k >= 1) { replay = null; if (markSeen('replay')) toast('다시보기로 오늘의 해를 봤어요'); }
   } else if (live) {
     const sr = info.windowSR!;
-    $('status').innerHTML = `<span class="dot"></span>LIVE · ${place.name}${weatherNow ? ` · ${windLabel(weatherNow)}` : ''}`;
-    if (now < sr) { $('headline').textContent = '곧 해가 떠요'; $('sub').textContent = `일출 ${hm(sr, tz)} · ${mmss(sr - now)} 남음`; }
-    else { $('headline').textContent = '해가 떴어요'; $('sub').textContent = `${place.name} 일출 ${hm(sr, tz)}`; }
+    full = `<span class="dot"></span>LIVE · ${place.name}${wx}`;
+    if (now < sr) {
+      $('headline').textContent = '곧 해가 떠요';
+      $('sub').textContent = `일출 ${hm(sr, tz)} · ${mmss(sr - now)} 남음`;
+      compact = `<span class="dot"></span>LIVE · 해돋이까지 ${mmss(sr - now)}`;
+    } else {
+      $('headline').textContent = '해가 떴어요';
+      $('sub').textContent = `${place.name} 일출 ${hm(sr, tz)}`;
+      compact = `<span class="dot"></span>LIVE · ${place.name} 해가 떴어요`;
+    }
   } else {
-    $('status').textContent = `${place.name} · 현지 ${hm(now, tz)}${weatherNow ? ` · ${windLabel(weatherNow)}` : ''}`;
+    full = `${place.name} · 현지 ${hm(now, tz)}${wx}`;
+    compact = info.next ? `${place.name} · 해돋이 ${hm(info.next, tz)} · ${dur(info.next - now)} 후` : place.name;
     if (info.next) {
       $('headline').textContent = alt < -6 ? '아직 밤이에요' : info.last ? `오늘 해는 ${hm(info.last, tz)}에 떴어요` : '해가 떠 있어요';
       $('sub').textContent = `다음 해돋이 ${dayName(info.next, tz)} ${hm(info.next, tz)} · ${dur(info.next - now)} 남음`;
     }
   }
+  const expanded = Date.now() < expandedUntil;
+  $('center').classList.toggle('collapsed', !expanded);
+  $('status').innerHTML = expanded ? full : `${compact}<span class="chev">▾</span>`;
   // 해가 떠오르는 장면을 5초 이상 보면 오늘 기록
   if ((live || replay) && alt > 0.3) {
     if (!watchStart) watchStart = Date.now();
@@ -362,6 +390,7 @@ PLACES.forEach(p => {
     clearRemotes(); lanterns.clear(); world.buildLandmark(p); renderAlarm(); renderCounts(); refreshWeather();
     spawn();
     if (connected) join();
+    expandBanner();
     toast(`${p.name}${p.id === 'gisborne' ? ' · 세계에서 가장 먼저 해가 뜨는 곳 중 하나' : ''}에 왔어요`);
   };
   chips.appendChild(b);
@@ -428,7 +457,7 @@ $('replayBtn').onclick = () => {
   close();
   const now = Date.now(), info = sunriseInfo(place, now);
   replay = { sr: info.last ?? info.next!, start: now, duration: 45000, from: -30 * 60000, span: 55 * 60000 };
-  watchStart = 0;
+  watchStart = 0; expandBanner(4000);
 };
 async function copy(text: string, done: string) {
   try { await navigator.clipboard.writeText(text); toast(done); } catch { toast(text); }
@@ -673,6 +702,7 @@ function leave() {
   setTimeout(() => history.go(-2), 900);
 }
 $('exitBtn').onclick = openBye;
+$('status').addEventListener('click', toggleBanner);
 $('byeStay').onclick = close;
 $('byeLeave').onclick = leave;
 $('comeBack').onclick = () => {
@@ -698,8 +728,8 @@ addEventListener('popstate', () => {
 // ================= 시작 =================
 const askInstallSoon = () => setTimeout(() => { if (!openSheet) showInstall(false); }, 4000);
 if (!store.hinted) $('hint').classList.add('open');
-else askInstallSoon();
-$('hintBtn').onclick = () => { $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); askInstallSoon(); };
+else { askInstallSoon(); expandBanner(); }
+$('hintBtn').onclick = () => { $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner(); askInstallSoon(); };
 world.buildLandmark(place);
 renderStreak(); renderAlarm(); renderCounts();
 requestAnimationFrame(loop);
