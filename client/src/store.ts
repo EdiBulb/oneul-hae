@@ -13,6 +13,8 @@ interface Saved {
   look: Look;
   /** 알람을 끄고 들어온 날짜 */
   wokeOn?: string;
+  /** 설치 안내를 '나중에'로 미룬 시각 */
+  installSnooze?: number;
 }
 
 function load(): Partial<Saved> {
@@ -27,6 +29,7 @@ export const store: Saved = {
   nick: raw.nick ?? `${pick(ADJ)} ${pick(NOUN)}`,
   look: raw.look ?? { body: Math.floor(Math.random() * BODY_COLORS.length), hat: Math.floor(Math.random() * HAT_COLORS.length) },
   wokeOn: raw.wokeOn,
+  installSnooze: raw.installSnooze,
 };
 export function save() {
   try { localStorage.setItem(KEY, JSON.stringify(store)); } catch { /* 저장소가 막힌 브라우저 */ }

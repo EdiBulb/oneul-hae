@@ -5,9 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>오늘의 해 — 매일 아침 함께 보는 해돋이</title>
 <meta name="description" content="출근 전 1분, 같은 해변에서 사람들과 함께 실시간 해돋이를 봐요.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="오늘의 해">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:url" content="https://hae.abracadelulu.com/">
 <meta property="og:title" content="오늘의 해 — 매일 아침 함께 보는 해돋이">
 <meta property="og:description" content="해 보러 갈 기운 없는 아침, 여기서 같이 봐요.">
+<meta property="og:image" content="https://hae.abracadelulu.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="수평선 위로 해가 뜨고 풍등이 떠오르는 바다">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://hae.abracadelulu.com/og.png">
 <meta name="theme-color" content="#14152a">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="오늘의 해">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
@@ -94,8 +111,29 @@
       <div class="muted">내 이름 <b id="myNick"></b></div>
       <button class="switch" id="inviteBtn">친구 부르기</button>
     </div>
+    <button class="link" id="installMenuBtn">홈 화면에 앱으로 설치하기</button>
   </div>
   <p class="note">해의 위치와 일출 시각은 실제 천문 계산이에요. 해변의 사람들과 숫자는 지금 접속한 진짜 사람들이에요. 알람은 이 페이지가 열려 있을 때만 울려요.</p>
+</div>
+
+<div class="sheet" id="installSheet" role="dialog" aria-labelledby="installTitle">
+  <div class="install-head">
+    <img src="/icon-192.png" alt="" width="56" height="56">
+    <div><h2 id="installTitle">앱으로 설치할까요?</h2>
+    <p class="lead">홈 화면에 두면 매일 아침 한 번에 열 수 있어요.</p></div>
+  </div>
+  <div id="installIos" class="ios-steps" hidden>
+    <p>아이폰은 이렇게 설치해요</p>
+    <ol>
+      <li>Safari 아래쪽 <b>공유 버튼</b>(네모에 화살표)을 누르고</li>
+      <li><b>홈 화면에 추가</b>를 고른 뒤</li>
+      <li>오른쪽 위 <b>추가</b>를 누르면 끝이에요</li>
+    </ol>
+  </div>
+  <div class="row install-btns">
+    <button class="btn" id="installLater">나중에</button>
+    <button class="btn primary" id="installGo">설치하기</button>
+  </div>
 </div>
 
 <div class="hint" id="hint">

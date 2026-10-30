@@ -94,3 +94,12 @@
   .conn{font-size:11px;color:#ffd7a8;background:rgba(60,30,10,.55);border:1px solid rgba(255,180,100,.35);padding:5px 10px;border-radius:999px;display:none}
   .conn.show{display:inline-block}
   .chip em{font-style:normal;opacity:.75;font-size:11px;margin-left:4px;font-variant-numeric:tabular-nums}
+
+.install-head{display:flex;gap:14px;align-items:center}
+.install-head img{border-radius:14px;flex:none}
+.ios-steps{margin-top:14px;background:rgba(255,248,239,.06);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:13.5px;color:var(--ink-dim);line-height:1.7}
+.ios-steps p{color:var(--ink);font-weight:700;margin-bottom:4px}
+.ios-steps ol{padding-left:18px}
+.ios-steps b{color:var(--ink)}
+.install-btns{margin-top:16px}
+.install-btns .btn{flex:1}

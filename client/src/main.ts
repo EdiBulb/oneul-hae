@@ -528,9 +528,63 @@ setInterval(() => {
   if (due && alarmFiredFor !== due) { alarmFiredFor = due; openWake(due, false); }
 }, 5000);
 
+// ================= 앱으로 설치 (PWA) =================
+interface InstallPromptEvent extends Event { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
+let installEvent: InstallPromptEvent | null = null;
+const ua = navigator.userAgent;
+const isStandalone = matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1);
+const isKakao = /KAKAOTALK/i.test(ua);
+const SNOOZE = 3 * 86400000;
+
+function showInstall(force: boolean) {
+  if (isStandalone) { if (force) toast('이미 앱으로 열려 있어요'); return; }
+  if (!force && store.installSnooze && Date.now() - store.installSnooze < SNOOZE) return;
+  if (!force && !installEvent && !isIOS && !isKakao) return; // 설치를 지원하지 않는 브라우저면 조용히 넘어감
+  const ios = $('installIos'), go = $('installGo');
+  ios.hidden = true;
+  if (isKakao) {
+    // 카카오톡 안의 브라우저는 설치가 안 돼서, 기본 브라우저로 열어 줌
+    $('installTitle').textContent = '브라우저에서 열어 설치해요';
+    go.textContent = '브라우저로 열기';
+  } else if (installEvent) {
+    $('installTitle').textContent = '앱으로 설치할까요?';
+    go.textContent = '설치하기';
+  } else if (isIOS) {
+    $('installTitle').textContent = '홈 화면에 추가할까요?';
+    ios.hidden = false;
+    go.textContent = '알겠어요';
+  } else {
+    $('installTitle').textContent = '홈 화면에 추가하기';
+    go.textContent = '알겠어요';
+    toast("브라우저 메뉴(⋮)에서 '홈 화면에 추가'를 눌러 주세요");
+  }
+  open('installSheet');
+}
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installEvent = e as InstallPromptEvent;
+  if (store.hinted && !openSheet) setTimeout(() => showInstall(false), 3000);
+});
+addEventListener('appinstalled', () => { installEvent = null; close(); toast('설치됐어요 · 내일 아침 홈 화면에서 만나요'); });
+$('installGo').onclick = async () => {
+  if (isKakao) { location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(location.href)}`; return; }
+  if (installEvent) {
+    const ev = installEvent; installEvent = null;
+    await ev.prompt();
+    const { outcome } = await ev.userChoice;
+    if (outcome !== 'accepted') { store.installSnooze = Date.now(); save(); }
+  }
+  close();
+};
+$('installLater').onclick = () => { store.installSnooze = Date.now(); save(); close(); };
+$('installMenuBtn').onclick = () => { close(); setTimeout(() => showInstall(true), 300); };
+
 // ================= 시작 =================
+const askInstallSoon = () => setTimeout(() => { if (!openSheet) showInstall(false); }, 4000);
 if (!store.hinted) $('hint').classList.add('open');
-$('hintBtn').onclick = () => { $('hint').classList.remove('open'); store.hinted = true; save(); };
+else askInstallSoon();
+$('hintBtn').onclick = () => { $('hint').classList.remove('open'); store.hinted = true; save(); askInstallSoon(); };
 world.buildLandmark(place);
 renderStreak(); renderAlarm(); renderCounts();
 requestAnimationFrame(loop);
