@@ -110,3 +110,7 @@
   .hright{gap:5px}
   .iconbtn,.viewers{padding:6px 9px}
 }
+.support-btn.kakao{background:#fee500;color:#191600;border:none}
+.kakao-qr{display:flex;align-items:center;gap:14px;margin-top:12px;font-size:12.5px;color:var(--ink-dim);line-height:1.6}
+.kakao-qr img{border-radius:12px;background:#fff;padding:6px;width:120px;height:120px}
+[hidden]{display:none !important}
