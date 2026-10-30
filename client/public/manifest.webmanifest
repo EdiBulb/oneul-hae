@@ -1,7 +1,7 @@
 {
   "name": "오늘의 해",
   "short_name": "오늘의 해",
-  "description": "매일 아침, 같은 해변에서 함께 보는 실시간 해돋이",
+  "description": "매일 아침, 같은 해변에서 함께 보는 온라인 해돋이",
   "lang": "ko",
   "start_url": "/?source=app",
   "scope": "/",
