@@ -103,3 +103,10 @@
 .ios-steps b{color:var(--ink)}
 .install-btns{margin-top:16px}
 .install-btns .btn{flex:1}
+.support-btn{display:block;text-align:center;text-decoration:none;margin-top:12px}
+.iconbtn,.conn,.viewers{white-space:nowrap}
+@media (max-width:430px){
+  .brand small{display:none}
+  .hright{gap:5px}
+  .iconbtn,.viewers{padding:6px 9px}
+}

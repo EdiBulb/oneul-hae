@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, St, Stats } from '../../server/src/protocol';
 import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char } from './character';
+import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { createLanterns } from './lanterns';
 import { connect } from './net';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, type Place } from './places';
@@ -299,11 +300,11 @@ function updateUI(now: number, alt: number, t: number) {
     if (k >= 1) { replay = null; if (markSeen('replay')) toast('다시보기로 오늘의 해를 봤어요'); }
   } else if (live) {
     const sr = info.windowSR!;
-    $('status').innerHTML = `<span class="dot"></span>LIVE · ${place.name}`;
+    $('status').innerHTML = `<span class="dot"></span>LIVE · ${place.name}${weatherNow ? ` · ${windLabel(weatherNow)}` : ''}`;
     if (now < sr) { $('headline').textContent = '곧 해가 떠요'; $('sub').textContent = `일출 ${hm(sr, tz)} · ${mmss(sr - now)} 남음`; }
     else { $('headline').textContent = '해가 떴어요'; $('sub').textContent = `${place.name} 일출 ${hm(sr, tz)}`; }
   } else {
-    $('status').textContent = `${place.name} · 현지 ${hm(now, tz)}`;
+    $('status').textContent = `${place.name} · 현지 ${hm(now, tz)}${weatherNow ? ` · ${windLabel(weatherNow)}` : ''}`;
     if (info.next) {
       $('headline').textContent = alt < -6 ? '아직 밤이에요' : info.last ? `오늘 해는 ${hm(info.last, tz)}에 떴어요` : '해가 떠 있어요';
       $('sub').textContent = `다음 해돋이 ${dayName(info.next, tz)} ${hm(info.next, tz)} · ${dur(info.next - now)} 남음`;
@@ -335,6 +336,7 @@ function loop(t: number) {
   const info = sunriseInfo(place, now);
   const ref = replay ? replay.sr : (info.windowSR ?? info.next ?? info.last ?? now);
   const alt = world.update(now, place, ref, camera, t);
+  amb.setAlt(alt);
   updateRemotes(dt);
   lanterns.update(dt);
   sendState(t);
@@ -356,7 +358,7 @@ PLACES.forEach(p => {
     [...chips.children].forEach((c, i) => c.setAttribute('aria-pressed', String(PLACES[i] === p)));
     if (mySeat !== null) { mySeat = null; me.state = 'idle'; }
     seats.forEach(s => (s.occ = null));
-    clearRemotes(); lanterns.clear(); world.buildLandmark(p); renderAlarm(); renderCounts();
+    clearRemotes(); lanterns.clear(); world.buildLandmark(p); renderAlarm(); renderCounts(); refreshWeather();
     spawn();
     if (connected) join();
     toast(`${p.name}${p.id === 'gisborne' ? ' · 세계에서 가장 먼저 해가 뜨는 곳 중 하나' : ''}에 왔어요`);
@@ -580,11 +582,50 @@ $('installGo').onclick = async () => {
 $('installLater').onclick = () => { store.installSnooze = Date.now(); save(); close(); };
 $('installMenuBtn').onclick = () => { close(); setTimeout(() => showInstall(true), 300); };
 
+// ================= 후원 =================
+// Vercel 환경 변수 VITE_SUPPORT_URL에 후원 페이지 주소를 넣으면 메뉴에 버튼이 나타남
+const SUPPORT_URL: string | undefined = import.meta.env.VITE_SUPPORT_URL;
+if (SUPPORT_URL) {
+  $('supportBlock').hidden = false;
+  ($('supportBtn') as HTMLAnchorElement).href = SUPPORT_URL;
+}
+
+// ================= 배경 소리 =================
+const amb = createAmbience();
+amb.setOn(store.soundOn);
+let weatherNow: Weather | null = null;
+function renderSoundBtn() {
+  const b = $('soundBtn');
+  b.textContent = store.soundOn ? '🔊' : '🔇';
+  b.setAttribute('aria-label', store.soundOn ? '소리 끄기' : '소리 켜기');
+}
+$('soundBtn').onclick = () => {
+  store.soundOn = !store.soundOn; save();
+  amb.setOn(store.soundOn); renderSoundBtn();
+  toast(store.soundOn ? `${place.name}의 소리를 켰어요` : '소리를 껐어요');
+};
+renderSoundBtn();
+// 브라우저는 사용자가 화면을 한 번 눌러야 소리를 낼 수 있어서, 첫 터치 때 시작
+const firstTouch = () => { if (store.soundOn && !amb.started) amb.unlock(); };
+addEventListener('pointerdown', firstTouch);
+addEventListener('keydown', firstTouch);
+document.addEventListener('visibilitychange', () => { if (document.hidden) amb.pause(); else amb.resume(); });
+
+async function refreshWeather() {
+  const p = place;
+  const w = await fetchWeather(p.lat, p.lng);
+  if (p !== place) return; // 그 사이 채널을 바꿨으면 무시
+  weatherNow = w;
+  amb.setWeather(w ?? { windKmh: 10, precipMm: 0 });
+}
+refreshWeather();
+setInterval(refreshWeather, 15 * 60000);
+
 // ================= 시작 =================
 const askInstallSoon = () => setTimeout(() => { if (!openSheet) showInstall(false); }, 4000);
 if (!store.hinted) $('hint').classList.add('open');
 else askInstallSoon();
-$('hintBtn').onclick = () => { $('hint').classList.remove('open'); store.hinted = true; save(); askInstallSoon(); };
+$('hintBtn').onclick = () => { $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); askInstallSoon(); };
 world.buildLandmark(place);
 renderStreak(); renderAlarm(); renderCounts();
 requestAnimationFrame(loop);

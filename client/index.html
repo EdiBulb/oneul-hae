@@ -38,6 +38,7 @@
     <div class="hright pe">
       <span class="conn" id="conn">연결 중…</span>
       <div class="viewers"><span class="dot off" id="liveDot"></span><b id="viewerCount">-</b>명</div>
+      <button class="iconbtn" id="soundBtn" aria-label="소리 끄기">🔊</button>
       <button class="iconbtn" id="menuBtn">기록·알람</button>
     </div>
   </header>
@@ -105,6 +106,11 @@
   <div class="block">
     <div class="big" style="margin-bottom:10px">놓친 해돋이</div>
     <button class="btn primary" id="replayBtn">오늘 해돋이 다시보기</button>
+  </div>
+  <div class="block" id="supportBlock" hidden>
+    <div class="big">햇살 한 잔 보내기 ☕</div>
+    <p class="muted" style="margin-top:6px">오늘의 해는 혼자 만들고 운영해요. 보내 주신 마음은 서버비와 새 해변을 만드는 데 쓰여요.</p>
+    <a class="btn primary support-btn" id="supportBtn" href="#" target="_blank" rel="noopener">후원하기</a>
   </div>
   <div class="block">
     <div class="row">

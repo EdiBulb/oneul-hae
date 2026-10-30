@@ -15,6 +15,8 @@ interface Saved {
   wokeOn?: string;
   /** 설치 안내를 '나중에'로 미룬 시각 */
   installSnooze?: number;
+  /** 배경 소리 켜짐 (기본 켜짐) */
+  soundOn: boolean;
 }
 
 function load(): Partial<Saved> {
@@ -30,6 +32,7 @@ export const store: Saved = {
   look: raw.look ?? { body: Math.floor(Math.random() * BODY_COLORS.length), hat: Math.floor(Math.random() * HAT_COLORS.length) },
   wokeOn: raw.wokeOn,
   installSnooze: raw.installSnooze,
+  soundOn: raw.soundOn ?? true,
 };
 export function save() {
   try { localStorage.setItem(KEY, JSON.stringify(store)); } catch { /* 저장소가 막힌 브라우저 */ }
