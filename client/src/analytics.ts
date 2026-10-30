@@ -27,7 +27,7 @@ export function initAnalytics(uid: string) {
       disable_session_recording: true,
       persistence: 'localStorage',
     });
-    ph = posthog; (window as unknown as Record<string, unknown>).__ph = posthog; posthog.debug(true);
+    ph = posthog;
     for (const [e, p] of queue.splice(0)) ph.capture(e, p);
   }).catch(() => { /* 분석 실패가 서비스를 막으면 안 됨 */ });
   if (document.readyState === 'complete') setTimeout(load, 1500);
