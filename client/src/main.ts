@@ -5,6 +5,8 @@ import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Ch
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
+import { createBeachLife } from './beach-life';
+import { createTraces } from './traces';
 import { connect } from './net';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, type Place } from './places';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
@@ -39,6 +41,9 @@ addEventListener('resize', onResize); onResize();
 const GLOW = glowTexture();
 const world = createWorld(scene, renderer, GLOW);
 const lanterns = createLanterns(scene, GLOW);
+// 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
+const life = createBeachLife(scene);
+const traces = createTraces(scene, GLOW);
 const seats = world.seats;
 
 // ================= 상태 =================
@@ -105,6 +110,12 @@ function updateRemotes(dt: number) {
 const net = connect();
 let connected = false;
 let stats: Stats | null = null;
+let todayVisitors = 0;
+/** 지금은 혼자여도, 오늘 다녀간 진짜 사람이 있으면 그걸 알려 준다 */
+function aloneMsg() {
+  const n = (stats?.today[place.id] ?? todayVisitors) - 1;
+  return n > 0 ? `오늘 이 해변에 ${n.toLocaleString('ko-KR')}명이 먼저 다녀갔어요` : '지금은 나 혼자예요 · 친구를 불러 같이 봐요';
+}
 
 function join() {
   net.emit('join', { place: place.id, uid: store.uid, nick: store.nick, look: store.look, woke: wokeToday() });
@@ -122,8 +133,10 @@ net.on('welcome', w => {
   seats.forEach(s => (s.occ = null));
   for (const [idx, id] of Object.entries(w.seats)) if (seats[+idx]) seats[+idx].occ = id;
   if (mySeat !== null) { seats[mySeat].occ = null; mySeat = null; me.state = 'idle'; }
-  if (w.players.length === 0) ticker('지금은 나 혼자예요 · 친구를 불러 같이 봐요');
-  else ticker(`${w.players.length}명이 먼저 와 있어요`);
+  traces.set(w.traces);
+  todayVisitors = w.traces.visitors;
+  if (w.players.length > 0) ticker(`${w.players.length}명이 먼저 와 있어요`);
+  else ticker(aloneMsg());
 });
 net.on('joined', p => { addRemote(p); ticker(`${p.nick}님이 해변에 왔어요`); });
 net.on('left', id => removeRemote(id));
@@ -353,7 +366,7 @@ function updateUI(now: number, alt: number, t: number) {
   if (live && woke > 0 && t - lastWokeNote > 15000 && t - lastTickerAt > 5000) {
     lastWokeNote = t; ticker(`오늘 알람을 끄고 나온 사람 ${woke.toLocaleString('ko-KR')}명`);
   }
-  if (connected && remotes.size === 0 && t - lastTickerAt > 20000) ticker('지금은 나 혼자예요 · 친구를 불러 같이 봐요');
+  if (connected && remotes.size === 0 && t - lastTickerAt > 20000) ticker(aloneMsg());
 }
 
 // ================= 루프 =================
@@ -369,6 +382,10 @@ function loop(t: number) {
   amb.setAlt(alt);
   updateRemotes(dt);
   lanterns.update(dt);
+  life.update(dt, t, me.root.position, camera);
+  const people = [me.root.position];
+  for (const r of remotes.values()) people.push(r.c.root.position);
+  traces.update(t, camera, people);
   sendState(t);
   if (t - lastUI > 250) { updateUI(now, alt, t); lastUI = t; }
   renderer.render(scene, camera);
@@ -389,7 +406,7 @@ PLACES.forEach(p => {
     [...chips.children].forEach((c, i) => c.setAttribute('aria-pressed', String(PLACES[i] === p)));
     if (mySeat !== null) { mySeat = null; me.state = 'idle'; }
     seats.forEach(s => (s.occ = null));
-    clearRemotes(); lanterns.clear(); world.buildLandmark(p); renderAlarm(); renderCounts(); refreshWeather();
+    clearRemotes(); lanterns.clear(); traces.clear(); world.buildLandmark(p); renderAlarm(); renderCounts(); refreshWeather();
     spawn();
     if (connected) join();
     expandBanner();
@@ -756,4 +773,4 @@ renderStreak(); renderAlarm(); renderCounts();
 requestAnimationFrame(loop);
 
 // 테스트용 (브라우저 콘솔에서 확인)
-Object.assign(window, { __hae: { remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ) } });
+Object.assign(window, { __hae: { remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, today: () => stats?.today[place.id] ?? todayVisitors } });

@@ -34,6 +34,19 @@ export interface JoinPayload {
   woke: boolean;
 }
 
+/** 오늘 다녀간 진짜 사람이 마지막으로 머문 자리 (이름·소원 없이 위치와 색만) */
+export interface Ghost { x: number; z: number; ry: number; sit: boolean; look: Look }
+
+/** 오늘(현지 날짜) 이 해변에 남은 흔적. 모두 실제 접속 기록에서 나온다 */
+export interface Traces {
+  /** 오늘 다녀간 서로 다른 사람 수 (지금 있는 사람 포함) */
+  visitors: number;
+  /** 지금은 떠난 사람들의 마지막 자리 */
+  ghosts: Ghost[];
+  /** 오늘 올라간 풍등 위치 [x, z] (문구 없음) */
+  lanterns: [number, number][];
+}
+
 export interface Welcome {
   id: string;
   place: PlaceId;
@@ -41,12 +54,15 @@ export interface Welcome {
   players: PlayerInfo[];
   /** 방석 번호 → 앉아 있는 플레이어 id */
   seats: Record<number, string>;
+  traces: Traces;
 }
 
 export interface Stats {
   online: Record<PlaceId, number>;
   /** 오늘(현지 날짜 기준) 알람을 끄고 온 사람 수 */
   woke: Record<PlaceId, number>;
+  /** 오늘(현지 날짜 기준) 다녀간 서로 다른 사람 수 */
+  today: Record<PlaceId, number>;
 }
 
 export interface ServerToClient {

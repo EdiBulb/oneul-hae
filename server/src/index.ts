@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import type {
-  ClientToServer, Emote, JoinPayload, Look, Move, PlaceId, PlayerInfo, ServerToClient, St, Stats,
+  ClientToServer, Emote, Ghost, JoinPayload, Look, Move, PlaceId, PlayerInfo, ServerToClient, St, Stats, Traces,
 } from './protocol.js';
 
 // ---------- 설정 (환경 변수로 바꿀 수 있음) ----------
@@ -41,6 +41,39 @@ type IO = Server<ClientToServer, ServerToClient, Record<string, never>, SocketDa
 type Sock = Socket<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
 
 const channels = new Map<string, Channel>();
+
+// ---------- 오늘의 흔적 ----------
+// 장소·현지 날짜별로, 실제 접속한 사람의 마지막 자리와 풍등 위치만 남긴다.
+// 이름·소원 문구는 저장하지 않는다. 메모리에만 있으므로 서버가 재시작되면 사라진다.
+interface Mark { x: number; z: number; ry: number; sit: boolean; look: Look; at: number }
+interface Day { marks: Map<string, Mark>; lanterns: [number, number][] }
+const days = new Map<string, Day>();
+const GHOST_MAX = 30, LANTERN_MAX = 40;
+function dayOf(place: PlaceId) {
+  const k = `${place}|${localDate(place)}`;
+  let d = days.get(k);
+  if (!d) { d = { marks: new Map(), lanterns: [] }; days.set(k, d); }
+  return d;
+}
+function onlineUids(place: PlaceId) {
+  const set = new Set<string>();
+  for (const s of io.sockets.sockets.values()) {
+    const d = (s as Sock).data;
+    if (d.channel?.place === place && d.uid) set.add(d.uid);
+  }
+  return set;
+}
+function traces(place: PlaceId, selfUid?: string): Traces {
+  const d = dayOf(place), here = onlineUids(place);
+  if (selfUid) here.add(selfUid);
+  const ghosts: Ghost[] = [...d.marks.entries()]
+    .filter(([uid]) => !here.has(uid))
+    .sort((a, b) => b[1].at - a[1].at)
+    .slice(0, GHOST_MAX)
+    .map(([, m]) => ({ x: m.x, z: m.z, ry: m.ry, sit: m.sit, look: m.look }));
+  const visitors = new Set([...d.marks.keys(), ...here]).size;
+  return { visitors, ghosts, lanterns: d.lanterns.slice(-LANTERN_MAX) };
+}
 /** "장소|날짜" → 그날 알람으로 깬 uid 모음 */
 const wokeToday = new Map<string, Set<string>>();
 
@@ -81,10 +114,13 @@ function countWoke(place: PlaceId, uid: string) {
 
 function stats(): Stats {
   const online = { jeongdongjin: 0, seongsan: 0, homigot: 0, gisborne: 0 } as Record<PlaceId, number>;
-  const woke = { ...online };
+  const woke = { ...online }, today = { ...online };
   for (const c of channels.values()) online[c.place] += c.players.size;
-  for (const p of Object.keys(PLACES) as PlaceId[]) woke[p] = wokeToday.get(`${p}|${localDate(p)}`)?.size ?? 0;
-  return { online, woke };
+  for (const p of Object.keys(PLACES) as PlaceId[]) {
+    woke[p] = wokeToday.get(`${p}|${localDate(p)}`)?.size ?? 0;
+    today[p] = traces(p).visitors;
+  }
+  return { online, woke, today };
 }
 
 // ---------- 서버 ----------
@@ -102,6 +138,11 @@ const io: IO = new Server(http, {
 function leave(socket: Sock, io: IO) {
   const c = socket.data.channel;
   if (!c) return;
+  const me = c.players.get(socket.id), uid = socket.data.uid;
+  if (me && uid) {
+    const sit = [...c.seats.values()].includes(socket.id);
+    dayOf(c.place).marks.set(uid, { x: me.x, z: me.z, ry: me.ry, sit, look: me.look, at: Date.now() });
+  }
   c.players.delete(socket.id);
   c.dirty.delete(socket.id);
   for (const [idx, id] of c.seats) {
@@ -135,6 +176,7 @@ io.on('connection', (socket: Sock) => {
       id: socket.id, place: c.place, channel: c.n,
       players: [...c.players.values()].filter(x => x.id !== socket.id),
       seats: Object.fromEntries(c.seats),
+      traces: traces(c.place, socket.data.uid),
     });
     socket.to(c.key).emit('joined', me);
   });
@@ -162,6 +204,9 @@ io.on('connection', (socket: Sock) => {
     const c = socket.data.channel, now = Date.now();
     if (!c || now - socket.data.lastLantern < 3000) return; // 3초에 한 번
     socket.data.lastLantern = now;
+    const L = dayOf(c.place).lanterns;
+    L.push([Math.round(num(x, BOUNDS.minX, BOUNDS.maxX) * 10) / 10, Math.round(num(z, BOUNDS.minZ, BOUNDS.maxZ) * 10) / 10]);
+    if (L.length > LANTERN_MAX * 2) L.splice(0, L.length - LANTERN_MAX);
     socket.to(c.key).emit('lantern', socket.id, num(x, BOUNDS.minX, BOUNDS.maxX), num(z, BOUNDS.minZ, BOUNDS.maxZ));
   });
 
@@ -214,6 +259,10 @@ setInterval(() => {
   for (const k of wokeToday.keys()) {
     const [place, date] = k.split('|') as [PlaceId, string];
     if (date !== localDate(place)) wokeToday.delete(k);
+  }
+  for (const k of days.keys()) {
+    const [place, date] = k.split('|') as [PlaceId, string];
+    if (date !== localDate(place)) days.delete(k);
   }
 }, 60 * 60 * 1000);
 
