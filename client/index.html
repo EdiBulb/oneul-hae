@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>오늘의 해 — 매일 아침 함께 보는 해돋이</title>
+<meta name="description" content="출근 전 1분, 같은 해변에서 사람들과 함께 실시간 해돋이를 봐요.">
+<meta property="og:title" content="오늘의 해 — 매일 아침 함께 보는 해돋이">
+<meta property="og:description" content="해 보러 갈 기운 없는 아침, 여기서 같이 봐요.">
+<meta name="theme-color" content="#14152a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="scene"></div>
+
+<div class="ui">
+  <header>
+    <div class="brand">오늘의 해<small>출근 전 1분, 같이 보는 해돋이</small></div>
+    <div class="hright pe">
+      <span class="conn" id="conn">연결 중…</span>
+      <div class="viewers"><span class="dot off" id="liveDot"></span><b id="viewerCount">-</b>명</div>
+      <button class="iconbtn" id="menuBtn">기록·알람</button>
+    </div>
+  </header>
+  <nav class="chips pe" id="chips" aria-label="해돋이 장소"></nav>
+
+  <section class="center" aria-live="polite">
+    <div class="status" id="status">불러오는 중</div>
+    <h1 class="headline" id="headline">&nbsp;</h1>
+    <div class="sub" id="sub">&nbsp;</div>
+    <div class="progress" id="progress"><i id="progressBar"></i></div>
+  </section>
+
+  <div class="spacer"></div>
+  <div class="ticker" id="ticker"></div>
+
+  <div class="controls">
+    <div class="joy pe" id="joy" aria-label="이동 조이스틱"><i id="knob"></i><span>WASD · 방향키</span></div>
+    <div class="actions pe">
+      <button class="act" id="waveBtn">손 흔들기</button>
+      <button class="act" id="stretchBtn">기지개</button>
+      <button class="act" id="sitBtn">방석에 앉기</button>
+      <button class="act primary" id="lanternBtn">풍등 올리기</button>
+    </div>
+  </div>
+</div>
+
+<div class="view">
+  <button class="zbtn" id="zoomIn" aria-label="가까이">+</button>
+  <button class="zbtn" id="zoomOut" aria-label="멀리">−</button>
+  <button class="zbtn small" id="overview" aria-label="모여 있는 사람 전체 보기">전체<br>보기</button>
+  <button class="zbtn small" id="resetView" aria-label="내 시점으로">내<br>시점</button>
+  <div class="vname" id="viewName">내 시점</div>
+</div>
+
+<div class="sheet-back" id="sheetBack"></div>
+
+<div class="sheet" id="wishSheet" role="dialog" aria-labelledby="wishTitle">
+  <h2 id="wishTitle">어떤 마음을 띄울까요?</h2>
+  <p class="lead">직접 쓴 소원은 나에게만 보여요. 다른 사람에게는 풍등 불빛만 보여요.</p>
+  <form class="custom" id="wishForm" autocomplete="off">
+    <input id="wishInput" maxlength="24" placeholder="예: 이번 주 면접 붙게 해주세요" aria-label="소원 직접 쓰기">
+    <button type="submit">띄우기</button>
+  </form>
+  <div class="count" id="wishCount">0 / 24</div>
+  <div class="or">또는 골라서 띄우기</div>
+  <div class="wishes" id="wishes"></div>
+</div>
+
+<div class="sheet" id="menuSheet" role="dialog" aria-labelledby="menuTitle">
+  <h2 id="menuTitle">나의 아침</h2>
+  <div class="block">
+    <div class="row">
+      <div class="muted" id="streakText">오늘 해를 보면 기록 시작</div>
+      <div class="week" id="week"></div>
+    </div>
+    <button class="link" id="copyBtn">"오늘도 해 봤다" 문구 복사</button>
+  </div>
+  <div class="block">
+    <div class="row">
+      <div class="muted" id="alarmText">해 뜨기 5분 전 알람</div>
+      <button class="switch" id="alarmBtn" aria-pressed="false">알람 켜기</button>
+    </div>
+    <button class="link" id="demoBtn">알람으로 깨는 아침 미리 체험하기</button>
+  </div>
+  <div class="block">
+    <div class="big" style="margin-bottom:10px">놓친 해돋이</div>
+    <button class="btn primary" id="replayBtn">오늘 해돋이 다시보기</button>
+  </div>
+  <div class="block">
+    <div class="row">
+      <div class="muted">내 이름 <b id="myNick"></b></div>
+      <button class="switch" id="inviteBtn">친구 부르기</button>
+    </div>
+  </div>
+  <p class="note">해의 위치와 일출 시각은 실제 천문 계산이에요. 해변의 사람들과 숫자는 지금 접속한 진짜 사람들이에요. 알람은 이 페이지가 열려 있을 때만 울려요.</p>
+</div>
+
+<div class="hint" id="hint">
+  <h3>해변에 도착했어요</h3>
+  <p>조이스틱(또는 WASD)으로 걷고,<br>화면을 끌면 주변을 둘러봐요.<br>두 손가락이나 <b>−</b> 버튼으로 줌 아웃하면<br>모여 있는 사람들이 한눈에 보여요.</p>
+  <button class="btn primary" id="hintBtn">시작하기</button>
+</div>
+
+<div class="wake" id="wake" role="dialog" aria-labelledby="wakeTitle">
+  <div class="clock" id="wakeClock">06:42</div>
+  <h2 id="wakeTitle">해 뜨기 5분 전이에요</h2>
+  <p id="wakeText"></p>
+  <button class="btn primary" id="wakeBtn">알람 끄고 해 보러 가기</button>
+</div>
+<div class="toast" id="toast"></div>
+<div class="fail" id="fail">3D 화면을 불러오지 못했어요.<br>다른 브라우저에서 열어 주세요.</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+import * as THREE from 'three';
+
+export type CharState = 'idle' | 'walk' | 'sit';
+export type Emote = 'stretch' | 'wave';
+
+export interface Char {
+  root: THREE.Group;
+  inner: THREE.Group;
+  armL: THREE.Group; armR: THREE.Group; legL: THREE.Group; legR: THREE.Group;
+  phase: number;
+  state: CharState;
+  emote: Emote | null;
+  emoteT: number;
+}
+
+const SKIN = 0xf2d0b2;
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+
+/** 둥근 말풍선 모양의 글자 스프라이트 (이름표, 풍등 소원) */
+export function textSprite(text: string, scale = 1) {
+  const c = document.createElement('canvas'), g = c.getContext('2d')!;
+  const font = '700 44px "Noto Sans KR", sans-serif';
+  g.font = font;
+  const w = Math.ceil(g.measureText(text).width) + 40;
+  c.width = w; c.height = 72;
+  g.font = font;
+  g.fillStyle = 'rgba(14,15,32,.72)';
+  g.beginPath(); g.roundRect(6, 6, w - 12, 60, 30); g.fill();
+  g.fillStyle = '#fff8ef'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, w / 2, 38);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  s.scale.set((w / 72) * 0.42 * scale, 0.42 * scale, 1);
+  s.renderOrder = 10;
+  return s;
+}
+
+export function makeChar(bodyC: number, hatC: number): Char {
+  const root = new THREE.Group(), inner = new THREE.Group();
+  root.add(inner);
+  const M = (c: number) => new THREE.MeshLambertMaterial({ color: c });
+  const add = (m: THREE.Mesh, y: number) => { m.position.y = y; inner.add(m); return m; };
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.36, 0.6, 12), M(bodyC)), 0.62);
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), M(SKIN)), 1.17);
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.315, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), M(hatC)), 1.21);
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), M(0xfff4e6)), 1.54);
+  const scarf = add(new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.065, 6, 16), M(hatC)), 0.93);
+  scarf.rotation.x = Math.PI / 2;
+  const eyeM = M(0x2a1d16);
+  for (const x of [-0.1, 0.1]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), eyeM);
+    e.position.set(x, 1.17, -0.28); inner.add(e);
+  }
+  const limb = (x: number, y: number, len: number, r: number, c: number) => {
+    const piv = new THREE.Group(); piv.position.set(x, y, 0);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), M(c));
+    m.position.y = -len / 2; piv.add(m); inner.add(piv);
+    return piv;
+  };
+  const armL = limb(-0.33, 0.86, 0.42, 0.07, bodyC), armR = limb(0.33, 0.86, 0.42, 0.07, bodyC);
+  const legL = limb(-0.13, 0.33, 0.33, 0.09, 0x4a4250), legR = limb(0.13, 0.33, 0.33, 0.09, 0x4a4250);
+  const sh = new THREE.Mesh(new THREE.CircleGeometry(0.42, 16),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
+  sh.rotation.x = -Math.PI / 2; sh.position.y = 0.02; root.add(sh);
+  return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, state: 'idle', emote: null, emoteT: 0 };
+}
+
+export function disposeChar(c: Char) {
+  c.root.traverse(o => {
+    const m = o as THREE.Mesh;
+    m.geometry?.dispose();
+    const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+    if (Array.isArray(mat)) mat.forEach(x => x.dispose()); else mat?.dispose();
+  });
+}
+
+/** 걷기·앉기·기지개·손 흔들기 동작을 부드럽게 보간 */
+export function animChar(c: Char, dt: number) {
+  c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
+  let aL = 0, aR = 0, aRz = 0, lL = 0, lR = 0, y = 0;
+  if (c.state === 'walk') {
+    const s = Math.sin(c.phase);
+    lL = s * 0.6; lR = -s * 0.6; aL = -s * 0.5; aR = s * 0.5; y = Math.abs(Math.cos(c.phase)) * 0.06;
+  } else if (c.state === 'sit') {
+    y = -0.3; lL = lR = Math.PI / 2; aL = aR = 0.55;
+  } else {
+    y = Math.sin(c.phase) * 0.012;
+  }
+  if (c.emote) {
+    c.emoteT += dt;
+    const T = c.emote === 'stretch' ? 1.8 : 1.9;
+    const k = Math.sin(Math.PI * clamp(c.emoteT / T, 0, 1));
+    if (c.emote === 'stretch') { aL = aR = Math.PI * 0.95 * k; y += 0.05 * k; }
+    if (c.emote === 'wave') { aRz = (2.4 + Math.sin(c.emoteT * 12) * 0.35) * k; aR = 0; }
+    if (c.emoteT >= T) { c.emote = null; c.emoteT = 0; }
+  }
+  const e = 1 - Math.pow(0.0005, dt);
+  c.armL.rotation.x += (aL - c.armL.rotation.x) * e;
+  c.armR.rotation.x += (aR - c.armR.rotation.x) * e;
+  c.armR.rotation.z += (aRz - c.armR.rotation.z) * e;
+  c.legL.rotation.x += (lL - c.legL.rotation.x) * e;
+  c.legR.rotation.x += (lR - c.legR.rotation.x) * e;
+  c.inner.position.y += (y - c.inner.position.y) * e;
+}
+
+/** 이동 방향 (vx, vz)을 바라보는 회전각. 캐릭터의 앞은 -z */
+export const faceAngle = (vx: number, vz: number) => Math.atan2(-vx, -vz);
+
+export function turnTo(c: Char, ang: number, dt: number) {
+  let d = ang - c.root.rotation.y;
+  d = Math.atan2(Math.sin(d), Math.cos(d));
+  c.root.rotation.y += d * (1 - Math.pow(0.0001, dt));
+}
