@@ -3,6 +3,7 @@ import './style.css';
 import type { PlayerInfo, St, Stats } from '../../server/src/protocol';
 import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
+import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { connect } from './net';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, type Place } from './places';
@@ -315,7 +316,7 @@ function updateUI(now: number, alt: number, t: number) {
     compact = `다시보기 · ${place.name} ${alt < -0.8 ? '곧 해가 떠요' : '해가 떴어요'}`;
     $('headline').textContent = alt < -0.8 ? '곧 해가 떠요' : '해가 떴어요';
     $('sub').textContent = `${place.name} 일출 ${hm(replay.sr, tz)}`;
-    if (k >= 1) { replay = null; if (markSeen('replay')) toast('다시보기로 오늘의 해를 봤어요'); }
+    if (k >= 1) { replay = null; track('replay_finished', { place: place.id }); if (markSeen('replay')) { toast('다시보기로 오늘의 해를 봤어요'); track('sunrise_seen', { place: place.id, kind: 'replay', streak: streakCount() }); } }
   } else if (live) {
     const sr = info.windowSR!;
     full = `<span class="dot"></span>LIVE · ${place.name}${wx}`;
@@ -344,7 +345,7 @@ function updateUI(now: number, alt: number, t: number) {
     if (!watchStart) watchStart = Date.now();
     if (live && !seenFlag && Date.now() - watchStart > 5000) {
       seenFlag = true;
-      if (markSeen('live')) toast(`오늘의 해를 봤어요 · ${streakCount()}일째`);
+      if (markSeen('live')) { toast(`오늘의 해를 봤어요 · ${streakCount()}일째`); track('sunrise_seen', { place: place.id, kind: 'live', streak: streakCount(), others: remotes.size }); }
     }
   }
   // 진짜 숫자만: 오늘 알람 끄고 온 사람
@@ -384,6 +385,7 @@ PLACES.forEach(p => {
   b.onclick = () => {
     if (place === p) return;
     place = p; replay = null; seenFlag = false; watchStart = 0;
+    track('channel_changed', { place: p.id });
     [...chips.children].forEach((c, i) => c.setAttribute('aria-pressed', String(PLACES[i] === p)));
     if (mySeat !== null) { mySeat = null; me.state = 'idle'; }
     seats.forEach(s => (s.occ = null));
@@ -408,9 +410,9 @@ $('sitBtn').onclick = () => {
   };
   if (!connected) { sitHere(); return; }
   // 서버가 먼저 온 사람에게 방석을 준다
-  net.emit('sit', idx, ok => { if (ok) sitHere(); else toast('방금 다른 사람이 앉았어요'); });
+  net.emit('sit', idx, ok => { if (ok) { sitHere(); track('sat_down', { place: place.id }); } else toast('방금 다른 사람이 앉았어요'); });
 };
-const doEmote = (e: 'stretch' | 'wave') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); };
+const doEmote = (e: 'stretch' | 'wave') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
 $('stretchBtn').onclick = () => doEmote('stretch');
 $('waveBtn').onclick = () => doEmote('wave');
 
@@ -428,12 +430,13 @@ $('lanternBtn').onclick = () => open('wishSheet');
 $('menuBtn').onclick = () => { renderStreak(); renderAlarm(); open('menuSheet'); };
 
 let lastMyLantern = 0;
-function releaseLantern(text: string) {
+function releaseLantern(text: string, custom = false) {
   if (performance.now() - lastMyLantern < 3000) { toast('풍등은 3초에 하나씩 올릴 수 있어요'); return; }
   lastMyLantern = performance.now();
   close();
   lanterns.launch(me.root.position, text);
   if (connected) net.emit('lantern', +me.root.position.x.toFixed(2), +me.root.position.z.toFixed(2));
+  track('lantern_released', { place: place.id, custom });
   toast(`'${text}' 풍등을 올렸어요`);
 }
 WISHES.forEach(w => {
@@ -449,8 +452,8 @@ $('wishForm').addEventListener('submit', e => {
   const text = wishInput.value.trim().replace(/\s+/g, ' ');
   if (!text) { toast('소원을 한 줄 적어 주세요'); return; }
   wishInput.value = ''; $('wishCount').textContent = '0 / 24'; wishInput.blur();
-  // 직접 쓴 소원은 서버로 보내지 않으므로 다른 사람에게 노출되지 않는다
-  releaseLantern(text);
+  // 직접 쓴 소원은 서버로 보내지 않으므로 다른 사람에게 노출되지 않는다 (분석에도 글 내용은 보내지 않음)
+  releaseLantern(text, true);
 });
 
 $('replayBtn').onclick = () => {
@@ -463,10 +466,11 @@ async function copy(text: string, done: string) {
   try { await navigator.clipboard.writeText(text); toast(done); } catch { toast(text); }
 }
 $('copyBtn').onclick = () => {
+  track('share_copied', { streak: streakCount() });
   const n = streakCount();
   copy(`☀ 오늘도 해 봤다 · ${place.name}${n ? ` · ${n}일째` : ''}\n${location.origin}`, '문구를 복사했어요');
 };
-$('inviteBtn').onclick = () => copy(`내일 아침 같이 해 보러 가요 ☀ ${location.origin}`, '초대 링크를 복사했어요');
+$('inviteBtn').onclick = () => { track('invite_copied'); }; $('inviteBtn').addEventListener('click', () => copy(`내일 아침 같이 해 보러 가요 ☀ ${location.origin}`, '초대 링크를 복사했어요'));
 
 let toastTimer = 0;
 function toast(msg: string) {
@@ -531,6 +535,7 @@ function openWake(atMs: number, demo: boolean) {
 }
 $('alarmBtn').onclick = () => {
   store.alarm.on = !store.alarm.on; save();
+  track('alarm_toggled', { on: store.alarm.on, place: place.id });
   if (store.alarm.on) { chime(); toast('알람을 켰어요 · 해 뜨기 5분 전에 울려요'); }
   renderAlarm();
 };
@@ -549,6 +554,7 @@ $('wakeBtn').onclick = () => {
   } else {
     // 진짜 알람으로 깼을 때만 "알람 끄고 온 사람"에 집계
     store.wokeOn = dateKey(Date.now()); save();
+    track('woke_by_alarm', { place: place.id });
     if (connected) net.emit('woke');
   }
   toast('좋은 아침이에요 · 같이 해 봐요');
@@ -592,19 +598,21 @@ function showInstall(force: boolean) {
     toast("브라우저 메뉴(⋮)에서 '홈 화면에 추가'를 눌러 주세요");
   }
   open('installSheet');
+  track('install_prompt_shown', { native: !!installEvent, ios: isIOS, kakao: isKakao, manual: force });
 }
 addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   installEvent = e as InstallPromptEvent;
   if (store.hinted && !openSheet) setTimeout(() => showInstall(false), 3000);
 });
-addEventListener('appinstalled', () => { installEvent = null; close(); toast('설치됐어요 · 내일 아침 홈 화면에서 만나요'); });
+addEventListener('appinstalled', () => { track('app_installed'); installEvent = null; close(); toast('설치됐어요 · 내일 아침 홈 화면에서 만나요'); });
 $('installGo').onclick = async () => {
   if (isKakao) { location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(location.href)}`; return; }
   if (installEvent) {
     const ev = installEvent; installEvent = null;
     await ev.prompt();
     const { outcome } = await ev.userChoice;
+    track('install_choice', { outcome });
     if (outcome !== 'accepted') { store.installSnooze = Date.now(); save(); }
   }
   close();
@@ -641,6 +649,7 @@ function renderSoundBtn() {
 }
 $('soundBtn').onclick = () => {
   store.soundOn = !store.soundOn; save();
+  track('sound_toggled', { on: store.soundOn });
   amb.setOn(store.soundOn); renderSoundBtn();
   toast(store.soundOn ? `${place.name}의 소리를 켰어요` : '소리를 껐어요');
 };
@@ -704,7 +713,7 @@ function leave() {
 $('exitBtn').onclick = openBye;
 $('status').addEventListener('click', toggleBanner);
 $('byeStay').onclick = close;
-$('byeLeave').onclick = leave;
+$('byeLeave').onclick = () => { track('left_beach', { seenToday: !!store.days[dateKey(Date.now())], others: remotes.size }); leave(); };
 $('comeBack').onclick = () => {
   leaving = false;
   $('goodbye').classList.remove('open');
@@ -724,6 +733,18 @@ addEventListener('popstate', () => {
   if (openSheet?.id === 'byeSheet') { close(); return; }
   openBye();
 });
+
+// ================= 분석 =================
+initAnalytics(store.uid);
+track('session_start', {
+  place: place.id,
+  returning: Object.keys(store.days).length > 0,
+  streak: streakCount(),
+  standalone: isStandalone,
+  alarmOn: store.alarm.on,
+});
+$('kakaoBtn').addEventListener('click', () => track('support_clicked', { method: 'kakaopay' }));
+$('supportBtn').addEventListener('click', () => track('support_clicked', { method: 'bmc' }));
 
 // ================= 시작 =================
 const askInstallSoon = () => setTimeout(() => { if (!openSheet) showInstall(false); }, 4000);
