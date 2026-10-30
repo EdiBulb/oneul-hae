@@ -4,7 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>오늘의 해 — 매일 아침 함께 보는 해돋이</title>
-<meta name="description" content="출근 전 1분, 같은 해변에서 사람들과 함께 실시간 해돋이를 봐요.">
+<meta name="description" content="출근 전 1분, 정동진·성산일출봉·호미곶 해변에서 사람들과 함께 실시간 해돋이를 봐요. 해 뜨기 5분 전 알람, 풍등 올리기, 매일 해 본 날 기록까지. 설치 없이 바로 접속하는 3D 온라인 해돋이.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "오늘의 해",
+  "alternateName": "Oneul-hae",
+  "url": "https://hae.abracadelulu.com/",
+  "description": "매일 아침 실제 일출 시각에 맞춰 3D 해변에서 다른 사람들과 함께 해돋이를 보는 온라인 서비스",
+  "applicationCategory": "LifestyleApplication",
+  "operatingSystem": "Web",
+  "inLanguage": "ko",
+  "image": "https://hae.abracadelulu.com/og.png",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "KRW" },
+  "creator": { "@type": "Person", "name": "Harry", "url": "https://abracadelulu.com" }
+}
+</script>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="오늘의 해">
 <meta property="og:locale" content="ko_KR">
@@ -19,7 +35,10 @@
 <meta name="twitter:image" content="https://hae.abracadelulu.com/og.png">
 <meta name="theme-color" content="#14152a">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="canonical" href="https://hae.abracadelulu.com/">
+<meta name="robots" content="index, follow">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -31,13 +50,22 @@
 </head>
 <body>
 <div id="scene"></div>
+<section class="sr-only">
+  <h2>오늘의 해 — 온라인 해돋이</h2>
+  <p>오늘의 해는 매일 아침 실제 일출 시각에 맞춰 정동진, 제주 성산일출봉, 포항 호미곶, 뉴질랜드 기스본 해변에서 해가 뜨는 모습을 다른 사람들과 함께 보는 3D 웹 서비스예요. 캐릭터로 해변을 걷고, 방석에 앉고, 소원을 적은 풍등을 올릴 수 있어요. 해 뜨기 5분 전 알람과 연속 기록으로 매일 아침 해 보는 습관을 만들어 보세요.</p>
+</section>
+<noscript>오늘의 해는 3D 화면을 쓰기 때문에 자바스크립트가 필요해요.</noscript>
 
 <div class="ui">
   <header>
-    <div class="brand">오늘의 해<small>출근 전 1분, 같이 보는 해돋이</small></div>
+    <div class="hleft pe">
+      <button class="iconbtn exitbtn" id="exitBtn" aria-label="해변에서 나가기">‹<span class="exit-label"> 나가기</span></button>
+      <img class="brand-logo" src="/logo.svg" alt="" width="30" height="30">
+      <div class="brand">오늘의 해<small>출근 전 1분, 같이 보는 해돋이</small></div>
+    </div>
     <div class="hright pe">
       <span class="conn" id="conn">연결 중…</span>
-      <div class="viewers"><span class="dot off" id="liveDot"></span><b id="viewerCount">-</b>명</div>
+      <div class="viewers"><span class="dot off" id="liveDot"></span><b id="viewerCount">연결 중…</b><span id="viewerUnit"></span></div>
       <button class="iconbtn" id="soundBtn" aria-label="소리 끄기">🔊</button>
       <button class="iconbtn" id="menuBtn">기록·알람</button>
     </div>
@@ -145,6 +173,23 @@
     <button class="btn" id="installLater">나중에</button>
     <button class="btn primary" id="installGo">설치하기</button>
   </div>
+</div>
+
+<div class="sheet" id="byeSheet" role="dialog" aria-labelledby="byeTitle">
+  <div class="bye-sun" aria-hidden="true"></div>
+  <h2 id="byeTitle">벌써 가시나요?</h2>
+  <p class="lead bye-text" id="byeText"></p>
+  <div class="row install-btns">
+    <button class="btn" id="byeStay">조금 더 있을게요</button>
+    <button class="btn primary" id="byeLeave">해변에서 나가기</button>
+  </div>
+</div>
+
+<div class="goodbye" id="goodbye" role="dialog" aria-labelledby="goodbyeTitle">
+  <div class="bye-sun big" aria-hidden="true"></div>
+  <h2 id="goodbyeTitle">오늘도 좋은 하루 보내요</h2>
+  <p id="goodbyeText">내일 아침, 해변에서 다시 만나요.</p>
+  <button class="btn primary" id="comeBack">다시 해변으로</button>
 </div>
 
 <div class="hint" id="hint">

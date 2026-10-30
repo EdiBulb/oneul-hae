@@ -108,8 +108,8 @@ let stats: Stats | null = null;
 function join() {
   net.emit('join', { place: place.id, uid: store.uid, nick: store.nick, look: store.look, woke: wokeToday() });
 }
-net.on('connect', () => { connected = true; $('conn').classList.remove('show'); join(); });
-net.on('disconnect', () => { connected = false; $('conn').classList.add('show'); clearRemotes(); });
+net.on('connect', () => { connected = true; $('conn').classList.remove('show'); join(); renderCounts(); });
+net.on('disconnect', () => { connected = false; $('conn').classList.add('show'); clearRemotes(); renderCounts(); });
 net.on('connect_error', () => { $('conn').classList.add('show'); });
 $('conn').classList.add('show');
 
@@ -159,7 +159,8 @@ function sendState(t: number) {
 
 function renderCounts() {
   const online = stats?.online[place.id] ?? (connected ? remotes.size + 1 : 0);
-  $('viewerCount').textContent = connected ? online.toLocaleString('ko-KR') : '-';
+  $('viewerCount').textContent = connected ? online.toLocaleString('ko-KR') : '연결 중…';
+  $('viewerUnit').textContent = connected ? '명' : '';
   [...$('chips').children].forEach((el, i) => {
     const n = stats?.online[PLACES[i].id] ?? 0;
     (el.querySelector('em') as HTMLElement).textContent = n ? `${n}명` : '';
@@ -630,6 +631,69 @@ async function refreshWeather() {
 }
 refreshWeather();
 setInterval(refreshWeather, 15 * 60000);
+
+// ================= 나가기 (버튼 + 폰 뒤로가기) =================
+let leaving = false;
+function openBye() {
+  if (openSheet) close();
+  const live = !replay && !!sunriseInfo(place, Date.now()).windowSR;
+  const seenToday = !!store.days[dateKey(Date.now())];
+  const others = remotes.size;
+  const n = streakCount();
+  const info = sunriseInfo(place, Date.now());
+  let title: string, text: string;
+  if (seenToday) {
+    title = others > 0 ? '같이 해를 봐 줘서 고마워요' : '오늘 해를 봐 줘서 고마워요';
+    text = (others > 0 ? `<b>${place.name}</b>에서 <b>${others}명</b>과 함께 오늘의 해를 봤어요.<br>` : `<b>${place.name}</b>에서 오늘의 해를 봤어요.<br>`)
+      + (n > 1 ? `벌써 <b>${n}일째</b>예요. 내일도 같이 봐요.` : '오늘 하루도 따뜻하게 보내요.');
+  } else if (live && info.windowSR && Date.now() < info.windowSR) {
+    title = '해가 곧 떠요!';
+    text = `<b>${hm(info.windowSR, place.tz)}</b>에 해가 떠요. 조금만 더 있다 갈까요?`;
+  } else {
+    title = '와 줘서 고마워요';
+    text = info.next
+      ? `다음 해돋이는 <b>${dayName(info.next, place.tz)} ${hm(info.next, place.tz)}</b>이에요.<br>그때 해변에서 같이 봐요.`
+      : '다음 해돋이에 다시 만나요.';
+  }
+  $('byeTitle').textContent = title;
+  $('byeText').innerHTML = text;
+  $('byeStay').textContent = live && !seenToday ? '해 뜨는 거 보고 갈게요' : '조금 더 있을게요';
+  open('byeSheet');
+}
+function leave() {
+  leaving = true;
+  close();
+  net.disconnect();
+  amb.pause();
+  $('goodbyeText').innerHTML = store.days[dateKey(Date.now())]
+    ? '오늘 해를 같이 봐서 즐거웠어요.<br>내일 아침, 해변에서 다시 만나요.'
+    : '내일 아침, 해변에서 다시 만나요.';
+  $('goodbye').classList.add('open');
+  // 이 사이트로 들어오기 전 페이지가 있으면 그쪽으로 돌아감 (없으면 작별 화면이 남아 있음)
+  setTimeout(() => history.go(-2), 900);
+}
+$('exitBtn').onclick = openBye;
+$('byeStay').onclick = close;
+$('byeLeave').onclick = leave;
+$('comeBack').onclick = () => {
+  leaving = false;
+  $('goodbye').classList.remove('open');
+  history.pushState({ hae: true }, '');
+  net.connect();
+  amb.resume();
+};
+
+// 폰의 뒤로가기: 열린 창이 있으면 그 창만 닫고, 없으면 작별 인사를 띄움
+history.pushState({ hae: true }, '');
+addEventListener('popstate', () => {
+  if (leaving) return;
+  history.pushState({ hae: true }, '');
+  if ($('wake').classList.contains('open')) return;
+  if ($('hint').classList.contains('open')) { $('hint').classList.remove('open'); store.hinted = true; save(); return; }
+  if (openSheet && openSheet.id !== 'byeSheet') { close(); return; }
+  if (openSheet?.id === 'byeSheet') { close(); return; }
+  openBye();
+});
 
 // ================= 시작 =================
 const askInstallSoon = () => setTimeout(() => { if (!openSheet) showInstall(false); }, 4000);
