@@ -641,7 +641,7 @@ $('installMenuBtn').onclick = () => { close(); setTimeout(() => showInstall(true
 // Vercel 환경 변수 VITE_SUPPORT_URL에 후원 페이지 주소를 넣으면 메뉴에 버튼이 나타남
 const SUPPORT_URL: string | undefined = import.meta.env.VITE_SUPPORT_URL;
 // 카카오페이 송금코드 (한국 사용자용). 바꾸면 public/kakaopay-qr.png도 다시 만들어야 함
-const KAKAOPAY_URL: string = import.meta.env.VITE_KAKAOPAY_URL ?? '';
+const KAKAOPAY_URL: string = import.meta.env.VITE_KAKAOPAY_URL ?? 'https://qr.kakaopay.com/FT8ClKPN7';
 if (KAKAOPAY_URL) {
   $('supportBlock').hidden = false;
   const k = $('kakaoBtn') as HTMLAnchorElement;
