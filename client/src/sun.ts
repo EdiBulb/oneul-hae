@@ -1,3 +1,4 @@
+import { locale, T } from './i18n';
 import type { Place } from './places';
 
 // 태양 고도·방위각 계산 (SunCalc와 같은 공식). 서버 없이 각자 기기에서 계산하므로
@@ -55,14 +56,14 @@ export function sunriseInfo(p: Place, now: number) {
 const fmtCache: Record<string, Intl.DateTimeFormat> = {};
 function fmt(ms: number, tz: string, opts: Intl.DateTimeFormatOptions) {
   const k = tz + JSON.stringify(opts);
-  fmtCache[k] ??= new Intl.DateTimeFormat('ko-KR', { timeZone: tz, ...opts });
+  fmtCache[k] ??= new Intl.DateTimeFormat(locale, { timeZone: tz, ...opts });
   return fmtCache[k].format(new Date(ms));
 }
 export const hm = (ms: number, tz: string) => fmt(ms, tz, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 export const dayName = (ms: number, tz: string) => fmt(ms, tz, { month: 'long', day: 'numeric', weekday: 'short' });
 export const dur = (ms: number) => {
   const m = Math.max(0, Math.round(ms / 60000)), h = Math.floor(m / 60);
-  return h ? `${h}시간 ${m % 60}분` : `${m}분`;
+  return T.dur(h, m % 60);
 };
 export const mmss = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000));

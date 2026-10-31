@@ -1,3 +1,4 @@
+import { T } from './i18n';
 // 배경 소리: 음원 파일 없이 Web Audio로 직접 만든다.
 // - 파도: 갈색 잡음 + 저역 필터 + 느린 너울(LFO)
 // - 바람: 분홍 잡음 + 대역 필터, 실제 풍속에 따라 세기와 돌풍이 바뀜
@@ -245,7 +246,7 @@ export async function fetchWeather(lat: number, lng: number): Promise<Weather | 
 }
 
 export function windLabel(w: Weather) {
-  if (w.precipMm > 0.2) return '비';
+  if (w.precipMm > 0.2) return T.rain;
   const k = w.windKmh;
-  return k < 6 ? '고요함' : k < 20 ? '산들바람' : k < 38 ? '바람' : '강한 바람';
+  return k < 6 ? T.calm : k < 20 ? T.breeze : k < 38 ? T.wind : T.strongWind;
 }

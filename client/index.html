@@ -59,21 +59,22 @@
 <div class="ui">
   <header>
     <div class="hleft pe">
-      <button class="iconbtn exitbtn" id="exitBtn" aria-label="해변에서 나가기">‹<span class="exit-label"> 나가기</span></button>
+      <button class="iconbtn exitbtn" id="exitBtn" aria-label="해변에서 나가기" data-i18n-aria="exitAria" data-i18n-html="exit">‹<span class="exit-label"> 나가기</span></button>
       <img class="brand-logo" src="/logo.svg" alt="" width="30" height="30">
-      <div class="brand">오늘의 해<small>출근 전 1분, 같이 보는 해돋이</small></div>
+      <div class="brand" data-i18n-html="brand">오늘의 해<small>출근 전 1분, 같이 보는 해돋이</small></div>
     </div>
     <div class="hright pe">
-      <span class="conn" id="conn">연결 중…</span>
+      <span class="conn" id="conn" data-i18n="connecting">연결 중…</span>
       <div class="viewers"><span class="dot off" id="liveDot"></span><b id="viewerCount">연결 중…</b><span id="viewerUnit"></span></div>
       <button class="iconbtn" id="soundBtn" aria-label="소리 끄기">🔊</button>
-      <button class="iconbtn" id="menuBtn">기록·알람</button>
+      <button class="iconbtn" id="langBtn" aria-label="Language / 언어">EN</button>
+      <button class="iconbtn" id="menuBtn" data-i18n="menu">기록·알람</button>
     </div>
   </header>
-  <nav class="chips pe" id="chips" aria-label="해돋이 장소"></nav>
+  <nav class="chips pe" id="chips" aria-label="해돋이 장소" data-i18n-aria="chipsAria"></nav>
 
   <section class="center" id="center" aria-live="polite">
-    <button class="status pe" id="status" type="button" aria-label="해돋이 안내 펼치기/접기">불러오는 중</button>
+    <button class="status pe" id="status" type="button" aria-label="해돋이 안내 펼치기/접기" data-i18n-aria="statusAria" data-i18n="loading">불러오는 중</button>
     <h1 class="headline" id="headline">&nbsp;</h1>
     <div class="sub" id="sub">&nbsp;</div>
     <div class="progress" id="progress"><i id="progressBar"></i></div>
@@ -83,22 +84,23 @@
   <div class="ticker" id="ticker"></div>
 
   <div class="controls">
-    <div class="joy pe" id="joy" aria-label="이동 조이스틱"><i id="knob"></i><span>WASD · 방향키</span></div>
+    <div class="joy pe" id="joy" aria-label="이동 조이스틱" data-i18n-aria="joyAria"><i id="knob"></i><span data-i18n="joyHint">WASD · 방향키</span></div>
     <div class="actions pe">
-      <button class="act" id="waveBtn">손 흔들기</button>
-      <button class="act" id="stretchBtn">기지개</button>
-      <button class="act" id="sitBtn">방석에 앉기</button>
-      <button class="act primary" id="lanternBtn">풍등 올리기</button>
+      <button class="act" id="waveBtn" data-i18n="wave">손 흔들기</button>
+      <button class="act" id="cheersBtn" data-i18n="cheers">짠 ☕</button>
+      <button class="act" id="stretchBtn" data-i18n="stretch">기지개</button>
+      <button class="act" id="sitBtn" data-i18n="sit">방석에 앉기</button>
+      <button class="act primary" id="lanternBtn" data-i18n="lantern">풍등 올리기</button>
     </div>
   </div>
 </div>
 
 <div class="view">
-  <button class="zbtn photo" id="photoBtn" aria-label="지금 화면 사진 찍기">📷</button>
-  <button class="zbtn" id="zoomIn" aria-label="가까이">+</button>
-  <button class="zbtn" id="zoomOut" aria-label="멀리">−</button>
-  <button class="zbtn small" id="overview" aria-label="모여 있는 사람 전체 보기">전체<br>보기</button>
-  <button class="zbtn small" id="resetView" aria-label="내 시점으로">내<br>시점</button>
+  <button class="zbtn photo" id="photoBtn" aria-label="지금 화면 사진 찍기" data-i18n-aria="photoAria">📷</button>
+  <button class="zbtn" id="zoomIn" aria-label="가까이" data-i18n-aria="zoomInAria">+</button>
+  <button class="zbtn" id="zoomOut" aria-label="멀리" data-i18n-aria="zoomOutAria">−</button>
+  <button class="zbtn small" id="overview" aria-label="모여 있는 사람 전체 보기" data-i18n-aria="overviewAria" data-i18n-html="overview">전체<br>보기</button>
+  <button class="zbtn small" id="resetView" aria-label="내 시점으로" data-i18n-aria="resetViewAria" data-i18n-html="resetView">내<br>시점</button>
   <div class="vname" id="viewName">내 시점</div>
 </div>
 
@@ -106,118 +108,118 @@
 
 <div class="flash" id="flash"></div>
 <div class="sheet" id="photoSheet" role="dialog" aria-labelledby="photoTitle">
-  <h2 id="photoTitle">오늘의 해를 찍었어요</h2>
-  <img class="photo-prev" id="photoImg" alt="방금 찍은 해변 사진">
-  <p class="lead">사진을 길게 눌러도 저장할 수 있어요.</p>
+  <h2 id="photoTitle" data-i18n="photoTitle">오늘의 해를 찍었어요</h2>
+  <img class="photo-prev" id="photoImg" alt="방금 찍은 해변 사진" data-i18n-alt="photoAlt">
+  <p class="lead" data-i18n="photoLead">사진을 길게 눌러도 저장할 수 있어요.</p>
   <div class="photo-btns">
-    <button class="btn primary" id="photoShare">공유하기</button>
-    <a class="btn" id="photoSave" download="oneul-hae.jpg">저장하기</a>
+    <button class="btn primary" id="photoShare" data-i18n="share">공유하기</button>
+    <a class="btn" id="photoSave" download="oneul-hae.jpg" data-i18n="save">저장하기</a>
   </div>
 </div>
 
 <div class="sheet" id="wishSheet" role="dialog" aria-labelledby="wishTitle">
-  <h2 id="wishTitle">어떤 마음을 띄울까요?</h2>
-  <p class="lead">직접 쓴 소원은 나에게만 보여요. 다른 사람에게는 풍등 불빛만 보여요.</p>
+  <h2 id="wishTitle" data-i18n="wishTitle">어떤 마음을 띄울까요?</h2>
+  <p class="lead" data-i18n="wishLead">직접 쓴 소원은 나에게만 보여요. 다른 사람에게는 풍등 불빛만 보여요.</p>
   <form class="custom" id="wishForm" autocomplete="off">
-    <input id="wishInput" maxlength="24" placeholder="예: 이번 주 면접 붙게 해주세요" aria-label="소원 직접 쓰기">
-    <button type="submit">띄우기</button>
+    <input id="wishInput" maxlength="24" placeholder="예: 이번 주 면접 붙게 해주세요" aria-label="소원 직접 쓰기" data-i18n-ph="wishPh" data-i18n-aria="wishAria">
+    <button type="submit" data-i18n="wishGo">띄우기</button>
   </form>
   <div class="count" id="wishCount">0 / 24</div>
-  <div class="or">또는 골라서 띄우기</div>
+  <div class="or" data-i18n="wishOr">또는 골라서 띄우기</div>
   <div class="wishes" id="wishes"></div>
 </div>
 
 <div class="sheet" id="menuSheet" role="dialog" aria-labelledby="menuTitle">
-  <h2 id="menuTitle">나의 아침</h2>
+  <h2 id="menuTitle" data-i18n="menuTitle">나의 아침</h2>
   <div class="block">
     <div class="row">
-      <div class="muted" id="streakText">오늘 해를 보면 기록 시작</div>
+      <div class="muted" id="streakText" data-i18n="streakText">오늘 해를 보면 기록 시작</div>
       <div class="week" id="week"></div>
     </div>
-    <button class="link" id="copyBtn">"오늘도 해 봤다" 문구 복사</button>
+    <button class="link" id="copyBtn" data-i18n="copyBtn">"오늘도 해 봤다" 문구 복사</button>
   </div>
   <div class="block">
     <div class="row">
-      <div class="muted" id="alarmText">해 뜨기 5분 전 알람</div>
-      <button class="switch" id="alarmBtn" aria-pressed="false">알람 켜기</button>
+      <div class="muted" id="alarmText" data-i18n="alarmText">해 뜨기 5분 전 알람</div>
+      <button class="switch" id="alarmBtn" aria-pressed="false" data-i18n="alarmBtn">알람 켜기</button>
     </div>
-    <button class="link" id="demoBtn">알람으로 깨는 아침 미리 체험하기</button>
+    <button class="link" id="demoBtn" data-i18n="demoBtn">알람으로 깨는 아침 미리 체험하기</button>
   </div>
   <div class="block">
-    <div class="big" style="margin-bottom:10px">놓친 해돋이</div>
-    <button class="btn primary" id="replayBtn">오늘 해돋이 다시보기</button>
+    <div class="big" style="margin-bottom:10px" data-i18n="missed">놓친 해돋이</div>
+    <button class="btn primary" id="replayBtn" data-i18n="replayBtn">오늘 해돋이 다시보기</button>
   </div>
   <div class="block" id="supportBlock" hidden>
-    <div class="big">햇살 한 잔 보내기 ☕</div>
-    <p class="muted" style="margin-top:6px">오늘의 해는 혼자 만들고 운영해요. 보내 주신 마음은 서버비와 새 해변을 만드는 데 쓰여요.</p>
-    <a class="btn support-btn kakao" id="kakaoBtn" href="#" target="_blank" rel="noopener" hidden>카카오페이로 햇살 보내기</a>
+    <div class="big" data-i18n="supportTitle">햇살 한 잔 보내기 ☕</div>
+    <p class="muted" style="margin-top:6px" data-i18n="supportText">오늘의 해는 혼자 만들고 운영해요. 보내 주신 마음은 서버비와 새 해변을 만드는 데 쓰여요.</p>
+    <a class="btn support-btn kakao" id="kakaoBtn" href="#" target="_blank" rel="noopener" hidden data-i18n="kakaoBtn">카카오페이로 햇살 보내기</a>
     <div class="kakao-qr" id="kakaoQr" hidden>
-      <img loading="lazy" src="/kakaopay-qr.png" alt="카카오페이 송금 QR 코드" width="160" height="160">
-      <span>컴퓨터로 보고 있다면<br>폰 카메라로 찍어 주세요</span>
+      <img loading="lazy" src="/kakaopay-qr.png" alt="카카오페이 송금 QR 코드" data-i18n-alt="kakaoAlt" width="160" height="160">
+      <span data-i18n-html="kakaoQrText">컴퓨터로 보고 있다면<br>폰 카메라로 찍어 주세요</span>
     </div>
-    <a class="btn support-btn" id="supportBtn" href="#" target="_blank" rel="noopener" hidden>Buy Me a Coffee (해외 카드)</a>
+    <a class="btn support-btn" id="supportBtn" href="#" target="_blank" rel="noopener" hidden data-i18n="supportBtn">Buy Me a Coffee (해외 카드)</a>
   </div>
   <div class="block">
     <div class="row">
-      <div class="muted">내 이름 <b id="myNick"></b></div>
-      <button class="switch" id="inviteBtn">친구 부르기</button>
+      <div class="muted"><span data-i18n="myName">내 이름</span> <b id="myNick"></b></div>
+      <button class="switch" id="inviteBtn" data-i18n="inviteBtn">친구 부르기</button>
     </div>
-    <button class="link" id="installMenuBtn">홈 화면에 앱으로 설치하기</button>
+    <button class="link" id="installMenuBtn" data-i18n="installMenuBtn">홈 화면에 앱으로 설치하기</button>
   </div>
-  <p class="note">해의 위치와 일출 시각은 실제 천문 계산이에요. 해변의 사람들과 숫자는 지금 접속한 진짜 사람들이에요. 반투명한 실루엣과 멀리 뜬 풍등은 오늘 실제로 다녀간 사람들의 흔적이에요(이름·소원은 남지 않아요). 갈매기·강아지·낚시하는 주민은 해변 풍경이라 숫자에 넣지 않아요. 알람은 이 페이지가 열려 있을 때만 울려요.</p>
+  <p class="note" data-i18n="note">해의 위치와 일출 시각은 실제 천문 계산이에요. 해변의 사람들과 숫자는 지금 접속한 진짜 사람들이에요. 반투명한 실루엣과 멀리 뜬 풍등은 오늘 실제로 다녀간 사람들의 흔적이에요(이름·소원은 남지 않아요). 갈매기·강아지·낚시하는 주민은 해변 풍경이라 숫자에 넣지 않아요. 알람은 이 페이지가 열려 있을 때만 울려요.</p>
 </div>
 
 <div class="sheet" id="installSheet" role="dialog" aria-labelledby="installTitle">
   <div class="install-head">
     <img src="/icon-192.png" alt="" width="56" height="56">
     <div><h2 id="installTitle">앱으로 설치할까요?</h2>
-    <p class="lead">홈 화면에 두면 매일 아침 한 번에 열 수 있어요.</p></div>
+    <p class="lead" data-i18n="installLead">홈 화면에 두면 매일 아침 한 번에 열 수 있어요.</p></div>
   </div>
   <div id="installIos" class="ios-steps" hidden>
-    <p>아이폰은 이렇게 설치해요</p>
+    <p data-i18n="iosHow">아이폰은 이렇게 설치해요</p>
     <ol>
-      <li>Safari 아래쪽 <b>공유 버튼</b>(네모에 화살표)을 누르고</li>
-      <li><b>홈 화면에 추가</b>를 고른 뒤</li>
-      <li>오른쪽 위 <b>추가</b>를 누르면 끝이에요</li>
+      <li data-i18n-html="ios1">Safari 아래쪽 <b>공유 버튼</b>(네모에 화살표)을 누르고</li>
+      <li data-i18n-html="ios2"><b>홈 화면에 추가</b>를 고른 뒤</li>
+      <li data-i18n-html="ios3">오른쪽 위 <b>추가</b>를 누르면 끝이에요</li>
     </ol>
   </div>
   <div class="row install-btns">
-    <button class="btn" id="installLater">나중에</button>
-    <button class="btn primary" id="installGo">설치하기</button>
+    <button class="btn" id="installLater" data-i18n="later">나중에</button>
+    <button class="btn primary" id="installGo" data-i18n="installGo">설치하기</button>
   </div>
 </div>
 
 <div class="sheet" id="byeSheet" role="dialog" aria-labelledby="byeTitle">
   <div class="bye-sun" aria-hidden="true"></div>
-  <h2 id="byeTitle">벌써 가시나요?</h2>
+  <h2 id="byeTitle" data-i18n="byeTitle">벌써 가시나요?</h2>
   <p class="lead bye-text" id="byeText"></p>
   <div class="row install-btns">
     <button class="btn" id="byeStay">조금 더 있을게요</button>
-    <button class="btn primary" id="byeLeave">해변에서 나가기</button>
+    <button class="btn primary" id="byeLeave" data-i18n="byeLeave">해변에서 나가기</button>
   </div>
 </div>
 
 <div class="goodbye" id="goodbye" role="dialog" aria-labelledby="goodbyeTitle">
   <div class="bye-sun big" aria-hidden="true"></div>
-  <h2 id="goodbyeTitle">오늘도 좋은 하루 보내요</h2>
+  <h2 id="goodbyeTitle" data-i18n="goodbyeTitle">오늘도 좋은 하루 보내요</h2>
   <p id="goodbyeText">내일 아침, 해변에서 다시 만나요.</p>
-  <button class="btn primary" id="comeBack">다시 해변으로</button>
+  <button class="btn primary" id="comeBack" data-i18n="comeBack">다시 해변으로</button>
 </div>
 
 <div class="hint" id="hint">
-  <h3>해변에 도착했어요</h3>
-  <p>조이스틱(또는 WASD)으로 걷고,<br>화면을 끌면 주변을 둘러봐요.<br>두 손가락이나 <b>−</b> 버튼으로 줌 아웃하면<br>모여 있는 사람들이 한눈에 보여요.</p>
-  <button class="btn primary" id="hintBtn">시작하기</button>
+  <h3 data-i18n="hintTitle">해변에 도착했어요</h3>
+  <p data-i18n-html="hintText">조이스틱(또는 WASD)으로 걷고,<br>화면을 끌면 주변을 둘러봐요.<br>두 손가락이나 <b>−</b> 버튼으로 줌 아웃하면<br>모여 있는 사람들이 한눈에 보여요.</p>
+  <button class="btn primary" id="hintBtn" data-i18n="start">시작하기</button>
 </div>
 
 <div class="wake" id="wake" role="dialog" aria-labelledby="wakeTitle">
   <div class="clock" id="wakeClock">06:42</div>
-  <h2 id="wakeTitle">해 뜨기 5분 전이에요</h2>
+  <h2 id="wakeTitle" data-i18n="wakeTitle">해 뜨기 5분 전이에요</h2>
   <p id="wakeText"></p>
-  <button class="btn primary" id="wakeBtn">알람 끄고 해 보러 가기</button>
+  <button class="btn primary" id="wakeBtn" data-i18n="wakeBtn">알람 끄고 해 보러 가기</button>
 </div>
 <div class="toast" id="toast"></div>
-<div class="fail" id="fail">3D 화면을 불러오지 못했어요.<br>다른 브라우저에서 열어 주세요.</div>
+<div class="fail" id="fail" data-i18n-html="fail">3D 화면을 불러오지 못했어요.<br>다른 브라우저에서 열어 주세요.</div>
 
 <script type="module" src="/src/main.ts"></script>
 </body>

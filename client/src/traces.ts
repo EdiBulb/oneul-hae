@@ -1,3 +1,4 @@
+import { T } from './i18n';
 import * as THREE from 'three';
 import type { Traces } from '../../server/src/protocol';
 import { animChar, disposeChar, makeChar, textSprite, type Char } from './character';
@@ -41,7 +42,7 @@ export function createTraces(scene: THREE.Scene, GLOW: THREE.Texture) {
       c.root.position.set(gh.x, floorY(gh.x, gh.z) + (gh.sit ? 0.07 : 0), gh.z);
       c.root.rotation.y = gh.ry;
       for (let i = 0; i < 40; i++) animChar(c, 0.05);
-      const label = textSprite('오늘 다녀간 자리', 0.45);
+      const label = textSprite(T.traceLabel, 0.45);
       label.position.y = 1.75; label.material.opacity = 0.7;
       c.root.add(label);
       scene.add(c.root);

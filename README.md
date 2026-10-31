@@ -24,6 +24,7 @@ oneul-hae/
       ├─ sun.ts            # 태양 계산, 시간 표시
       ├─ store.ts          # 연속 기록·알람·내 캐릭터 (localStorage)
       ├─ places.ts         # 장소, 소원, 색 팔레트
+      ├─ i18n.ts           # 한국어/영어 문구 (브라우저 언어로 자동 선택, 한/EN 버튼으로 전환)
       └─ net.ts            # Socket.io 연결
 ```
 

@@ -20,6 +20,8 @@ const PLACES: Record<PlaceId, { tz: string }> = {
 const SEAT_COUNT = 22;
 // 해변 + 얕은 물 + 바다로 뻗은 데크(z -26까지). 세부 모양은 클라이언트가 막는다
 const BOUNDS = { minX: -22, maxX: 22, minZ: -26, maxZ: 17 };
+/** 짠: 이 거리(m) 안에서, 이 시간(ms) 안에 둘 다 눌러야 컵이 부딪친다 */
+const CHEERS_DIST = 3, CHEERS_WINDOW = 3000;
 
 // ---------- 상태 ----------
 interface Channel {
@@ -37,6 +39,8 @@ interface SocketData {
   lastLantern: number;
   lastEmote: number;
   moveBudget: number;
+  /** 짠을 누르고 아직 상대를 못 찾은 시각 (0 = 없음) */
+  cheersAt: number;
 }
 type IO = Server<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
 type Sock = Socket<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
@@ -106,6 +110,21 @@ function pickChannel(place: PlaceId): Channel {
   }
 }
 
+/** 2초 안에 짠을 누르고 기다리는 사람 중, 3m 안에서 가장 가까운 사람 */
+function findCheersPartner(socket: Sock, c: Channel, now: number): Sock | null {
+  const me = c.players.get(socket.id);
+  if (!me) return null;
+  let best: Sock | null = null, bd = CHEERS_DIST;
+  for (const p of c.players.values()) {
+    if (p.id === socket.id) continue;
+    const s = io.sockets.sockets.get(p.id) as Sock | undefined;
+    if (!s || !s.data.cheersAt || now - s.data.cheersAt > CHEERS_WINDOW) continue;
+    const d = Math.hypot(p.x - me.x, p.z - me.z);
+    if (d <= bd) { bd = d; best = s; }
+  }
+  return best;
+}
+
 function countWoke(place: PlaceId, uid: string) {
   const k = `${place}|${localDate(place)}`;
   let set = wokeToday.get(k);
@@ -159,6 +178,7 @@ io.on('connection', (socket: Sock) => {
   socket.data.lastLantern = 0;
   socket.data.lastEmote = 0;
   socket.data.moveBudget = 20;
+  socket.data.cheersAt = 0;
 
   socket.on('join', (p: JoinPayload) => {
     if (!p || !isPlace(p.place)) return;
@@ -196,8 +216,19 @@ io.on('connection', (socket: Sock) => {
 
   socket.on('emote', (e: Emote) => {
     const c = socket.data.channel, now = Date.now();
-    if (!c || (e !== 'stretch' && e !== 'wave') || now - socket.data.lastEmote < 800) return;
+    if (!c || (e !== 'stretch' && e !== 'wave' && e !== 'cheers') || now - socket.data.lastEmote < 800) return;
     socket.data.lastEmote = now;
+    if (e === 'cheers') {
+      const partner = findCheersPartner(socket, c, now);
+      if (partner) {
+        // 먼저 기다리던 사람과 짝이 됨: 둘 다 다시 짝이 되지 않도록 초기화하고 방 전체에 알림
+        partner.data.cheersAt = 0;
+        socket.data.cheersAt = 0;
+        io.to(c.key).emit('clink', partner.id, socket.id);
+        return;
+      }
+      socket.data.cheersAt = now;
+    }
     socket.to(c.key).emit('emote', socket.id, e);
   });
 
