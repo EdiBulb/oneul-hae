@@ -357,7 +357,15 @@ function updateMe(dt: number) {
 
 // ================= 상단 문구 =================
 let lastTickerAt = 0, lastWokeNote = 0;
-function ticker(msg: string) { $('ticker').textContent = msg; lastTickerAt = performance.now(); }
+/** 해변 소식: 잠깐 떴다가 4초 뒤 스르르 사라짐 (화면을 가리지 않도록) */
+let tickerTimer = 0;
+function ticker(msg: string) {
+  const el = $('ticker');
+  el.textContent = msg; el.classList.add('show');
+  lastTickerAt = performance.now();
+  clearTimeout(tickerTimer);
+  tickerTimer = window.setTimeout(() => el.classList.remove('show'), 4000);
+}
 
 // 상단 안내: 처음과 중요한 순간에만 크게 보여주고, 나머지는 작은 알약으로 접어 둠
 let expandedUntil = 0, lastAltForBanner = -90, minuteWarned = 0;
@@ -420,10 +428,11 @@ function updateUI(now: number, alt: number, t: number) {
   }
   // 진짜 숫자만: 오늘 알람 끄고 온 사람
   const woke = stats?.woke[place.id] ?? 0;
-  if (live && woke > 0 && t - lastWokeNote > 15000 && t - lastTickerAt > 5000) {
+  if (live && woke > 0 && t - lastWokeNote > 60000 && t - lastTickerAt > 5000) {
     lastWokeNote = t; ticker(T.wokeCount(woke));
   }
-  if (connected && remotes.size === 0 && t - lastTickerAt > 20000) ticker(aloneMsg());
+  // 혼자일 때 안내는 가끔만 (1분 30초마다)
+  if (connected && remotes.size === 0 && t - lastTickerAt > 90000) ticker(aloneMsg());
 }
 
 // ================= 루프 =================
