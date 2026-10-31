@@ -10,6 +10,8 @@ export interface Char {
   armL: THREE.Group; armR: THREE.Group; legL: THREE.Group; legR: THREE.Group;
   phase: number;
   state: CharState;
+  /** 통나무처럼 높은 자리에 앉았는지 (다리를 아래로 내림) */
+  bench: boolean;
   emote: Emote | null;
   emoteT: number;
   /** 짠 할 때만 보이는 머그컵 (오른손에 붙어 있음) */
@@ -77,7 +79,7 @@ export function makeChar(bodyC: number, hatC: number): Char {
   const sh = new THREE.Mesh(new THREE.CircleGeometry(0.42, 16),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.02; root.add(sh);
-  return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, state: 'idle', emote: null, emoteT: 0, mug, steam };
+  return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, state: 'idle', bench: false, emote: null, emoteT: 0, mug, steam };
 }
 
 export function disposeChar(c: Char) {
@@ -98,7 +100,9 @@ export function animChar(c: Char, dt: number) {
     const s = Math.sin(c.phase);
     lL = s * 0.6; lR = -s * 0.6; aL = -s * 0.5; aR = s * 0.5; y = Math.abs(Math.cos(c.phase)) * 0.06;
   } else if (c.state === 'sit') {
-    y = -0.3; lL = lR = Math.PI / 2; aL = aR = 0.55;
+    // 방석: 다리를 앞으로 쭉 / 통나무: 무릎 아래로 다리를 내리고 손은 무릎 위에
+    y = -0.3;
+    if (c.bench) { lL = lR = 1.05; aL = aR = 0.75; } else { lL = lR = Math.PI / 2; aL = aR = 0.55; }
   } else {
     y = Math.sin(c.phase) * 0.012;
   }

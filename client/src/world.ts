@@ -16,7 +16,8 @@ const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
   [12, C(90, 152, 210), C(152, 196, 232), C(230, 240, 246)],
 ];
 
-export interface Seat { x: number; z: number; occ: string | null }
+/** 앉을 자리. 방석은 바다(ry 0)를, 통나무는 모닥불을 바라본다. bench면 y가 엉덩이 높이 */
+export interface Seat { x: number; z: number; occ: string | null; ry: number; y?: number; bench?: boolean }
 
 /** 해안선은 z = -3. 뒤로 갈수록 모래사장이 살짝 높아진다 */
 export const groundY = (z: number) => Math.max(0, (z + 3) * 0.05 - 0.06);
@@ -130,7 +131,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
       const x = (i - (n - 1) / 2) * 2.3;
       const m = new THREE.Mesh(matGeo, new THREE.MeshLambertMaterial({ color: matColors[(i + Math.round(z)) % matColors.length] }));
       m.position.set(x, groundY(z) + 0.035, z); scene.add(m);
-      seats.push({ x, z, occ: null });
+      seats.push({ x, z, occ: null, ry: 0 });
     }
   }
 

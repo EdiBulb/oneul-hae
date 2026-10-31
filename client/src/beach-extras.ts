@@ -11,6 +11,26 @@ export const PIER = { x: -9, half: 1.1, start: -0.5, end: -26, top: 0.45 };
 export const WADE_MIN_Z = -6;
 export const BEACH_X = 22;
 export const BONFIRE = { x: 11, z: 10 };
+/** 모닥불을 둘러싼 통나무 4개 (반지름, 길이, 굵기) */
+const LOG = { r: 2.1, len: 1.3, rad: 0.2, n: 4 };
+const logAngle = (i: number) => (i / LOG.n) * Math.PI * 2 + Math.PI / 4;
+
+/** 통나무 하나에 두 사람씩 앉는 자리 (서버 방석 번호 22번부터 이어짐). 모두 모닥불을 바라봄 */
+export function benchSeats() {
+  const out: { x: number; z: number; ry: number; y: number; bench: true }[] = [];
+  const top = groundY(BONFIRE.z) + LOG.rad * 2;
+  for (let i = 0; i < LOG.n; i++) {
+    const a = logAngle(i), cx = BONFIRE.x + Math.cos(a) * LOG.r, cz = BONFIRE.z + Math.sin(a) * LOG.r;
+    const ax = Math.sin(a), az = -Math.cos(a); // 통나무 방향 (원의 접선)
+    for (const k of [-0.32, 0.32]) {
+      out.push({ x: cx + ax * k, z: cz + az * k, ry: Math.atan2(Math.cos(a), Math.sin(a)), y: top, bench: true });
+    }
+  }
+  return out;
+}
+const BENCH = benchSeats();
+/** 이 자리가 통나무 위면 그 자리 (다른 사람·흔적의 앉은 높이를 맞출 때) */
+export const benchAt = (x: number, z: number) => BENCH.find(s => Math.hypot(s.x - x, s.z - z) < 0.3) ?? null;
 
 export const onPier = (x: number, z: number) => Math.abs(x - PIER.x) < PIER.half && z <= PIER.start && z >= PIER.end;
 export type Surface = 'sand' | 'water' | 'wood';
@@ -186,13 +206,13 @@ export function createBonfire(scene: THREE.Scene, GLOW: THREE.Texture) {
     l.position.set(Math.cos(a) * 0.18, 0.32, Math.sin(a) * 0.18);
     l.rotation.set(Math.sin(a) * 0.55, 0, -Math.cos(a) * 0.55); g.add(l);
   }
-  // 둘러앉는 통나무 의자 (장식)
+  // 둘러앉는 통나무 의자 (앉을 수 있음: benchSeats)
   const benchM = new THREE.MeshLambertMaterial({ color: 0x7a5434 });
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.3, 8), benchM);
+  for (let i = 0; i < LOG.n; i++) {
+    const a = logAngle(i);
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(LOG.rad, LOG.rad, LOG.len, 8), benchM);
     b.rotation.z = Math.PI / 2; b.rotation.y = -a + Math.PI / 2;
-    b.position.set(Math.cos(a) * 2.1, 0.2, Math.sin(a) * 2.1); g.add(b);
+    b.position.set(Math.cos(a) * LOG.r, LOG.rad, Math.sin(a) * LOG.r); g.add(b);
   }
   // 불꽃: 겹친 빛 + 위로 튀는 불티
   const flame = (color: number, s: number, y: number) => {
