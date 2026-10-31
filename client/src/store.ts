@@ -17,6 +17,10 @@ interface Saved {
   installSnooze?: number;
   /** 직접 쓴 소원을 다른 사람에게도 보여줄지 (기본: 안 보여줌) */
   shareWish: boolean;
+  /** 내가 모래 게시판에 쓴 글 id (신고 버튼 대신 '내가 남긴 글') */
+  mySand: string[];
+  /** 내가 신고해서 숨긴 모래 게시판 글 id */
+  hiddenSand: string[];
   /** 소원 창에서 고르는 문구 목록을 펼쳐 둘지 (기본: 펼침) */
   showPresets: boolean;
   /** 다른 사람의 소원 글자를 볼지 (기본: 봄) */
@@ -43,6 +47,8 @@ export const store: Saved = {
   remindAt: raw.remindAt,
   shareWish: raw.shareWish ?? false,
   showPresets: raw.showPresets ?? true,
+  mySand: raw.mySand ?? [],
+  hiddenSand: raw.hiddenSand ?? [],
   seeWishes: raw.seeWishes ?? true,
   soundOn: raw.soundOn ?? true,
 };

@@ -50,6 +50,10 @@ export interface Traces {
   lanterns: [number, number][];
 }
 
+/** 모래 게시판의 글 하나. 이름·쓴 사람 정보는 없음 */
+export interface SandPost { id: string; text: string; at: number }
+export type SandWriteResult = { ok: true; post: SandPost } | { ok: false; reason: 'cooldown' | 'filtered'; wait?: number };
+
 export interface Welcome {
   id: string;
   place: PlaceId;
@@ -58,6 +62,8 @@ export interface Welcome {
   /** 방석 번호 → 앉아 있는 플레이어 id */
   seats: Record<number, string>;
   traces: Traces;
+  /** 이 해변의 모래 게시판 (지금 남아 있는 글) */
+  board: SandPost[];
 }
 
 export interface Stats {
@@ -78,6 +84,8 @@ export interface ServerToClient {
   /** 두 사람이 커피잔을 부딪쳤다 (a가 먼저 누른 사람) */
   clink: (a: string, b: string) => void;
   blanket: (id: string, on: boolean) => void;
+  sandPost: (p: SandPost) => void;
+  sandRemove: (id: string) => void;
   /** text: 쓴 사람이 공개를 고르고, 서버 필터를 통과한 소원만. 없으면 불빛만 */
   lantern: (id: string, x: number, z: number, text?: string) => void;
   seat: (idx: number, id: string | null) => void;
@@ -93,5 +101,7 @@ export interface ClientToServer {
   sit: (idx: number, ack: (ok: boolean) => void) => void;
   stand: () => void;
   blanket: (on: boolean) => void;
+  sandWrite: (text: string, ack: (r: SandWriteResult) => void) => void;
+  sandReport: (id: string) => void;
   woke: () => void;
 }
