@@ -5,6 +5,7 @@ import type {
 } from './protocol.js';
 import { handleReminderHttp, pushEnabled } from './reminders.js';
 import { cleanWish } from './wish-filter.js';
+import { addPost, boardOf, report } from './sand-board.js';
 
 // ---------- 설정 (환경 변수로 바꿀 수 있음) ----------
 const PORT = Number(process.env.PORT ?? 3001);
@@ -174,6 +175,7 @@ function leave(socket: Sock, io: IO) {
     if (id === socket.id) { c.seats.delete(idx); io.to(c.key).emit('seat', idx, null); }
   }
   socket.leave(c.key);
+  socket.leave(`p:${c.place}`);
   socket.to(c.key).emit('left', socket.id);
   if (c.players.size === 0 && c.n > 1) channels.delete(c.key);
   socket.data.channel = undefined;
@@ -199,11 +201,13 @@ io.on('connection', (socket: Sock) => {
     c.players.set(socket.id, me);
     socket.data.channel = c;
     socket.join(c.key);
+    socket.join(`p:${c.place}`); // 모래 게시판은 채널과 상관없이 해변 단위
     socket.emit('welcome', {
       id: socket.id, place: c.place, channel: c.n,
       players: [...c.players.values()].filter(x => x.id !== socket.id),
       seats: Object.fromEntries(c.seats),
       traces: traces(c.place, socket.data.uid),
+      board: boardOf(c.place, PLACES[c.place].tz),
     });
     socket.to(c.key).emit('joined', me);
   });
@@ -267,6 +271,20 @@ io.on('connection', (socket: Sock) => {
     socket.data.lastBlanket = now;
     me.blanket = on === true;
     socket.to(c.key).emit('blanket', socket.id, me.blanket);
+  });
+
+  socket.on('sandWrite', (text, ack) => {
+    const c = socket.data.channel, reply = typeof ack === 'function' ? ack : () => {};
+    if (!c || !socket.data.uid) return reply({ ok: false, reason: 'filtered' });
+    const r = addPost(c.place, PLACES[c.place].tz, socket.data.uid, text);
+    if (r.ok) socket.to(`p:${c.place}`).emit('sandPost', r.post);
+    reply(r);
+  });
+
+  socket.on('sandReport', id => {
+    const c = socket.data.channel;
+    if (!c || !socket.data.uid) return;
+    if (report(c.place, PLACES[c.place].tz, socket.data.uid, id)) io.to(`p:${c.place}`).emit('sandRemove', String(id));
   });
 
   socket.on('stand', () => {

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import './style.css';
-import type { PlayerInfo, St, Stats } from '../../server/src/protocol';
+import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
+import { createSandBoard } from './sand-board';
 import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
@@ -52,6 +53,7 @@ const traces = createTraces(scene, GLOW);
 const pier = createPier(scene, GLOW);
 const prints = createFootprints(scene);
 const bonfire = createBonfire(scene, GLOW);
+const sandBoard = createSandBoard(scene);
 // 방석 22개 뒤에 모닥불 통나무 8자리, 데크 끝 3자리를 붙임 (서버 번호와 같은 순서)
 const seats = world.seats;
 for (const b of benchSeats()) seats.push({ ...b, occ: null });
@@ -152,6 +154,7 @@ net.on('welcome', w => {
   if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
   if (me.blanket.visible) net.emit('blanket', true); // 다시 접속·채널 이동 때 담요 상태 알려 주기
   traces.set(w.traces);
+  sandPosts = w.board ?? []; renderSandLabel(); if (sandOpen) renderSand();
   todayVisitors = w.traces.visitors;
   if (w.players.length > 0) ticker(T.alreadyHere(w.players.length));
   else ticker(aloneMsg());
@@ -248,6 +251,7 @@ const joyEnd = (e: PointerEvent) => { if (e.pointerId !== joyId) return; joyId =
 joy.addEventListener('pointerup', joyEnd); joy.addEventListener('pointercancel', joyEnd);
 
 function readInput() {
+  if (sandOpen) { input.x = input.y = 0; return; } // 게시판을 보는 동안은 제자리
   let { x, y } = joyVec;
   if (keys['a'] || keys['arrowleft']) x -= 1;
   if (keys['d'] || keys['arrowright']) x += 1;
@@ -283,6 +287,13 @@ function updateCamera(dt: number) {
   want.set(target.x - Math.sin(cam.yaw) * ahead, target.y + 0.3 * close, target.z - Math.cos(cam.yaw) * ahead);
   camLook.lerp(want, 1 - Math.pow(0.02, dt));
   camera.lookAt(camLook);
+  // 모래 게시판: 카메라가 판 앞 위쪽으로 다가가 내려다봄 (sandK 0 → 1)
+  if (sandK > 0.001) {
+    const k = sandK * sandK * (3 - 2 * sandK);
+    camera.position.lerp(sandBoard.viewPos, k);
+    sandLook.copy(camLook).lerp(sandBoard.center, k);
+    camera.lookAt(sandLook);
+  }
   const k = clamp(cam.dist / 10, 1, 2.2);
   meLabel.scale.set(meLabelBase.x * k, meLabelBase.y * k, 1);
   meLabel.position.y = 1.9 + (k - 1) * 0.12;
@@ -357,6 +368,8 @@ function updateMe(dt: number) {
   } else turnTo(me, seats[mySeat].ry, dt);
   animChar(me, dt);
   const near = mySeat === null ? nearestFreeSeat() : null;
+  const sb = $('sandBtn'), showSb = !sandOpen && sandBoard.distance(me.root.position) < 3.4;
+  if (sb.hidden === showSb) sb.hidden = !showSb;
   // 담요 버튼은 앉아 있거나 이미 두르고 있을 때만 (버튼이 너무 많아지지 않게)
   const bl = $('blanketBtn'), showBl = mySeat !== null || me.blanket.visible;
   if (bl.hidden === showBl) bl.hidden = !showBl;
@@ -447,7 +460,7 @@ function updateUI(now: number, alt: number, t: number) {
 // ================= 루프 =================
 let lastT = performance.now(), lastUI = 0;
 function loop(t: number) {
-  const dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
+  const realDt = Math.min(0.5, (t - lastT) / 1000), dt = Math.min(0.05, realDt); lastT = t;
   const now = virtualNow();
   updateMe(dt);
   updateCamera(dt);
@@ -467,6 +480,10 @@ function loop(t: number) {
   const fireDist = Math.hypot(me.root.position.x - BONFIRE.x, me.root.position.z - BONFIRE.z);
   amb.setFire(bonfire.level * clamp(1.15 - fireDist / 14, 0, 1));
   prints.update(dt);
+  sandBoard.update(camera);
+  // 실제 시간 기준이라 느린 폰에서도 0.6초 안에 게시판이 열림
+  sandK = clamp(sandK + (sandOpen ? realDt : -realDt) * 1.6, 0, 1);
+  if (sandOpen && sandK > 0.92 && $('sand').hidden) showSandScreen();
   sendState(t);
   if (t - lastUI > 250) { updateUI(now, alt, t); lastUI = t; }
   renderer.render(scene, camera);
@@ -487,6 +504,7 @@ PLACES.forEach(p => {
     [...chips.children].forEach((c, i) => c.setAttribute('aria-pressed', String(PLACES[i] === p)));
     if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
     seats.forEach(s => (s.occ = null));
+    closeSand(); sandPosts = []; renderSandLabel();
     clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); world.buildLandmark(p); renderAlarm(); renderCounts(); refreshWeather();
     spawn();
     if (connected) join();
@@ -534,7 +552,11 @@ $('resetView').onclick = () => {
 let openSheet: HTMLElement | null = null;
 const back = $('sheetBack');
 function open(id: string) { openSheet = $(id); openSheet.classList.add('open'); back.classList.add('open'); }
-function close() { openSheet?.classList.remove('open'); back.classList.remove('open'); openSheet = null; }
+function close() {
+  // 모래에 쓰다가 닫으면 모래 위 미리보기도 지움
+  if (openSheet?.id === 'sandSheet') { $('sandPreview').hidden = true; $('sand').classList.remove('previewing'); }
+  openSheet?.classList.remove('open'); back.classList.remove('open', 'over-sand'); openSheet = null;
+}
 back.onclick = close;
 $('lanternBtn').onclick = () => open('wishSheet');
 
@@ -922,6 +944,120 @@ $('remindPush').onclick = async () => {
 };
 initPush();
 
+// ================= 모래 게시판 =================
+let sandPosts: SandPost[] = [];
+let sandOpen = false, sandK = 0, sandSel: string | null = null;
+const sandLook = new THREE.Vector3();
+const SAND_TTL = 3 * 3600000;
+const visiblePosts = () => sandPosts.filter(p => !store.hiddenSand.includes(p.id) && Date.now() - p.at < SAND_TTL);
+function renderSandLabel() { sandBoard.setLabel(T.sandLabel(visiblePosts().length)); }
+/** 글 id로 정해지는 자리·기울기 (모두에게 같은 배치) */
+function hashOf(id: string) { let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); }
+function renderSand() {
+  const area = $('sandArea'), list = visiblePosts().sort((a, b) => b.at - a.at);
+  $('sandTitle').textContent = T.sandTitle(placeName(place));
+  $('sandSub').textContent = T.sandSub(list.length);
+  area.replaceChildren();
+  let selEl: HTMLElement | null = null, selPost: SandPost | null = null;
+  if (!list.length) {
+    const e = document.createElement('div'); e.className = 'sand-empty'; e.textContent = T.sandEmpty; area.appendChild(e);
+  }
+  list.forEach((p, i) => {
+    const h = hashOf(p.id), age = Date.now() - p.at;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'sand-note' + (p.id === sandSel ? ' sel' : '');
+    b.style.top = `${18 + i * 66}px`;
+    const left = 4 + (h % 34);
+    b.style.left = `${left}%`;
+    b.style.maxWidth = `${96 - left}%`; // 긴 글도 화면 오른쪽 밖으로 나가지 않게
+    b.style.transform = `rotate(${(h % 9) - 4}deg)`;
+    b.style.opacity = String(Math.max(0.15, 1 - (age / SAND_TTL) * 0.85)); // 오래될수록 흐려짐
+    const t = document.createElement('b'); t.textContent = p.text; // 남이 쓴 글: 반드시 textContent
+    const m = document.createElement('small'); m.textContent = T.sandAgo(Math.floor(age / 60000));
+    b.append(t, m);
+    b.onclick = ev => { ev.stopPropagation(); showSandPop(p, b); };
+    if (p.id === sandSel) { selEl = b; selPost = p; }
+    area.appendChild(b);
+  });
+  const spacer = document.createElement('div'); spacer.style.height = `${40 + list.length * 66}px`; area.appendChild(spacer);
+  // 다시 그려도 열어 둔 신고 창은 유지 (글이 지워졌으면 닫음)
+  if (selEl && selPost) showSandPop(selPost, selEl); else { sandSel = null; $('sandPop').hidden = true; }
+}
+function showSandPop(p: SandPost, el: HTMLElement) {
+  sandSel = p.id;
+  [...$('sandArea').querySelectorAll('.sand-note')].forEach(n => n.classList.toggle('sel', n === el));
+  const pop = $('sandPop'), r = el.getBoundingClientRect(), mine = store.mySand.includes(p.id);
+  $('sandPopWhen').textContent = mine ? T.sandMine : T.sandWhen(Math.floor((Date.now() - p.at) / 60000));
+  $('sandReportBtn').hidden = mine; $('sandPopNote').hidden = mine;
+  pop.style.left = `${Math.min(r.left, innerWidth - 256)}px`;
+  pop.style.top = `${Math.min(r.bottom + 6, innerHeight - 220)}px`;
+  pop.hidden = false;
+}
+$('sandArea').addEventListener('click', () => { sandSel = null; $('sandPop').hidden = true; [...$('sandArea').querySelectorAll('.sel')].forEach(n => n.classList.remove('sel')); });
+$('sandReportBtn').onclick = () => {
+  if (!sandSel) return;
+  if (connected) net.emit('sandReport', sandSel);
+  store.hiddenSand = [...store.hiddenSand, sandSel].slice(-100); save();
+  track('sand_reported', { place: place.id });
+  sandSel = null; renderSand(); renderSandLabel(); toast(T.sandReported);
+};
+function openSand() {
+  if (sandOpen) return;
+  sandOpen = true; sandSel = null;
+  track('sand_opened', { place: place.id, posts: visiblePosts().length });
+}
+function showSandScreen() {
+  renderSand();
+  const el = $('sand'); el.hidden = false;
+  requestAnimationFrame(() => el.classList.add('show'));
+}
+function closeSand() {
+  if (!sandOpen) return;
+  if (openSheet?.id === 'sandSheet') close();
+  sandOpen = false;
+  const el = $('sand'); el.classList.remove('show'); el.hidden = true;
+  $('sandPreview').hidden = true; el.classList.remove('previewing');
+}
+$('sandBtn').onclick = openSand;
+$('sandClose').onclick = closeSand;
+$('sandWriteBtn').onclick = () => {
+  open('sandSheet'); back.classList.add('over-sand');
+  $('sandPop').hidden = true;
+  setTimeout(() => ($('sandInput') as HTMLInputElement).focus(), 300);
+};
+const sandInput = $('sandInput') as HTMLInputElement;
+sandInput.addEventListener('input', () => {
+  $('sandCount').textContent = `${sandInput.value.length} / 24`;
+  const pv = $('sandPreview'); pv.textContent = sandInput.value; pv.hidden = !sandInput.value.trim(); // 모래 위 미리보기
+  $('sand').classList.toggle('previewing', !pv.hidden);
+});
+$('sandForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = sandInput.value.trim().replace(/\s+/g, ' ');
+  if (!text) { toast(T.sandWriteEmpty); return; }
+  if (!connected) { toast(T.sandOffline); return; }
+  net.emit('sandWrite', text, r => {
+    if (r.ok) {
+      sandPosts.push(r.post);
+      store.mySand = [...store.mySand, r.post.id].slice(-30); save();
+      sandInput.value = ''; $('sandCount').textContent = '0 / 24'; $('sandPreview').hidden = true; $('sand').classList.remove('previewing');
+      sandInput.blur(); close();
+      renderSand(); renderSandLabel(); toast(T.sandPosted);
+      track('sand_posted', { place: place.id, len: text.length });
+    } else if (r.reason === 'cooldown') toast(T.sandCooldown(Math.max(1, Math.ceil((r.wait ?? 60000) / 60000))));
+    else toast(T.sandFiltered);
+  });
+});
+net.on('sandPost', p => {
+  sandPosts.push(p); renderSandLabel();
+  if (sandOpen && !$('sand').hidden) renderSand();
+  else if (sandBoard.distance(me.root.position) < 30) ticker(T.sandNew);
+});
+net.on('sandRemove', id => { sandPosts = sandPosts.filter(p => p.id !== id); renderSandLabel(); if (sandOpen) renderSand(); });
+// 글이 흐려지고 사라지는 건 시간에 따라: 1분마다 다시 그림
+setInterval(() => { renderSandLabel(); if (sandOpen && !$('sand').hidden && openSheet?.id !== 'sandSheet') renderSand(); }, 60000);
+renderSandLabel();
+
 $('exitBtn').onclick = openBye;
 $('langBtn').textContent = lang === 'ko' ? 'EN' : '한';
 $('langBtn').onclick = () => { track('lang_changed', { to: lang === 'ko' ? 'en' : 'ko' }); setLang(lang === 'ko' ? 'en' : 'ko'); };
@@ -944,6 +1080,7 @@ addEventListener('popstate', () => {
   if ($('wake').classList.contains('open')) return;
   if ($('hint').classList.contains('open')) { $('hint').classList.remove('open'); store.hinted = true; save(); return; }
   if (openSheet && openSheet.id !== 'byeSheet') { close(); return; }
+  if (sandOpen) { closeSand(); return; }
   if (openSheet?.id === 'byeSheet') { close(); return; }
   openBye();
 });

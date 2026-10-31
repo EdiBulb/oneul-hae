@@ -46,7 +46,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&family=Gaegu:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="scene"></div>
@@ -91,6 +91,7 @@
       <button class="act" id="stretchBtn" data-i18n="stretch">기지개</button>
       <button class="act" id="sitBtn" data-i18n="sit">방석에 앉기</button>
       <button class="act" id="blanketBtn" hidden>담요 덮기</button>
+      <button class="act sand-act" id="sandBtn" hidden data-i18n="sandOpen">모래 게시판 보기</button>
       <button class="act primary" id="lanternBtn" data-i18n="lantern">풍등 올리기</button>
     </div>
   </div>
@@ -233,6 +234,33 @@
   <h2 id="wakeTitle" data-i18n="wakeTitle">해 뜨기 5분 전이에요</h2>
   <p id="wakeText"></p>
   <button class="btn primary" id="wakeBtn" data-i18n="wakeBtn">알람 끄고 해 보러 가기</button>
+</div>
+<div class="sand" id="sand" role="dialog" aria-labelledby="sandTitle" hidden>
+  <div class="sand-head">
+    <button class="sand-close" id="sandClose" aria-label="게시판 닫기" data-i18n-aria="sandClose"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><path d="M3 3 L13 13 M13 3 L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <div><h2 id="sandTitle">모래 게시판</h2><small id="sandSub"></small></div>
+  </div>
+  <div class="sand-area" id="sandArea"></div>
+  <div class="sand-preview" id="sandPreview" hidden></div>
+  <div class="sand-pop" id="sandPop" hidden>
+    <div class="sand-pop-when" id="sandPopWhen"></div>
+    <button class="sand-report" id="sandReportBtn" data-i18n="sandReport">이 글 신고하기</button>
+    <p id="sandPopNote" data-i18n="sandReportNote">신고가 3번 쌓이면 모래에서 지워져요. 신고한 글은 내 화면에서 바로 사라져요.</p>
+  </div>
+  <div class="sand-foot">
+    <p data-i18n="sandFade">글씨는 3시간이 지나면 흐려져 사라져요 · 매일 정오에 밀물이 지워요</p>
+    <button class="btn primary" id="sandWriteBtn" data-i18n="sandWrite">모래에 쓰기</button>
+  </div>
+</div>
+
+<div class="sheet" id="sandSheet" role="dialog" aria-labelledby="sandSheetTitle">
+  <h2 id="sandSheetTitle" data-i18n="sandSheetTitle">모래에 한 줄 남기기</h2>
+  <form class="custom" id="sandForm" autocomplete="off">
+    <input id="sandInput" maxlength="24" placeholder="예: 다들 좋은 아침" aria-label="모래에 쓸 글" data-i18n-ph="sandPh" data-i18n-aria="sandAria">
+    <button type="submit" data-i18n="sandGo">쓰기</button>
+  </form>
+  <div class="wish-row"><span class="muted-s" data-i18n="sandOnce">10분에 한 번 쓸 수 있어요</span><div class="count" id="sandCount">0 / 24</div></div>
+  <div class="sand-notice" data-i18n-html="sandNotice">모래 게시판의 글은 오늘 이 해변에 오는 <b>모두에게 보여요.</b> 이름은 남지 않고, 3시간 뒤 사라져요.</div>
 </div>
 <div class="toast" id="toast"></div>
 <div class="fail" id="fail" data-i18n-html="fail">3D 화면을 불러오지 못했어요.<br>다른 브라우저에서 열어 주세요.</div>

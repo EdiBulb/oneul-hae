@@ -14,6 +14,8 @@ oneul-hae/
 │  └─ src/
 │     ├─ index.ts          # 채널 분배, 위치 중계, 방석, 통계
 │     ├─ reminders.ts      # 해돋이 5분 전 푸시 예약·발송, 캘린더(.ics) 파일
+│     ├─ sand-board.ts     # 모래 게시판 (해변별 글, 3시간·정오 밀물, 10분 제한, 신고)
+│     └─ wish-filter.ts    # 공개 소원·모래 글 필터
 │     └─ protocol.ts       # 서버·클라이언트가 함께 쓰는 이벤트 타입
 └─ client/                 # 프론트 (Vite + TypeScript + three.js)
    ├─ index.html
@@ -25,6 +27,7 @@ oneul-hae/
       ├─ sun.ts            # 태양 계산, 시간 표시
       ├─ store.ts          # 연속 기록·알람·내 캐릭터 (localStorage)
       ├─ places.ts         # 장소, 소원, 색 팔레트
+      ├─ sand-board.ts     # 해변의 3D 모래 게시판, 판 안으로 못 들어가게
       ├─ reminder.ts       # 다음 해돋이 알림 (웹 푸시 구독, 캘린더 링크)
       ├─ i18n.ts           # 한국어/영어 문구 (브라우저 언어로 자동 선택, 한/EN 버튼으로 전환)
       └─ net.ts            # Socket.io 연결

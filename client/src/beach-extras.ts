@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { groundY } from './world';
+import { insideSandBoard } from './sand-board';
 
 // 해변의 작은 재미: 바다로 뻗은 데크, 모래 발자국, 얕은 물 찰박임, 밤의 모닥불.
 
@@ -58,6 +59,8 @@ export function canStand(x: number, z: number) {
   if (onPier(x, z)) return true;
   if (Math.abs(x) > BEACH_X || z > 17 || z < WADE_MIN_Z) return false;
   // 모닥불 한가운데는 못 들어감
+  // 모래 게시판 판 위로는 못 올라감
+  if (insideSandBoard(x, z)) return false;
   return Math.hypot(x - BONFIRE.x, z - BONFIRE.z) > 0.95;
 }
 
