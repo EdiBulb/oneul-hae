@@ -4,6 +4,7 @@ import type {
   ClientToServer, Emote, Ghost, JoinPayload, Look, Move, PlaceId, PlayerInfo, ServerToClient, St, Stats, Traces,
 } from './protocol.js';
 import { handleReminderHttp, pushEnabled } from './reminders.js';
+import { cleanWish } from './wish-filter.js';
 
 // ---------- 설정 (환경 변수로 바꿀 수 있음) ----------
 const PORT = Number(process.env.PORT ?? 3001);
@@ -237,14 +238,15 @@ io.on('connection', (socket: Sock) => {
     socket.to(c.key).emit('emote', socket.id, e);
   });
 
-  socket.on('lantern', (x, z) => {
+  socket.on('lantern', (x, z, text) => {
     const c = socket.data.channel, now = Date.now();
     if (!c || now - socket.data.lastLantern < 3000) return; // 3초에 한 번
     socket.data.lastLantern = now;
     const L = dayOf(c.place).lanterns;
     L.push([Math.round(num(x, BOUNDS.minX, BOUNDS.maxX) * 10) / 10, Math.round(num(z, BOUNDS.minZ, BOUNDS.maxZ) * 10) / 10]);
     if (L.length > LANTERN_MAX * 2) L.splice(0, L.length - LANTERN_MAX);
-    socket.to(c.key).emit('lantern', socket.id, num(x, BOUNDS.minX, BOUNDS.maxX), num(z, BOUNDS.minZ, BOUNDS.maxZ));
+    // 공개 소원은 지금 해변에 있는 사람에게만 전달하고 저장하지 않는다 (오늘의 흔적에는 위치만)
+    socket.to(c.key).emit('lantern', socket.id, num(x, BOUNDS.minX, BOUNDS.maxX), num(z, BOUNDS.minZ, BOUNDS.maxZ), cleanWish(text));
   });
 
   // 방석은 서버가 주인: 먼저 요청한 사람이 앉는다

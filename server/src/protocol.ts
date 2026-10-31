@@ -78,7 +78,8 @@ export interface ServerToClient {
   /** 두 사람이 커피잔을 부딪쳤다 (a가 먼저 누른 사람) */
   clink: (a: string, b: string) => void;
   blanket: (id: string, on: boolean) => void;
-  lantern: (id: string, x: number, z: number) => void;
+  /** text: 쓴 사람이 공개를 고르고, 서버 필터를 통과한 소원만. 없으면 불빛만 */
+  lantern: (id: string, x: number, z: number, text?: string) => void;
   seat: (idx: number, id: string | null) => void;
   stats: (s: Stats) => void;
 }
@@ -87,8 +88,8 @@ export interface ClientToServer {
   join: (p: JoinPayload) => void;
   s: (x: number, z: number, ry: number, st: St) => void;
   emote: (e: Emote) => void;
-  /** 소원 문구는 보내지 않는다: 직접 쓴 소원은 본인 화면에만 보인다 */
-  lantern: (x: number, z: number) => void;
+  /** 소원 문구는 고른 소원이거나, 직접 쓴 소원 중 "다른 사람에게도 보여주기"를 체크한 것만 보낸다 */
+  lantern: (x: number, z: number, text?: string) => void;
   sit: (idx: number, ack: (ok: boolean) => void) => void;
   stand: () => void;
   blanket: (on: boolean) => void;
