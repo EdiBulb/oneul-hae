@@ -18,7 +18,8 @@ const PLACES: Record<PlaceId, { tz: string }> = {
   gisborne: { tz: 'Pacific/Auckland' },
 };
 const SEAT_COUNT = 22;
-const BOUNDS = { minX: -22, maxX: 22, minZ: -1.6, maxZ: 17 };
+// 해변 + 얕은 물 + 바다로 뻗은 데크(z -26까지). 세부 모양은 클라이언트가 막는다
+const BOUNDS = { minX: -22, maxX: 22, minZ: -26, maxZ: 17 };
 
 // ---------- 상태 ----------
 interface Channel {

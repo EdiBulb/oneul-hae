@@ -36,6 +36,7 @@ function noiseBuffer(ctx: AudioContext, kind: 'brown' | 'pink', seconds = 6) {
 
 export function createAmbience() {
   let ctx: AudioContext | null = null;
+  let pinkBuf!: AudioBuffer, fxBus!: GainNode, fireRumble!: GainNode, fireLevel = 0;
   let master!: GainNode, windGain!: GainNode, windFilter!: BiquadFilterNode, rainGain!: GainNode, birdBus!: GainNode;
   let on = true, alt = -20;
   let weather: Weather = { windKmh: 10, precipMm: 0 };
@@ -84,6 +85,14 @@ export function createAmbience() {
 
     birdBus = c.createGain(); birdBus.gain.value = 0.07; birdBus.connect(master);
 
+    // 효과음(발소리·물소리·모닥불)
+    pinkBuf = pink;
+    fxBus = c.createGain(); fxBus.gain.value = 0.5; fxBus.connect(master);
+    const rumbleLp = c.createBiquadFilter(); rumbleLp.type = 'lowpass'; rumbleLp.frequency.value = 260;
+    fireRumble = c.createGain(); fireRumble.gain.value = 0;
+    loop(brown).connect(rumbleLp).connect(fireRumble).connect(fxBus);
+    crackle();
+
     gust();
     schedule();
   }
@@ -97,6 +106,30 @@ export function createAmbience() {
     windFilter.frequency.setTargetAtTime(rand(350, 950) + weather.windKmh * 6, t, 1.5);
     rainGain.gain.setTargetAtTime(weather.precipMm > 0 ? clamp(weather.precipMm / 4, 0.05, 0.28) : 0, t, 2);
     timers.push(window.setTimeout(gust, rand(1800, 4200)));
+  }
+
+  // ---------- 효과음 ----------
+  /** 잡음 조각을 필터에 통과시켜 짧게 울린다 */
+  function burst(t: number, dur: number, type: BiquadFilterType, freq: number, q: number, vol: number, pan = 0) {
+    const c = ctx!;
+    const src = c.createBufferSource(); src.buffer = pinkBuf;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    const g = c.createGain(); g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + Math.min(0.01, dur / 4));
+    g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    const p = c.createStereoPanner(); p.pan.value = pan;
+    src.connect(f).connect(g).connect(p).connect(fxBus);
+    src.start(t, rand(0, 5)); src.stop(t + dur + 0.02);
+    return f;
+  }
+  function crackle() {
+    if (!ctx) return;
+    if (fireLevel > 0.02) {
+      const t = ctx.currentTime + 0.02, n = Math.random() < 0.25 ? 3 : 1;
+      for (let i = 0; i < n; i++) burst(t + i * rand(0.01, 0.04), rand(0.01, 0.035), 'bandpass', rand(1800, 5200), 1.2, fireLevel * rand(0.4, 1.1), rand(-0.3, 0.3));
+    }
+    fireRumble.gain.setTargetAtTime(fireLevel * 0.5, ctx.currentTime, 0.4);
+    timers.push(window.setTimeout(crackle, rand(50, 260)));
   }
 
   // ---------- 새소리 ----------
@@ -174,6 +207,26 @@ export function createAmbience() {
     get started() { return !!ctx && ctx.state === 'running'; },
     setAlt(a: number) { alt = a; },
     setWeather(w: Weather) { weather = w; },
+    /** 내 발걸음: 물에서는 찰박, 데크에서는 통통 */
+    step(kind: 'sand' | 'water' | 'wood') {
+      if (!ctx || ctx.state !== 'running') return;
+      const t = ctx.currentTime + 0.01, pan = rand(-0.15, 0.15);
+      if (kind === 'water') {
+        const f = burst(t, 0.22, 'bandpass', rand(900, 1400), 0.8, 0.9, pan);
+        f.frequency.exponentialRampToValueAtTime(rand(380, 600), t + 0.2);
+        burst(t + 0.03, 0.16, 'highpass', 3200, 0.5, 0.25, pan);
+      } else if (kind === 'wood') {
+        const o = ctx.createOscillator(); o.type = 'sine';
+        o.frequency.setValueAtTime(rand(150, 180), t); o.frequency.exponentialRampToValueAtTime(70, t + 0.09);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.7, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        o.connect(g).connect(fxBus); o.start(t); o.stop(t + 0.14);
+        burst(t, 0.03, 'bandpass', 2400, 1, 0.25, pan);
+      } else {
+        burst(t, 0.07, 'bandpass', rand(1500, 2400), 0.7, 0.08, pan);
+      }
+    },
+    /** 모닥불 소리 크기 (0~1): 밤의 정도 × 불과의 거리 */
+    setFire(level: number) { fireLevel = clamp(level, 0, 1); },
     /** 다른 앱으로 넘어가면 잠시 멈춤 */
     pause() { ctx?.suspend().catch(() => {}); },
     resume() { if (on && ctx) ctx.resume().catch(() => {}); },

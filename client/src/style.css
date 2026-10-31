@@ -139,3 +139,10 @@
 .center.collapsed .headline,.center.collapsed .sub{opacity:0;max-height:0;margin:0;pointer-events:none}
 .center.collapsed .progress{margin-top:8px}
 @media (max-width:430px){ .brand{display:none} .brand-logo{width:32px;height:32px} }
+
+  .zbtn.photo{font-size:19px;margin-bottom:6px}
+  .flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .45s ease-out;z-index:50}
+  .flash.on{opacity:.85;transition:none}
+  .photo-prev{display:block;width:100%;max-height:52vh;object-fit:contain;border-radius:14px;margin-top:12px;-webkit-user-select:auto;user-select:auto;-webkit-touch-callout:default}
+  .photo-btns{display:flex;gap:8px;margin-top:12px}
+  .photo-btns .btn{text-align:center;text-decoration:none;display:block}

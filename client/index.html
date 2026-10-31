@@ -94,6 +94,7 @@
 </div>
 
 <div class="view">
+  <button class="zbtn photo" id="photoBtn" aria-label="지금 화면 사진 찍기">📷</button>
   <button class="zbtn" id="zoomIn" aria-label="가까이">+</button>
   <button class="zbtn" id="zoomOut" aria-label="멀리">−</button>
   <button class="zbtn small" id="overview" aria-label="모여 있는 사람 전체 보기">전체<br>보기</button>
@@ -102,6 +103,17 @@
 </div>
 
 <div class="sheet-back" id="sheetBack"></div>
+
+<div class="flash" id="flash"></div>
+<div class="sheet" id="photoSheet" role="dialog" aria-labelledby="photoTitle">
+  <h2 id="photoTitle">오늘의 해를 찍었어요</h2>
+  <img class="photo-prev" id="photoImg" alt="방금 찍은 해변 사진">
+  <p class="lead">사진을 길게 눌러도 저장할 수 있어요.</p>
+  <div class="photo-btns">
+    <button class="btn primary" id="photoShare">공유하기</button>
+    <a class="btn" id="photoSave" download="oneul-hae.jpg">저장하기</a>
+  </div>
+</div>
 
 <div class="sheet" id="wishSheet" role="dialog" aria-labelledby="wishTitle">
   <h2 id="wishTitle">어떤 마음을 띄울까요?</h2>

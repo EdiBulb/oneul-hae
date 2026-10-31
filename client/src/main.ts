@@ -7,6 +7,8 @@ import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
+import { canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE } from './beach-extras';
+import { takePhoto } from './photo';
 import { connect } from './net';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, type Place } from './places';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
@@ -44,6 +46,9 @@ const lanterns = createLanterns(scene, GLOW);
 // 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
 const life = createBeachLife(scene);
 const traces = createTraces(scene, GLOW);
+const pier = createPier(scene, GLOW);
+const prints = createFootprints(scene);
+const bonfire = createBonfire(scene, GLOW);
 const seats = world.seats;
 
 // ================= 상태 =================
@@ -77,13 +82,14 @@ let myId = '';
 function addRemote(p: PlayerInfo) {
   if (remotes.has(p.id)) return;
   const c = makeChar(BODY_COLORS[p.look.body % BODY_COLORS.length], HAT_COLORS[p.look.hat % HAT_COLORS.length]);
-  c.root.position.set(p.x, groundY(p.z), p.z);
+  c.root.position.set(p.x, floorY(p.x, p.z), p.z);
   c.root.rotation.y = p.ry;
   const label = textSprite(p.nick, 0.6); label.position.y = 1.85; c.root.add(label);
   scene.add(c.root);
   remotes.set(p.id, { info: p, c, label, tx: p.x, tz: p.z, ry: p.ry, st: p.st });
 }
 function removeRemote(id: string) {
+  prints.forget(id);
   const r = remotes.get(id);
   if (!r) return;
   scene.remove(r.c.root); disposeChar(r.c);
@@ -98,7 +104,8 @@ function updateRemotes(dt: number) {
     const dx = r.tx - p.x, dz = r.tz - p.z, d = Math.hypot(dx, dz);
     // 서버에서 초당 8번 정도 오는 위치 사이를 부드럽게 채움
     if (d > 6) { p.x = r.tx; p.z = r.tz; } else { p.x += dx * e; p.z += dz * e; }
-    p.y = groundY(p.z) + (r.st === 2 ? 0.07 : 0);
+    p.y = floorY(p.x, p.z) + (r.st === 2 ? 0.07 : 0);
+    if (r.st !== 2) prints.step(r.info.id, p.x, p.z, r.c.root.rotation.y);
     r.c.state = r.st === 2 ? 'sit' : (r.st === 1 || d > 0.05) ? 'walk' : 'idle';
     turnTo(r.c, r.ry, dt);
     animChar(r.c, dt);
@@ -290,8 +297,14 @@ function updateMe(dt: number) {
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     const mx = rx * input.x + fx * input.y, mz = rz * input.x + fz * input.y;
     const sp = 3.2 * dt;
-    p.x = clamp(p.x + mx * sp, -22, 22); p.z = clamp(p.z + mz * sp, -1.6, 17);
-    p.y = groundY(p.z); me.state = 'walk'; turnTo(me, faceAngle(mx, mz), dt);
+    // 갈 수 있는 곳만: 막히면 벽을 따라 미끄러지듯
+    const nx = p.x + mx * sp, nz = p.z + mz * sp;
+    if (canStand(nx, nz)) { p.x = nx; p.z = nz; }
+    else if (canStand(nx, p.z)) p.x = nx;
+    else if (canStand(p.x, nz)) p.z = nz;
+    p.y = floorY(p.x, p.z); me.state = 'walk'; turnTo(me, faceAngle(mx, mz), dt);
+    const surf = prints.step('me', p.x, p.z, me.root.rotation.y);
+    if (surf) amb.step(surf);
   } else if (mySeat === null) me.state = 'idle';
   else turnTo(me, 0, dt);
   animChar(me, dt);
@@ -386,6 +399,12 @@ function loop(t: number) {
   const people = [me.root.position];
   for (const r of remotes.values()) people.push(r.c.root.position);
   traces.update(t, camera, people);
+  const night = nightness(alt);
+  pier.update(night);
+  bonfire.update(dt, t, night);
+  const fireDist = Math.hypot(me.root.position.x - BONFIRE.x, me.root.position.z - BONFIRE.z);
+  amb.setFire(bonfire.level * clamp(1.15 - fireDist / 14, 0, 1));
+  prints.update(dt);
   sendState(t);
   if (t - lastUI > 250) { updateUI(now, alt, t); lastUI = t; }
   renderer.render(scene, camera);
@@ -406,7 +425,7 @@ PLACES.forEach(p => {
     [...chips.children].forEach((c, i) => c.setAttribute('aria-pressed', String(PLACES[i] === p)));
     if (mySeat !== null) { mySeat = null; me.state = 'idle'; }
     seats.forEach(s => (s.occ = null));
-    clearRemotes(); lanterns.clear(); traces.clear(); world.buildLandmark(p); renderAlarm(); renderCounts(); refreshWeather();
+    clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); world.buildLandmark(p); renderAlarm(); renderCounts(); refreshWeather();
     spawn();
     if (connected) join();
     expandBanner();
@@ -444,6 +463,34 @@ function open(id: string) { openSheet = $(id); openSheet.classList.add('open'); 
 function close() { openSheet?.classList.remove('open'); back.classList.remove('open'); openSheet = null; }
 back.onclick = close;
 $('lanternBtn').onclick = () => open('wishSheet');
+
+// ================= 사진 =================
+let photoUrl = '', photoBlob: Blob | null = null;
+$('photoBtn').onclick = async () => {
+  meRing.visible = false;
+  const blob = await takePhoto(renderer.domElement, () => renderer.render(scene, camera), place.name, place.tz);
+  meRing.visible = true;
+  if (!blob) { toast('사진을 찍지 못했어요'); return; }
+  const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
+  if (photoUrl) URL.revokeObjectURL(photoUrl);
+  photoBlob = blob; photoUrl = URL.createObjectURL(blob);
+  ($('photoImg') as HTMLImageElement).src = photoUrl;
+  const name = `오늘의해-${place.name}-${new Date().toISOString().slice(0, 10)}.jpg`;
+  const save = $('photoSave') as HTMLAnchorElement; save.href = photoUrl; save.download = name;
+  const file = new File([blob], name, { type: 'image/jpeg' });
+  $('photoShare').hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
+  open('photoSheet');
+  track('photo_taken', { place: place.id });
+};
+$('photoShare').onclick = async () => {
+  if (!photoBlob) return;
+  const file = new File([photoBlob], 'oneul-hae.jpg', { type: 'image/jpeg' });
+  try {
+    await navigator.share({ files: [file], text: `오늘의 해 · ${place.name}\nhttps://hae.abracadelulu.com` });
+    track('photo_shared', { place: place.id });
+  } catch { /* 사용자가 취소 */ }
+};
+$('photoSave').addEventListener('click', () => track('photo_saved', { place: place.id }));
 $('menuBtn').onclick = () => { renderStreak(); renderAlarm(); open('menuSheet'); };
 
 let lastMyLantern = 0;
@@ -773,4 +820,4 @@ renderStreak(); renderAlarm(); renderCounts();
 requestAnimationFrame(loop);
 
 // 테스트용 (브라우저 콘솔에서 확인)
-Object.assign(window, { __hae: { remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
