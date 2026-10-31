@@ -16,8 +16,9 @@ const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
   [12, C(90, 152, 210), C(152, 196, 232), C(230, 240, 246)],
 ];
 
-/** 앉을 자리. 방석은 바다(ry 0)를, 통나무는 모닥불을 바라본다. bench면 y가 엉덩이 높이 */
-export interface Seat { x: number; z: number; occ: string | null; ry: number; y?: number; bench?: boolean }
+/** 앉을 자리. 방석·데크는 바다(ry 0)를, 통나무는 모닥불을 바라본다.
+ *  bench(통나무·데크 끝)면 y가 엉덩이 높이, sx·sz는 일어날 때 내려설 자리 */
+export interface Seat { x: number; z: number; occ: string | null; ry: number; y?: number; bench?: boolean; kind?: 'log' | 'pier'; sx?: number; sz?: number }
 
 /** 해안선은 z = -3. 뒤로 갈수록 모래사장이 살짝 높아진다 */
 export const groundY = (z: number) => Math.max(0, (z + 3) * 0.05 - 0.06);

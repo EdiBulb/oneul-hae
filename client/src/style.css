@@ -35,8 +35,8 @@
   .joy{width:124px;height:124px;border-radius:50%;background:rgba(12,14,30,.32);border:1px solid var(--line);position:relative;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none}
   .joy i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,248,239,.85);box-shadow:0 4px 18px rgba(0,0,0,.3)}
   .joy span{position:absolute;left:0;right:0;bottom:-18px;text-align:center;font-size:10.5px;color:var(--ink-faint)}
-  .actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
-  .act{font:inherit;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--ink);background:var(--glass);border:1px solid var(--line);border-radius:999px;padding:11px 16px;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);min-width:118px;justify-content:center}
+  .actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+  .act{font:inherit;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--ink);background:var(--glass);border:1px solid var(--line);border-radius:999px;padding:9px 16px;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);min-width:118px;justify-content:center}
   .act.primary{background:linear-gradient(180deg,#ffc070,#ff8a3d);color:#2a1404;border:none;box-shadow:0 6px 22px rgba(255,138,61,.35)}
   .act:active{transform:scale(.97)}
   .sheet-back{position:fixed;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .25s}

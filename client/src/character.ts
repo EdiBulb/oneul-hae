@@ -17,6 +17,8 @@ export interface Char {
   /** 짠 할 때만 보이는 머그컵 (오른손에 붙어 있음) */
   mug: THREE.Group;
   steam: THREE.Mesh;
+  /** 어깨에 두르는 체크무늬 담요 (켜 두는 상태) */
+  blanket: THREE.Group;
 }
 
 const SKIN = 0xf2d0b2;
@@ -40,6 +42,36 @@ export function textSprite(text: string, scale = 1) {
   s.scale.set((w / 72) * 0.42 * scale, 0.42 * scale, 1);
   s.renderOrder = 10;
   return s;
+}
+
+/** 모자 색을 바탕으로 한 체크무늬(타탄) 텍스처. 같은 색은 한 번만 만든다 */
+const tartanCache = new Map<number, THREE.CanvasTexture>();
+function tartan(base: number) {
+  let tex = tartanCache.get(base);
+  if (tex) return tex;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d')!, col = new THREE.Color(base);
+  const css = (k: number, a = 1) => `rgba(${Math.round(col.r * 255 * k)},${Math.round(col.g * 255 * k)},${Math.round(col.b * 255 * k)},${a})`;
+  g.fillStyle = css(0.78); g.fillRect(0, 0, 64, 64);
+  g.fillStyle = css(0.45, 0.55); g.fillRect(0, 20, 64, 12); g.fillRect(20, 0, 12, 64); // 굵은 어두운 줄
+  g.fillStyle = 'rgba(255,248,235,.55)'; g.fillRect(0, 44, 64, 3); g.fillRect(44, 0, 3, 64); // 가는 밝은 줄
+  tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(3, 1.5);
+  tartanCache.set(base, tex);
+  return tex;
+}
+
+/** 어깨에 둘러 등 뒤로 늘어지는 숄. 앞쪽은 살짝 열려 있음 (캐릭터 앞 = -z) */
+function makeBlanket(hatC: number) {
+  const g = new THREE.Group(); g.visible = false;
+  const mat = new THREE.MeshLambertMaterial({ map: tartan(hatC), side: THREE.DoubleSide });
+  const gap = 0.55; // 앞쪽 트인 각도의 절반
+  const shawl = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.45, 0.68, 20, 1, true, Math.PI + gap, Math.PI * 2 - gap * 2), mat);
+  shawl.position.y = 0.62; g.add(shawl);
+  // 어깨 위 접힌 부분
+  const roll = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.06, 6, 20, Math.PI * 2 - gap * 2), mat);
+  roll.rotation.set(Math.PI / 2, 0, -Math.PI / 2 + gap); roll.position.y = 0.95; g.add(roll);
+  return g;
 }
 
 export function makeChar(bodyC: number, hatC: number): Char {
@@ -76,10 +108,11 @@ export function makeChar(bodyC: number, hatC: number): Char {
   const steam = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
   steam.position.y = 0.16; mug.add(steam);
+  const blanket = makeBlanket(hatC); inner.add(blanket);
   const sh = new THREE.Mesh(new THREE.CircleGeometry(0.42, 16),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.02; root.add(sh);
-  return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, state: 'idle', bench: false, emote: null, emoteT: 0, mug, steam };
+  return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, state: 'idle', bench: false, emote: null, emoteT: 0, mug, steam, blanket };
 }
 
 export function disposeChar(c: Char) {
@@ -142,6 +175,8 @@ export function animChar(c: Char, dt: number) {
   c.legL.rotation.x += (lL - c.legL.rotation.x) * e;
   c.legR.rotation.x += (lR - c.legR.rotation.x) * e;
   c.inner.position.y += (y - c.inner.position.y) * e;
+  // 걸을 때 담요 자락이 살짝 펄럭임
+  if (c.blanket.visible) c.blanket.rotation.x = c.state === 'walk' ? 0.08 + Math.sin(c.phase * 2) * 0.04 : 0;
 }
 
 /** 이동 방향 (vx, vz)을 바라보는 회전각. 캐릭터의 앞은 -z */

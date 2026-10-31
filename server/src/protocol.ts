@@ -23,6 +23,8 @@ export interface PlayerInfo {
   z: number;
   ry: number;
   st: St;
+  /** 담요를 두르고 있는지 (켜 두는 상태라 나중에 들어온 사람도 볼 수 있게 서버가 기억) */
+  blanket?: boolean;
 }
 
 export interface JoinPayload {
@@ -75,6 +77,7 @@ export interface ServerToClient {
   emote: (id: string, e: Emote) => void;
   /** 두 사람이 커피잔을 부딪쳤다 (a가 먼저 누른 사람) */
   clink: (a: string, b: string) => void;
+  blanket: (id: string, on: boolean) => void;
   lantern: (id: string, x: number, z: number) => void;
   seat: (idx: number, id: string | null) => void;
   stats: (s: Stats) => void;
@@ -88,5 +91,6 @@ export interface ClientToServer {
   lantern: (x: number, z: number) => void;
   sit: (idx: number, ack: (ok: boolean) => void) => void;
   stand: () => void;
+  blanket: (on: boolean) => void;
   woke: () => void;
 }

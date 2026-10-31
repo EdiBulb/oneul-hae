@@ -18,8 +18,8 @@ const PLACES: Record<PlaceId, { tz: string }> = {
   homigot: { tz: 'Asia/Seoul' },
   gisborne: { tz: 'Pacific/Auckland' },
 };
-/** 방석 22개 + 모닥불 통나무 4개 × 2자리 */
-const SEAT_COUNT = 30;
+/** 방석 22개 + 모닥불 통나무 4개 × 2자리 + 데크 끝 3자리 */
+const SEAT_COUNT = 33;
 // 해변 + 얕은 물 + 바다로 뻗은 데크(z -26까지). 세부 모양은 클라이언트가 막는다
 const BOUNDS = { minX: -22, maxX: 22, minZ: -26, maxZ: 17 };
 /** 짠: 이 거리(m) 안에서, 이 시간(ms) 안에 둘 다 눌러야 컵이 부딪친다 */
@@ -43,6 +43,7 @@ interface SocketData {
   moveBudget: number;
   /** 짠을 누르고 아직 상대를 못 찾은 시각 (0 = 없음) */
   cheersAt: number;
+  lastBlanket: number;
 }
 type IO = Server<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
 type Sock = Socket<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
@@ -182,6 +183,7 @@ io.on('connection', (socket: Sock) => {
   socket.data.lastEmote = 0;
   socket.data.moveBudget = 20;
   socket.data.cheersAt = 0;
+  socket.data.lastBlanket = 0;
 
   socket.on('join', (p: JoinPayload) => {
     if (!p || !isPlace(p.place)) return;
@@ -255,6 +257,14 @@ io.on('connection', (socket: Sock) => {
     c.seats.set(idx, socket.id);
     io.to(c.key).emit('seat', idx, socket.id);
     reply(true);
+  });
+
+  socket.on('blanket', on => {
+    const c = socket.data.channel, me = c?.players.get(socket.id), now = Date.now();
+    if (!c || !me || now - socket.data.lastBlanket < 400) return;
+    socket.data.lastBlanket = now;
+    me.blanket = on === true;
+    socket.to(c.key).emit('blanket', socket.id, me.blanket);
   });
 
   socket.on('stand', () => {
