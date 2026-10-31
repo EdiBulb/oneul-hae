@@ -7,13 +7,17 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "socket.io": "^4.8.1",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/web-push": "^3.6.4",
     "typescript": "^5.7.2"
   }
 }

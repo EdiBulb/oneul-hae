@@ -146,3 +146,11 @@
   .photo-prev{display:block;width:100%;max-height:52vh;object-fit:contain;border-radius:14px;margin-top:12px;-webkit-user-select:auto;user-select:auto;-webkit-touch-callout:default}
   .photo-btns{display:flex;gap:8px;margin-top:12px}
   .photo-btns .btn{text-align:center;text-decoration:none;display:block}
+
+/* 나가기 전 다음 해돋이 알림 */
+.remind{margin:16px 0 4px;padding:14px;border:1px solid rgba(255,192,112,.35);border-radius:16px;background:rgba(255,160,80,.08);text-align:center}
+.remind-text{font-size:14px;color:var(--ink-dim);line-height:1.5}
+.remind-text b{color:var(--ink);font-size:16px}
+.remind-btn{margin-top:10px;background:rgba(255,192,112,.18);border-color:rgba(255,192,112,.5)}
+.remind-btn:disabled{opacity:.75;cursor:default}
+.remind .link{display:block;margin:10px auto 0}

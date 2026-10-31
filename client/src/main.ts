@@ -10,6 +10,7 @@ import { createTraces } from './traces';
 import { canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE } from './beach-extras';
 import { takePhoto } from './photo';
 import { connect } from './net';
+import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, placeName, placeRegion, type Place } from './places';
 import { T, applyHtml, lang, num, setLang } from './i18n';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
@@ -54,7 +55,9 @@ const bonfire = createBonfire(scene, GLOW);
 const seats = world.seats;
 
 // ================= 상태 =================
-let place: Place = PLACES[0];
+// 푸시·캘린더 알림에서 들어오면 ?place=로 그 해변을 바로 연다
+const query = new URLSearchParams(location.search);
+let place: Place = PLACES.find(p => p.id === query.get('place')) ?? PLACES[0];
 let replay: { sr: number; start: number; duration: number; from: number; span: number } | null = null;
 let watchStart = 0, seenFlag = false;
 const virtualNow = () => {
@@ -785,11 +788,12 @@ function openBye() {
     text = T.byeSoon(hm(info.windowSR, place.tz));
   } else {
     title = T.byeTitle;
-    text = info.next ? T.byeNext(dayName(info.next, place.tz), hm(info.next, place.tz)) : T.byeNextGeneric;
+    text = T.byeNextGeneric; // 다음 해돋이 시각은 바로 아래 알림 상자에 나옴
   }
   $('byeTitle').textContent = title;
   $('byeText').innerHTML = text;
   $('byeStay').textContent = live && !seenToday ? T.byeStayLive : T.byeStay;
+  renderRemind();
   open('byeSheet');
 }
 function leave() {
@@ -802,6 +806,41 @@ function leave() {
   // 이 사이트로 들어오기 전 페이지가 있으면 그쪽으로 돌아감 (없으면 작별 화면이 남아 있음)
   setTimeout(() => history.go(-2), 900);
 }
+// ---------- 다음 해돋이 알림 (푸시, 안 되면 캘린더) ----------
+const nextSunrise = () => sunrises(place, Date.now()).find(s => s - 5 * 60000 > Date.now())!;
+const pushLabel = $('remindPush').textContent ?? '';
+function renderRemind() {
+  const sr = nextSunrise(), tz = place.tz, push = canPush();
+  const push$ = $('remindPush') as HTMLButtonElement, done = store.remindAt === sr;
+  $('remindBox').hidden = false;
+  $('remindText').innerHTML = T.remindNext(dayName(sr, tz), hm(sr, tz));
+  // 푸시를 못 받는 환경(아이폰 Safari 등)이면 캘린더가 주 버튼
+  push$.hidden = !push; $('remindCal').hidden = !push; $('remindCalMain').hidden = push;
+  push$.disabled = done;
+  push$.textContent = done ? T.remindSet(hm(sr - 5 * 60000, tz)) : pushLabel;
+}
+function addToCalendar(via: string) {
+  const sr = nextSunrise();
+  track('reminder_calendar', { place: place.id, via });
+  toast(T.remindCalToast);
+  location.href = calendarUrl(place.id, sr, lang);
+}
+$('remindCal').onclick = () => addToCalendar('link');
+$('remindCalMain').onclick = () => addToCalendar('main');
+$('remindPush').onclick = async () => {
+  const sr = nextSunrise(), btn = $('remindPush') as HTMLButtonElement;
+  btn.disabled = true;
+  const r = await schedulePush(place.id, sr, lang).catch(() => 'unavailable' as const);
+  track('reminder_push', { place: place.id, result: r });
+  if (r === 'ok') {
+    store.remindAt = sr; save();
+    toast(T.remindSetToast(hm(sr - 5 * 60000, place.tz)));
+  } else toast(r === 'denied' ? T.remindDenied : T.remindFail);
+  renderRemind();
+  if (r !== 'ok') btn.disabled = false;
+};
+initPush();
+
 $('exitBtn').onclick = openBye;
 $('langBtn').textContent = lang === 'ko' ? 'EN' : '한';
 $('langBtn').onclick = () => { track('lang_changed', { to: lang === 'ko' ? 'en' : 'ko' }); setLang(lang === 'ko' ? 'en' : 'ko'); };
@@ -833,6 +872,7 @@ initAnalytics(store.uid);
 track('session_start', {
   place: place.id,
   lang,
+  source: query.get('source') ?? 'direct',
   returning: Object.keys(store.days).length > 0,
   streak: streakCount(),
   standalone: isStandalone,
