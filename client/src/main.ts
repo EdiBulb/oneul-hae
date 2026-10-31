@@ -600,6 +600,30 @@ $('seeWishesBtn').onclick = () => {
 };
 renderSeeWishes();
 const wishInput = $('wishInput') as HTMLInputElement;
+// ---------- 타이핑 모드: 키보드가 올라오면 소원 창을 입력칸만 남기고 줄임 ----------
+const wishSheet = $('wishSheet');
+let typingOff = 0;
+function liftAboveKeyboard() {
+  // 아이폰은 키보드가 화면을 덮기만 해서, 보이는 영역 바로 위로 창을 올려 줌 (안드로이드는 0)
+  const vv = window.visualViewport;
+  const kb = vv ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
+  wishSheet.style.bottom = wishSheet.classList.contains('typing') && kb > 0 ? `${kb}px` : '';
+}
+wishInput.addEventListener('focus', () => { clearTimeout(typingOff); wishSheet.classList.add('typing'); liftAboveKeyboard(); });
+wishInput.addEventListener('blur', () => {
+  // 바로 펼치면 손가락 밑 화면이 밀리므로 잠깐 기다렸다가, 다시 입력칸으로 돌아오지 않았을 때만 펼침
+  typingOff = window.setTimeout(() => { wishSheet.classList.remove('typing'); liftAboveKeyboard(); }, 150);
+});
+window.visualViewport?.addEventListener('resize', liftAboveKeyboard);
+// 타이핑 중에 체크박스를 눌러도 키보드(입력칸 포커스)가 유지되게
+const shareLabel = document.querySelector('label.share')!;
+shareLabel.addEventListener('touchstart', e => {
+  if (document.activeElement !== wishInput) return;
+  e.preventDefault(); // 터치: 포커스 이동과 클릭을 막고 직접 체크
+  shareBox.checked = !shareBox.checked;
+  shareBox.dispatchEvent(new Event('change'));
+}, { passive: false });
+shareLabel.addEventListener('mousedown', e => { if (document.activeElement === wishInput) e.preventDefault(); }); // 마우스: 포커스 이동만 막음
 wishInput.addEventListener('input', () => { $('wishCount').textContent = `${wishInput.value.length} / 24`; });
 $('wishForm').addEventListener('submit', e => {
   e.preventDefault();
