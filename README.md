@@ -13,6 +13,7 @@ oneul-hae/
 ├─ server/                 # 실시간 서버 (Node + Socket.io)
 │  └─ src/
 │     ├─ index.ts          # 채널 분배, 위치 중계, 방석, 통계
+│     ├─ reminders.ts      # 해돋이 5분 전 푸시 예약·발송, 캘린더(.ics) 파일
 │     └─ protocol.ts       # 서버·클라이언트가 함께 쓰는 이벤트 타입
 └─ client/                 # 프론트 (Vite + TypeScript + three.js)
    ├─ index.html
@@ -24,6 +25,7 @@ oneul-hae/
       ├─ sun.ts            # 태양 계산, 시간 표시
       ├─ store.ts          # 연속 기록·알람·내 캐릭터 (localStorage)
       ├─ places.ts         # 장소, 소원, 색 팔레트
+      ├─ reminder.ts       # 다음 해돋이 알림 (웹 푸시 구독, 캘린더 링크)
       ├─ i18n.ts           # 한국어/영어 문구 (브라우저 언어로 자동 선택, 한/EN 버튼으로 전환)
       └─ net.ts            # Socket.io 연결
 ```
@@ -71,6 +73,21 @@ gh repo create oneul-hae --public --source . --push
 Vercel → Settings → Domains → `hae.abracadelulu.com` 추가 →
 도메인 관리 페이지에서 안내된 CNAME 레코드 추가.
 그다음 Railway의 `CORS_ORIGIN`을 이 주소로 바꾸기.
+
+### 5. 해돋이 5분 전 알림 (푸시 + 캘린더)
+나가기 화면의 "5분 전에 알림 받기"(웹 푸시)와 "캘린더에 추가하기"(.ics).
+캘린더는 설정 없이 바로 동작. 푸시는 아래를 설정해야 버튼이 나타남.
+
+1. 키 만들기: `cd server && npx web-push generate-vapid-keys`
+2. 서버 환경 변수: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (비밀키는 절대 프론트·깃허브에 넣지 않기)
+3. 예약 저장소 (권장): upstash.com 무료 Redis → REST URL·토큰을 `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`에.
+   없으면 메모리에만 저장돼서 서버가 재시작·재배포되면 예약이 사라짐
+4. 서버 깨우기: 무료 서버는 15분 동안 접속이 없으면 잠들어서 알림 시각을 놓칠 수 있음.
+   cron-job.org 같은 무료 크론에 `https://서버주소/push/tick` 을 **5분마다** 호출하도록 등록
+   (서버를 깨워 두고, 밀린 알림이 있으면 바로 보냄)
+
+아이폰은 Safari에서는 푸시를 못 받고 **홈 화면에 설치한 앱**(iOS 16.4+)에서만 받음.
+푸시를 못 받는 환경에서는 캘린더 버튼이 주 버튼으로 바뀜.
 
 ## 런칭 전 체크리스트
 - [ ] 실제 폰(아이폰·안드로이드)에서 프레임 확인 — 느리면 `renderer.setPixelRatio` 값을 1.25로

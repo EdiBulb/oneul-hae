@@ -15,6 +15,8 @@ interface Saved {
   wokeOn?: string;
   /** 설치 안내를 '나중에'로 미룬 시각 */
   installSnooze?: number;
+  /** 푸시 알림을 예약해 둔 일출 시각 */
+  remindAt?: number;
   /** 배경 소리 켜짐 (기본 켜짐) */
   soundOn: boolean;
 }
@@ -32,6 +34,7 @@ export const store: Saved = {
   look: raw.look ?? { body: Math.floor(Math.random() * BODY_COLORS.length), hat: Math.floor(Math.random() * HAT_COLORS.length) },
   wokeOn: raw.wokeOn,
   installSnooze: raw.installSnooze,
+  remindAt: raw.remindAt,
   soundOn: raw.soundOn ?? true,
 };
 export function save() {

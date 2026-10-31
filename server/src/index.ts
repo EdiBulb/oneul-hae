@@ -3,6 +3,7 @@ import { Server, type Socket } from 'socket.io';
 import type {
   ClientToServer, Emote, Ghost, JoinPayload, Look, Move, PlaceId, PlayerInfo, ServerToClient, St, Stats, Traces,
 } from './protocol.js';
+import { handleReminderHttp, pushEnabled } from './reminders.js';
 
 // ---------- 설정 (환경 변수로 바꿀 수 있음) ----------
 const PORT = Number(process.env.PORT ?? 3001);
@@ -144,8 +145,9 @@ function stats(): Stats {
 }
 
 // ---------- 서버 ----------
-const http = createServer((req, res) => {
+const http = createServer(async (req, res) => {
   if (req.url === '/health') { res.writeHead(200).end('ok'); return; }
+  try { if (await handleReminderHttp(req, res, ORIGINS)) return; } catch (e) { console.error(e); if (!res.headersSent) res.writeHead(500).end(); return; }
   res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end('오늘의 해 실시간 서버');
 });
 
@@ -298,4 +300,4 @@ setInterval(() => {
   }
 }, 60 * 60 * 1000);
 
-http.listen(PORT, () => console.log(`오늘의 해 서버: http://localhost:${PORT} (채널 정원 ${CAP}명)`));
+http.listen(PORT, () => console.log(`오늘의 해 서버: http://localhost:${PORT} (채널 정원 ${CAP}명, 푸시 ${pushEnabled ? '켜짐' : '꺼짐'})`));
