@@ -9,7 +9,8 @@ export interface Look { body: number; hat: number }
 /** 0 = 서 있음, 1 = 걷는 중, 2 = 방석에 앉음 */
 export type St = 0 | 1 | 2;
 
-export type Emote = 'stretch' | 'wave';
+/** cheers = 모닝커피 짠. 혼자면 한 모금 마시고, 가까운 사람과 3초 안에 같이 누르면 컵을 부딪친다 */
+export type Emote = 'stretch' | 'wave' | 'cheers';
 
 /** [id, x, z, ry, st] — 자주 오가므로 객체 대신 배열 */
 export type Move = [string, number, number, number, St];
@@ -72,6 +73,8 @@ export interface ServerToClient {
   /** 0.1초마다 방 안에서 움직인 사람들의 위치를 한 번에 묶어서 보낸다 */
   tick: (batch: Move[]) => void;
   emote: (id: string, e: Emote) => void;
+  /** 두 사람이 커피잔을 부딪쳤다 (a가 먼저 누른 사람) */
+  clink: (a: string, b: string) => void;
   lantern: (id: string, x: number, z: number) => void;
   seat: (idx: number, id: string | null) => void;
   stats: (s: Stats) => void;

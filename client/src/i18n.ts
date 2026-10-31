@@ -1,0 +1,302 @@
+// 한국어 / 영어 화면 문구.
+// 언어는 접속 위치가 아니라 브라우저 언어로 정한다 (해외에 사는 한국 사람은 한국어로 보도록).
+// 사용자가 한/EN 버튼으로 바꾸면 그 선택을 저장해 두고 다음에도 쓴다.
+
+export type Lang = 'ko' | 'en';
+const LANG_KEY = 'oneul-hae-lang';
+
+function detect(): Lang {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved === 'ko' || saved === 'en') return saved;
+  } catch { /* 저장소가 막힌 브라우저 */ }
+  const langs = navigator.languages?.length ? navigator.languages : [navigator.language];
+  return langs.some(l => l?.toLowerCase().startsWith('ko')) ? 'ko' : 'en';
+}
+
+export const lang: Lang = detect();
+export const locale = lang === 'ko' ? 'ko-KR' : 'en-NZ';
+document.documentElement.lang = lang;
+
+/** 언어를 바꾸고 새로고침 (3D 이름표 등 이미 그린 글자까지 한 번에 바뀌도록) */
+export function setLang(l: Lang) {
+  try { localStorage.setItem(LANG_KEY, l); } catch { /* 무시 */ }
+  location.reload();
+}
+
+export const num = (n: number) => n.toLocaleString(locale);
+const people = (n: number) => `${num(n)} ${n === 1 ? 'person' : 'people'}`;
+
+const ko = {
+  // 상단·연결
+  connecting: '연결 중…',
+  unitPeople: '명',
+  chipCount: (n: number) => `${n}명`,
+  aloneVisited: (n: number) => `오늘 이 해변에 ${num(n)}명이 먼저 다녀갔어요`,
+  alone: '지금은 나 혼자예요 · 친구를 불러 같이 봐요',
+  alreadyHere: (n: number) => `${n}명이 먼저 와 있어요`,
+  joined: (nick: string) => `${nick}님이 해변에 왔어요`,
+  lanternBy: (nick: string) => `${nick}님이 풍등을 올렸어요`,
+  me: '나',
+  // 카메라
+  viewAll: '전체 보기', view3rd: '3인칭', viewMine: '내 시점',
+  // 방석
+  standUp: '일어나기', sitDown: '방석에 앉기', findSeat: '방석 찾기',
+  seatHint: '빈 방석 가까이 가면 앉을 수 있어요',
+  seatTaken: '방금 다른 사람이 앉았어요',
+  // 해돋이 안내
+  replayOf: (d: string) => `다시보기 · ${d}`,
+  soon: '곧 해가 떠요', risen: '해가 떴어요',
+  replaySoonOrRisen: (p: string, risen: boolean) => `다시보기 · ${p} ${risen ? '해가 떴어요' : '곧 해가 떠요'}`,
+  sunriseAt: (p: string, t: string) => `${p} 일출 ${t}`,
+  sunriseLeft: (t: string, left: string) => `일출 ${t} · ${left} 남음`,
+  liveCountdown: (left: string) => `LIVE · 해돋이까지 ${left}`,
+  liveRisen: (p: string) => `LIVE · ${p} 해가 떴어요`,
+  localTime: (p: string, t: string) => `${p} · 현지 ${t}`,
+  nextCompact: (p: string, t: string, left: string) => `${p} · 해돋이 ${t} · ${left} 후`,
+  night: '아직 밤이에요',
+  roseAt: (t: string) => `오늘 해는 ${t}에 떴어요`,
+  sunUp: '해가 떠 있어요',
+  nextSunrise: (d: string, t: string, left: string) => `다음 해돋이 ${d} ${t} · ${left} 남음`,
+  replaySeen: '다시보기로 오늘의 해를 봤어요',
+  liveSeen: (n: number) => `오늘의 해를 봤어요 · ${n}일째`,
+  wokeCount: (n: number) => `오늘 알람을 끄고 나온 사람 ${num(n)}명`,
+  // 장소
+  arrived: (p: string, first: boolean) => `${p}${first ? ' · 세계에서 가장 먼저 해가 뜨는 곳 중 하나' : ''}에 왔어요`,
+  // 사진
+  photoFail: '사진을 찍지 못했어요',
+  photoFile: '오늘의해',
+  photoCaption: (p: string) => `오늘의 해 · ${p}`,
+  shareText: (p: string) => `오늘의 해 · ${p}`,
+  // 풍등
+  lanternWait: '풍등은 3초에 하나씩 올릴 수 있어요',
+  lanternUp: (w: string) => `'${w}' 풍등을 올렸어요`,
+  wishEmpty: '소원을 한 줄 적어 주세요',
+  // 공유
+  sawToday: (p: string, n: number) => `☀ 오늘도 해 봤다 · ${p}${n ? ` · ${n}일째` : ''}`,
+  copied: '문구를 복사했어요',
+  invite: '내일 아침 같이 해 보러 가요 ☀',
+  inviteCopied: '초대 링크를 복사했어요',
+  // 기록
+  weekdays: ['일', '월', '화', '수', '목', '금', '토'],
+  today: '오늘',
+  streak: (n: number) => `<span class="big">${n}일째</span><br>해를 보고 있어요`,
+  streakEmpty: '오늘 해를 보면<br>기록이 시작돼요',
+  // 알람
+  alarmOn: '알람 켜짐', alarmOff: '알람 켜기',
+  alarmOnText: (d: string, t: string, p: string, sr: string) => `<b>${d} ${t}</b>에 깨워드릴게요<br>${p} 일출 ${sr}`,
+  alarmOffText: (t: string, p: string) => `해 뜨기 5분 전 알람<br>다음은 <b>${t}</b> · ${p}`,
+  wakeWaiting: (p: string, n: number) => `지금 <b>${p}</b> 해변에 <b>${num(n)}명</b>이<br>먼저 나와 해를 기다리고 있어요.`,
+  wakeFirst: (p: string) => `<b>${p}</b> 해변의 첫 번째 사람이 되어 보세요.`,
+  alarmToggledOn: '알람을 켰어요 · 해 뜨기 5분 전에 울려요',
+  goodMorning: '좋은 아침이에요 · 같이 해 봐요',
+  // 설치
+  alreadyApp: '이미 앱으로 열려 있어요',
+  installKakaoTitle: '브라우저에서 열어 설치해요', installKakaoGo: '브라우저로 열기',
+  installTitle: '앱으로 설치할까요?', installGo: '설치하기',
+  installIosTitle: '홈 화면에 추가할까요?', ok: '알겠어요',
+  installManualTitle: '홈 화면에 추가하기',
+  installManualToast: "브라우저 메뉴(⋮)에서 '홈 화면에 추가'를 눌러 주세요",
+  installed: '설치됐어요 · 내일 아침 홈 화면에서 만나요',
+  // 소리
+  soundOff: '소리 끄기', soundOn: '소리 켜기',
+  soundOnToast: (p: string) => `${p}의 소리를 켰어요`, soundOffToast: '소리를 껐어요',
+  // 나가기
+  byeThanksTogether: '같이 해를 봐 줘서 고마워요', byeThanks: '오늘 해를 봐 줘서 고마워요',
+  byeSawWith: (p: string, n: number) => `<b>${p}</b>에서 <b>${n}명</b>과 함께 오늘의 해를 봤어요.<br>`,
+  byeSaw: (p: string) => `<b>${p}</b>에서 오늘의 해를 봤어요.<br>`,
+  byeStreak: (n: number) => `벌써 <b>${n}일째</b>예요. 내일도 같이 봐요.`,
+  byeWarm: '오늘 하루도 따뜻하게 보내요.',
+  byeSoonTitle: '해가 곧 떠요!',
+  byeSoon: (t: string) => `<b>${t}</b>에 해가 떠요. 조금만 더 있다 갈까요?`,
+  byeTitle: '와 줘서 고마워요',
+  byeNext: (d: string, t: string) => `다음 해돋이는 <b>${d} ${t}</b>이에요.<br>그때 해변에서 같이 봐요.`,
+  byeNextGeneric: '다음 해돋이에 다시 만나요.',
+  byeStayLive: '해 뜨는 거 보고 갈게요', byeStay: '조금 더 있을게요',
+  goodbyeSeen: '오늘 해를 같이 봐서 즐거웠어요.<br>내일 아침, 해변에서 다시 만나요.',
+  goodbye: '내일 아침, 해변에서 다시 만나요.',
+  // 짠
+  cheersNearby: (nick: string) => `${nick}님이 커피를 들었어요 · 3초 안에 '짠'을 눌러 보세요`,
+  clinkMe: (nick: string) => `${nick}님과 짠! ☕`,
+  clinkOthers: (a: string, b: string) => `${a}님과 ${b}님이 짠 했어요`,
+  // 3D 이름표
+  traceLabel: '오늘 다녀간 자리',
+  fisher: '낚시하는 동네 주민',
+  defaultNick: '해 보러 온 사람',
+  // 날씨
+  rain: '비', calm: '고요함', breeze: '산들바람', wind: '바람', strongWind: '강한 바람',
+  // 시간
+  dur: (h: number, m: number) => (h ? `${h}시간 ${m}분` : `${m}분`),
+};
+
+type Dict = { [K in keyof typeof ko]: (typeof ko)[K] };
+
+const en: Dict = {
+  connecting: 'Connecting…',
+  unitPeople: '',
+  chipCount: (n: number) => `${n}`,
+  aloneVisited: (n: number) => `${people(n)} already visited this beach today`,
+  alone: "It's just you for now · invite a friend to watch together",
+  alreadyHere: (n: number) => `${people(n)} got here before you`,
+  joined: (nick: string) => `${nick} arrived at the beach`,
+  lanternBy: (nick: string) => `${nick} released a lantern`,
+  me: 'Me',
+  viewAll: 'Overview', view3rd: '3rd person', viewMine: 'My view',
+  standUp: 'Stand up', sitDown: 'Sit on cushion', findSeat: 'Find a cushion',
+  seatHint: 'Walk up to an empty cushion to sit',
+  seatTaken: 'Someone just took that seat',
+  replayOf: (d: string) => `Replay · ${d}`,
+  soon: 'The sun is about to rise', risen: 'The sun is up',
+  replaySoonOrRisen: (p: string, risen: boolean) => `Replay · ${p} ${risen ? 'sun is up' : 'sunrise soon'}`,
+  sunriseAt: (p: string, t: string) => `${p} sunrise ${t}`,
+  sunriseLeft: (t: string, left: string) => `Sunrise ${t} · ${left} to go`,
+  liveCountdown: (left: string) => `LIVE · sunrise in ${left}`,
+  liveRisen: (p: string) => `LIVE · ${p} the sun is up`,
+  localTime: (p: string, t: string) => `${p} · local time ${t}`,
+  nextCompact: (p: string, t: string, left: string) => `${p} · sunrise ${t} · in ${left}`,
+  night: "It's still night",
+  roseAt: (t: string) => `Today the sun rose at ${t}`,
+  sunUp: 'The sun is up',
+  nextSunrise: (d: string, t: string, left: string) => `Next sunrise ${d} ${t} · ${left} to go`,
+  replaySeen: "You watched today's sunrise on replay",
+  liveSeen: (n: number) => `You saw today's sunrise · day ${n}`,
+  wokeCount: (n: number) => `${people(n)} turned off their alarm and came out today`,
+  arrived: (p: string, first: boolean) => `Welcome to ${p}${first ? ' · one of the first places on Earth to see the sun' : ''}`,
+  photoFail: "Couldn't take the photo",
+  photoFile: 'todays-sun',
+  photoCaption: (p: string) => `Today's Sun · ${p}`,
+  shareText: (p: string) => `Today's Sun · ${p}`,
+  lanternWait: 'You can release one lantern every 3 seconds',
+  lanternUp: (w: string) => `Released a lantern: '${w}'`,
+  wishEmpty: 'Write a wish first',
+  sawToday: (p: string, n: number) => `☀ Saw the sunrise today · ${p}${n ? ` · day ${n}` : ''}`,
+  copied: 'Copied to clipboard',
+  invite: "Let's watch the sunrise together tomorrow morning ☀",
+  inviteCopied: 'Invite link copied',
+  weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  today: 'Today',
+  streak: (n: number) => `<span class="big">Day ${n}</span><br>of watching the sunrise`,
+  streakEmpty: 'Watch the sunrise today<br>to start your streak',
+  alarmOn: 'Alarm on', alarmOff: 'Turn on alarm',
+  alarmOnText: (d: string, t: string, p: string, sr: string) => `I'll wake you at <b>${d} ${t}</b><br>${p} sunrise ${sr}`,
+  alarmOffText: (t: string, p: string) => `Alarm 5 min before sunrise<br>Next: <b>${t}</b> · ${p}`,
+  wakeWaiting: (p: string, n: number) => `<b>${people(n)}</b> are already on <b>${p}</b> beach<br>waiting for the sun.`,
+  wakeFirst: (p: string) => `Be the first one on <b>${p}</b> beach.`,
+  alarmToggledOn: 'Alarm on · it rings 5 minutes before sunrise',
+  goodMorning: "Good morning · let's watch the sun together",
+  alreadyApp: 'Already open as an app',
+  installKakaoTitle: 'Open in your browser to install', installKakaoGo: 'Open in browser',
+  installTitle: 'Install as an app?', installGo: 'Install',
+  installIosTitle: 'Add to Home Screen?', ok: 'Got it',
+  installManualTitle: 'Add to Home Screen',
+  installManualToast: "Tap 'Add to Home screen' in your browser menu (⋮)",
+  installed: 'Installed · see you on your home screen tomorrow morning',
+  soundOff: 'Mute', soundOn: 'Unmute',
+  soundOnToast: (p: string) => `Sound of ${p} is on`, soundOffToast: 'Sound off',
+  byeThanksTogether: 'Thanks for watching together', byeThanks: 'Thanks for watching the sunrise',
+  byeSawWith: (p: string, n: number) => `You watched today's sunrise at <b>${p}</b> with <b>${people(n)}</b>.<br>`,
+  byeSaw: (p: string) => `You watched today's sunrise at <b>${p}</b>.<br>`,
+  byeStreak: (n: number) => `That's <b>day ${n}</b> already. See you tomorrow.`,
+  byeWarm: 'Have a warm day.',
+  byeSoonTitle: 'The sun is almost up!',
+  byeSoon: (t: string) => `The sun rises at <b>${t}</b>. Stay a little longer?`,
+  byeTitle: 'Thanks for coming',
+  byeNext: (d: string, t: string) => `Next sunrise is <b>${d} ${t}</b>.<br>See you on the beach.`,
+  byeNextGeneric: 'See you at the next sunrise.',
+  byeStayLive: "I'll stay for the sunrise", byeStay: "I'll stay a bit longer",
+  goodbyeSeen: 'It was lovely watching the sun with you.<br>See you on the beach tomorrow morning.',
+  goodbye: 'See you on the beach tomorrow morning.',
+  cheersNearby: (nick: string) => `${nick} raised a coffee · tap 'Cheers' within 3 seconds`,
+  clinkMe: (nick: string) => `Cheers with ${nick}! ☕`,
+  clinkOthers: (a: string, b: string) => `${a} and ${b} clinked mugs`,
+  traceLabel: 'Someone sat here today',
+  fisher: 'Local fisher',
+  defaultNick: 'Sunrise watcher',
+  rain: 'rain', calm: 'calm', breeze: 'light breeze', wind: 'windy', strongWind: 'strong wind',
+  dur: (h: number, m: number) => (h ? `${h}h ${m}m` : `${m} min`),
+};
+
+export const T: Dict = lang === 'ko' ? ko : en;
+
+// ---------- index.html 정적 문구 ----------
+// data-i18n="key" → textContent, data-i18n-html → innerHTML, data-i18n-aria → aria-label,
+// data-i18n-ph → placeholder, data-i18n-alt → alt
+const HTML_EN: Record<string, string> = {
+  'title': "Today's Sun · watch the sunrise together online",
+  'exit': '‹<span class="exit-label"> Leave</span>',
+  'exitAria': 'Leave the beach',
+  'brand': "Today's Sun<small>A 1-minute sunrise before work</small>",
+  'menu': 'Streak · Alarm',
+  'chipsAria': 'Sunrise places',
+  'statusAria': 'Show/hide sunrise info',
+  'loading': 'Loading',
+  'joyAria': 'Movement joystick',
+  'joyHint': 'WASD · arrow keys',
+  'wave': 'Wave',
+  'cheers': 'Cheers ☕',
+  'stretch': 'Stretch',
+  'sit': 'Sit on cushion',
+  'lantern': 'Release lantern',
+  'photoAria': 'Take a photo of this view',
+  'zoomInAria': 'Closer', 'zoomOutAria': 'Further',
+  'overview': 'All', 'overviewAria': 'See everyone on the beach',
+  'resetView': 'My<br>view', 'resetViewAria': 'Back to my view',
+  'photoTitle': 'You captured today\'s sun',
+  'photoAlt': 'Beach photo you just took',
+  'photoLead': 'You can also long-press the photo to save it.',
+  'share': 'Share', 'save': 'Save',
+  'wishTitle': 'What would you like to send up?',
+  'wishLead': 'Wishes you write are only visible to you. Others only see the lantern\'s light.',
+  'wishPh': 'e.g. Let me pass my interview this week',
+  'wishAria': 'Write your own wish',
+  'wishGo': 'Release',
+  'wishOr': 'or pick one',
+  'menuTitle': 'My mornings',
+  'streakText': 'Watch the sunrise to start',
+  'copyBtn': 'Copy "I saw the sunrise today"',
+  'alarmText': 'Alarm 5 min before sunrise',
+  'alarmBtn': 'Turn on alarm',
+  'demoBtn': 'Try what waking up with the alarm feels like',
+  'missed': 'Missed the sunrise?',
+  'replayBtn': "Replay today's sunrise",
+  'supportTitle': 'Send a cup of sunshine ☕',
+  'supportText': "Today's Sun is built and run by one person. Your support goes to server costs and new beaches.",
+  'kakaoBtn': 'Send via KakaoPay (Korea)',
+  'kakaoAlt': 'KakaoPay transfer QR code',
+  'kakaoQrText': 'On a computer?<br>Scan with your phone camera',
+  'supportBtn': 'Buy Me a Coffee (international cards)',
+  'myName': 'My name',
+  'inviteBtn': 'Invite a friend',
+  'installMenuBtn': 'Install as an app on your home screen',
+  'note': 'Sun positions and sunrise times are real astronomical calculations. The people and numbers on the beach are real people connected right now. Translucent silhouettes and distant lanterns are traces of people who actually visited today (no names or wishes are kept). Seagulls, dogs and the fisher are just scenery and aren\'t counted. The alarm only rings while this page is open.',
+  'installLead': 'Keep it on your home screen and open it in one tap every morning.',
+  'iosHow': 'On iPhone:',
+  'ios1': 'Tap the <b>Share button</b> (square with arrow) at the bottom of Safari',
+  'ios2': 'Choose <b>Add to Home Screen</b>',
+  'ios3': 'Tap <b>Add</b> at the top right and you\'re done',
+  'later': 'Later',
+  'installGo': 'Install',
+  'connecting': 'Connecting…',
+  'byeTitle': 'Leaving already?',
+  'byeLeave': 'Leave the beach',
+  'goodbyeTitle': 'Have a good day',
+  'comeBack': 'Back to the beach',
+  'hintTitle': "You've arrived at the beach",
+  'hintText': 'Walk with the joystick (or WASD),<br>drag the screen to look around.<br>Pinch or tap <b>−</b> to zoom out<br>and see everyone at once.',
+  'start': 'Start',
+  'wakeTitle': 'Sunrise in 5 minutes',
+  'wakeBtn': 'Turn off alarm and watch the sun',
+  'fail': "Couldn't load the 3D view.<br>Please try another browser.",
+};
+
+export function applyHtml() {
+  if (lang !== 'en') return;
+  document.querySelectorAll<HTMLElement>('[data-i18n-aria]').forEach(el => {
+    el.setAttribute('aria-label', HTML_EN[el.dataset.i18nAria!] ?? el.getAttribute('aria-label') ?? '');
+  });
+  document.title = HTML_EN.title;
+  document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => { el.textContent = HTML_EN[el.dataset.i18n!] ?? el.textContent; });
+  document.querySelectorAll<HTMLElement>('[data-i18n-html]').forEach(el => { el.innerHTML = HTML_EN[el.dataset.i18nHtml!] ?? el.innerHTML; });
+  document.querySelectorAll<HTMLInputElement>('[data-i18n-ph]').forEach(el => { el.placeholder = HTML_EN[el.dataset.i18nPh!] ?? el.placeholder; });
+  document.querySelectorAll<HTMLImageElement>('[data-i18n-alt]').forEach(el => { el.alt = HTML_EN[el.dataset.i18nAlt!] ?? el.alt; });
+}

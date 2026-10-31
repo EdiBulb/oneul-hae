@@ -10,12 +10,14 @@ import { createTraces } from './traces';
 import { canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE } from './beach-extras';
 import { takePhoto } from './photo';
 import { connect } from './net';
-import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, type Place } from './places';
+import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, placeName, placeRegion, type Place } from './places';
+import { T, applyHtml, lang, num, setLang } from './i18n';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
 import { dayName, dur, hm, mmss, sunriseInfo, sunrises } from './sun';
 import { createWorld, glowTexture, groundY } from './world';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
+applyHtml();
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 // ================= 3D 기본 =================
@@ -66,13 +68,13 @@ const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
 const spawn = () => { const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z); };
 spawn();
 scene.add(me.root);
-const meLabel = textSprite('나', 0.75); meLabel.position.y = 1.9; me.root.add(meLabel);
+const meLabel = textSprite(T.me, 0.75); meLabel.position.y = 1.9; me.root.add(meLabel);
 const meLabelBase = meLabel.scale.clone();
 const meRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.62, 32),
   new THREE.MeshBasicMaterial({ color: 0xffa14d, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide }));
 meRing.rotation.x = -Math.PI / 2; meRing.position.y = 0.03; me.root.add(meRing);
 let mySeat: number | null = null;
-$('myNick').textContent = store.nick;
+$('myNick').textContent = localizeNick(store.nick);
 
 // ================= 다른 사람들 (실시간) =================
 interface Remote { info: PlayerInfo; c: Char; label: THREE.Sprite; tx: number; tz: number; ry: number; st: St }
@@ -84,7 +86,7 @@ function addRemote(p: PlayerInfo) {
   const c = makeChar(BODY_COLORS[p.look.body % BODY_COLORS.length], HAT_COLORS[p.look.hat % HAT_COLORS.length]);
   c.root.position.set(p.x, floorY(p.x, p.z), p.z);
   c.root.rotation.y = p.ry;
-  const label = textSprite(p.nick, 0.6); label.position.y = 1.85; c.root.add(label);
+  const label = textSprite(localizeNick(p.nick), 0.6); label.position.y = 1.85; c.root.add(label);
   scene.add(c.root);
   remotes.set(p.id, { info: p, c, label, tx: p.x, tz: p.z, ry: p.ry, st: p.st });
 }
@@ -121,7 +123,7 @@ let todayVisitors = 0;
 /** 지금은 혼자여도, 오늘 다녀간 진짜 사람이 있으면 그걸 알려 준다 */
 function aloneMsg() {
   const n = (stats?.today[place.id] ?? todayVisitors) - 1;
-  return n > 0 ? `오늘 이 해변에 ${n.toLocaleString('ko-KR')}명이 먼저 다녀갔어요` : '지금은 나 혼자예요 · 친구를 불러 같이 봐요';
+  return n > 0 ? T.aloneVisited(n) : T.alone;
 }
 
 function join() {
@@ -142,10 +144,10 @@ net.on('welcome', w => {
   if (mySeat !== null) { seats[mySeat].occ = null; mySeat = null; me.state = 'idle'; }
   traces.set(w.traces);
   todayVisitors = w.traces.visitors;
-  if (w.players.length > 0) ticker(`${w.players.length}명이 먼저 와 있어요`);
+  if (w.players.length > 0) ticker(T.alreadyHere(w.players.length));
   else ticker(aloneMsg());
 });
-net.on('joined', p => { addRemote(p); ticker(`${p.nick}님이 해변에 왔어요`); });
+net.on('joined', p => { addRemote(p); ticker(T.joined(localizeNick(p.nick))); });
 net.on('left', id => removeRemote(id));
 net.on('tick', batch => {
   for (const [id, x, z, ry, st] of batch) {
@@ -154,11 +156,35 @@ net.on('tick', batch => {
     r.tx = x; r.tz = z; r.ry = ry; r.st = st;
   }
 });
-net.on('emote', (id, e) => { const r = remotes.get(id); if (r) { r.c.emote = e; r.c.emoteT = 0; } });
+net.on('emote', (id, e) => {
+  const r = remotes.get(id);
+  if (!r) return;
+  r.c.emote = e; r.c.emoteT = 0;
+  // 가까운 사람이 커피를 들면 같이 누르라고 알려 줌
+  if (e === 'cheers' && r.c.root.position.distanceTo(me.root.position) < 3) toast(T.cheersNearby(localizeNick(r.info.nick)));
+});
+// 짠: 서버가 가까이 있는 두 사람을 짝지어 줌 → 서로 마주 보고 컵을 부딪침
+let clinkFace: { ang: number; until: number } | null = null;
+const charOf = (id: string) => (id === myId ? me : remotes.get(id)?.c);
+const nickOf = (id: string) => (id === myId ? localizeNick(store.nick) : localizeNick(remotes.get(id)?.info.nick ?? ''));
+net.on('clink', (a, b) => {
+  const ca = charOf(a), cb = charOf(b);
+  if (!ca || !cb) return;
+  for (const [x, y] of [[ca, cb], [cb, ca]] as const) {
+    x.emote = 'clink'; x.emoteT = 0;
+    const ang = faceAngle(y.root.position.x - x.root.position.x, y.root.position.z - x.root.position.z);
+    if (x === me) clinkFace = { ang, until: performance.now() + 2600 };
+    else { const r = [...remotes.values()].find(r => r.c === x); if (r) r.ry = ang; }
+  }
+  if (a === myId || b === myId) {
+    ticker(T.clinkMe(nickOf(a === myId ? b : a)));
+    track('cheers_clink', { place: place.id });
+  } else if (ca.root.position.distanceTo(me.root.position) < 12) ticker(T.clinkOthers(nickOf(a), nickOf(b)));
+});
 net.on('lantern', (id, x, z) => {
   const r = remotes.get(id);
   lanterns.launch(new THREE.Vector3(x, groundY(z), z));
-  if (r) ticker(`${r.info.nick}님이 풍등을 올렸어요`);
+  if (r) ticker(T.lanternBy(localizeNick(r.info.nick)));
 });
 net.on('seat', (idx, id) => {
   if (!seats[idx]) return;
@@ -180,11 +206,11 @@ function sendState(t: number) {
 
 function renderCounts() {
   const online = stats?.online[place.id] ?? (connected ? remotes.size + 1 : 0);
-  $('viewerCount').textContent = connected ? online.toLocaleString('ko-KR') : '연결 중…';
-  $('viewerUnit').textContent = connected ? '명' : '';
+  $('viewerCount').textContent = connected ? num(online) : T.connecting;
+  $('viewerUnit').textContent = connected ? T.unitPeople : '';
   [...$('chips').children].forEach((el, i) => {
     const n = stats?.online[PLACES[i].id] ?? 0;
-    (el.querySelector('em') as HTMLElement).textContent = n ? `${n}명` : '';
+    (el.querySelector('em') as HTMLElement).textContent = n ? T.chipCount(n) : '';
   });
 }
 
@@ -249,7 +275,7 @@ function updateCamera(dt: number) {
   meLabel.scale.set(meLabelBase.x * k, meLabelBase.y * k, 1);
   meLabel.position.y = 1.9 + (k - 1) * 0.12;
   meRing.scale.setScalar(Math.min(3, 0.8 + cam.dist / 14));
-  $('viewName').textContent = cam.tDist > 20 ? '전체 보기' : cam.tDist > 9 ? '3인칭' : '내 시점';
+  $('viewName').textContent = cam.tDist > 20 ? T.viewAll : cam.tDist > 9 ? T.view3rd : T.viewMine;
 }
 
 // 화면 드래그 = 둘러보기, 두 손가락/휠 = 줌
@@ -305,10 +331,12 @@ function updateMe(dt: number) {
     p.y = floorY(p.x, p.z); me.state = 'walk'; turnTo(me, faceAngle(mx, mz), dt);
     const surf = prints.step('me', p.x, p.z, me.root.rotation.y);
     if (surf) amb.step(surf);
-  } else if (mySeat === null) me.state = 'idle';
-  else turnTo(me, 0, dt);
+  } else if (mySeat === null) {
+    me.state = 'idle';
+    if (clinkFace && performance.now() < clinkFace.until) turnTo(me, clinkFace.ang, dt);
+  } else turnTo(me, 0, dt);
   animChar(me, dt);
-  $('sitBtn').textContent = mySeat !== null ? '일어나기' : nearestFreeSeat() !== null ? '방석에 앉기' : '방석 찾기';
+  $('sitBtn').textContent = mySeat !== null ? T.standUp : nearestFreeSeat() !== null ? T.sitDown : T.findSeat;
 }
 
 // ================= 상단 문구 =================
@@ -324,7 +352,7 @@ function toggleBanner() {
 }
 
 function updateUI(now: number, alt: number, t: number) {
-  const info = sunriseInfo(place, now), tz = place.tz, live = !replay && !!info.windowSR;
+  const info = sunriseInfo(place, now), tz = place.tz, live = !replay && !!info.windowSR, pn = placeName(place);
   const wx = weatherNow ? ` · ${windLabel(weatherNow)}` : '';
   $('liveDot').className = 'dot' + (live || replay ? '' : ' off');
   $('progress').style.display = replay ? 'block' : 'none';
@@ -338,29 +366,29 @@ function updateUI(now: number, alt: number, t: number) {
   if (replay) {
     const k = Math.min(1, (Date.now() - replay.start) / replay.duration);
     $('progressBar').style.width = `${k * 100}%`;
-    full = `다시보기 · ${dayName(replay.sr, tz)}`;
-    compact = `다시보기 · ${place.name} ${alt < -0.8 ? '곧 해가 떠요' : '해가 떴어요'}`;
-    $('headline').textContent = alt < -0.8 ? '곧 해가 떠요' : '해가 떴어요';
-    $('sub').textContent = `${place.name} 일출 ${hm(replay.sr, tz)}`;
-    if (k >= 1) { replay = null; track('replay_finished', { place: place.id }); if (markSeen('replay')) { toast('다시보기로 오늘의 해를 봤어요'); track('sunrise_seen', { place: place.id, kind: 'replay', streak: streakCount() }); } }
+    full = T.replayOf(dayName(replay.sr, tz));
+    compact = T.replaySoonOrRisen(pn, alt >= -0.8);
+    $('headline').textContent = alt < -0.8 ? T.soon : T.risen;
+    $('sub').textContent = T.sunriseAt(pn, hm(replay.sr, tz));
+    if (k >= 1) { replay = null; track('replay_finished', { place: place.id }); if (markSeen('replay')) { toast(T.replaySeen); track('sunrise_seen', { place: place.id, kind: 'replay', streak: streakCount() }); } }
   } else if (live) {
     const sr = info.windowSR!;
-    full = `<span class="dot"></span>LIVE · ${place.name}${wx}`;
+    full = `<span class="dot"></span>LIVE · ${pn}${wx}`;
     if (now < sr) {
-      $('headline').textContent = '곧 해가 떠요';
-      $('sub').textContent = `일출 ${hm(sr, tz)} · ${mmss(sr - now)} 남음`;
-      compact = `<span class="dot"></span>LIVE · 해돋이까지 ${mmss(sr - now)}`;
+      $('headline').textContent = T.soon;
+      $('sub').textContent = T.sunriseLeft(hm(sr, tz), mmss(sr - now));
+      compact = `<span class="dot"></span>${T.liveCountdown(mmss(sr - now))}`;
     } else {
-      $('headline').textContent = '해가 떴어요';
-      $('sub').textContent = `${place.name} 일출 ${hm(sr, tz)}`;
-      compact = `<span class="dot"></span>LIVE · ${place.name} 해가 떴어요`;
+      $('headline').textContent = T.risen;
+      $('sub').textContent = T.sunriseAt(pn, hm(sr, tz));
+      compact = `<span class="dot"></span>${T.liveRisen(pn)}`;
     }
   } else {
-    full = `${place.name} · 현지 ${hm(now, tz)}${wx}`;
-    compact = info.next ? `${place.name} · 해돋이 ${hm(info.next, tz)} · ${dur(info.next - now)} 후` : place.name;
+    full = `${T.localTime(pn, hm(now, tz))}${wx}`;
+    compact = info.next ? T.nextCompact(pn, hm(info.next, tz), dur(info.next - now)) : pn;
     if (info.next) {
-      $('headline').textContent = alt < -6 ? '아직 밤이에요' : info.last ? `오늘 해는 ${hm(info.last, tz)}에 떴어요` : '해가 떠 있어요';
-      $('sub').textContent = `다음 해돋이 ${dayName(info.next, tz)} ${hm(info.next, tz)} · ${dur(info.next - now)} 남음`;
+      $('headline').textContent = alt < -6 ? T.night : info.last ? T.roseAt(hm(info.last, tz)) : T.sunUp;
+      $('sub').textContent = T.nextSunrise(dayName(info.next, tz), hm(info.next, tz), dur(info.next - now));
     }
   }
   const expanded = Date.now() < expandedUntil;
@@ -371,13 +399,13 @@ function updateUI(now: number, alt: number, t: number) {
     if (!watchStart) watchStart = Date.now();
     if (live && !seenFlag && Date.now() - watchStart > 5000) {
       seenFlag = true;
-      if (markSeen('live')) { toast(`오늘의 해를 봤어요 · ${streakCount()}일째`); track('sunrise_seen', { place: place.id, kind: 'live', streak: streakCount(), others: remotes.size }); }
+      if (markSeen('live')) { toast(T.liveSeen(streakCount())); track('sunrise_seen', { place: place.id, kind: 'live', streak: streakCount(), others: remotes.size }); }
     }
   }
   // 진짜 숫자만: 오늘 알람 끄고 온 사람
   const woke = stats?.woke[place.id] ?? 0;
   if (live && woke > 0 && t - lastWokeNote > 15000 && t - lastTickerAt > 5000) {
-    lastWokeNote = t; ticker(`오늘 알람을 끄고 나온 사람 ${woke.toLocaleString('ko-KR')}명`);
+    lastWokeNote = t; ticker(T.wokeCount(woke));
   }
   if (connected && remotes.size === 0 && t - lastTickerAt > 20000) ticker(aloneMsg());
 }
@@ -416,7 +444,7 @@ const chips = $('chips');
 PLACES.forEach(p => {
   const b = document.createElement('button');
   b.className = 'chip';
-  b.innerHTML = `${p.name}<span>${p.region}</span><em></em>`;
+  b.innerHTML = `${placeName(p)}<span>${placeRegion(p)}</span><em></em>`;
   b.setAttribute('aria-pressed', String(p === place));
   b.onclick = () => {
     if (place === p) return;
@@ -429,7 +457,7 @@ PLACES.forEach(p => {
     spawn();
     if (connected) join();
     expandBanner();
-    toast(`${p.name}${p.id === 'gisborne' ? ' · 세계에서 가장 먼저 해가 뜨는 곳 중 하나' : ''}에 왔어요`);
+    toast(T.arrived(placeName(p), p.id === 'gisborne'));
   };
   chips.appendChild(b);
 });
@@ -438,7 +466,7 @@ PLACES.forEach(p => {
 $('sitBtn').onclick = () => {
   if (mySeat !== null) { standUp(); return; }
   const idx = nearestFreeSeat();
-  if (idx === null) { toast('빈 방석 가까이 가면 앉을 수 있어요'); return; }
+  if (idx === null) { toast(T.seatHint); return; }
   const sitHere = () => {
     const s = seats[idx];
     s.occ = 'me'; mySeat = idx; me.state = 'sit';
@@ -446,11 +474,12 @@ $('sitBtn').onclick = () => {
   };
   if (!connected) { sitHere(); return; }
   // 서버가 먼저 온 사람에게 방석을 준다
-  net.emit('sit', idx, ok => { if (ok) { sitHere(); track('sat_down', { place: place.id }); } else toast('방금 다른 사람이 앉았어요'); });
+  net.emit('sit', idx, ok => { if (ok) { sitHere(); track('sat_down', { place: place.id }); } else toast(T.seatTaken); });
 };
-const doEmote = (e: 'stretch' | 'wave') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
+const doEmote = (e: 'stretch' | 'wave' | 'cheers') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
 $('stretchBtn').onclick = () => doEmote('stretch');
 $('waveBtn').onclick = () => doEmote('wave');
+$('cheersBtn').onclick = () => doEmote('cheers');
 
 $('zoomIn').onclick = () => setView(cam.tDist / 1.5);
 $('zoomOut').onclick = () => setView(cam.tDist * 1.5, Math.max(cam.tPitch, 0.45));
@@ -473,14 +502,14 @@ $('lanternBtn').onclick = () => open('wishSheet');
 let photoUrl = '', photoBlob: Blob | null = null;
 $('photoBtn').onclick = async () => {
   meRing.visible = false;
-  const blob = await takePhoto(renderer.domElement, () => renderer.render(scene, camera), place.name, place.tz);
+  const blob = await takePhoto(renderer.domElement, () => renderer.render(scene, camera), placeName(place), place.tz);
   meRing.visible = true;
-  if (!blob) { toast('사진을 찍지 못했어요'); return; }
+  if (!blob) { toast(T.photoFail); return; }
   const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
   if (photoUrl) URL.revokeObjectURL(photoUrl);
   photoBlob = blob; photoUrl = URL.createObjectURL(blob);
   ($('photoImg') as HTMLImageElement).src = photoUrl;
-  const name = `오늘의해-${place.name}-${new Date().toISOString().slice(0, 10)}.jpg`;
+  const name = `${T.photoFile}-${placeName(place)}-${new Date().toISOString().slice(0, 10)}.jpg`;
   const save = $('photoSave') as HTMLAnchorElement; save.href = photoUrl; save.download = name;
   const file = new File([blob], name, { type: 'image/jpeg' });
   $('photoShare').hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
@@ -491,7 +520,7 @@ $('photoShare').onclick = async () => {
   if (!photoBlob) return;
   const file = new File([photoBlob], 'oneul-hae.jpg', { type: 'image/jpeg' });
   try {
-    await navigator.share({ files: [file], text: `오늘의 해 · ${place.name}\nhttps://hae.abracadelulu.com` });
+    await navigator.share({ files: [file], text: `${T.shareText(placeName(place))}\nhttps://hae.abracadelulu.com` });
     track('photo_shared', { place: place.id });
   } catch { /* 사용자가 취소 */ }
 };
@@ -500,13 +529,13 @@ $('menuBtn').onclick = () => { renderStreak(); renderAlarm(); open('menuSheet');
 
 let lastMyLantern = 0;
 function releaseLantern(text: string, custom = false) {
-  if (performance.now() - lastMyLantern < 3000) { toast('풍등은 3초에 하나씩 올릴 수 있어요'); return; }
+  if (performance.now() - lastMyLantern < 3000) { toast(T.lanternWait); return; }
   lastMyLantern = performance.now();
   close();
   lanterns.launch(me.root.position, text);
   if (connected) net.emit('lantern', +me.root.position.x.toFixed(2), +me.root.position.z.toFixed(2));
   track('lantern_released', { place: place.id, custom });
-  toast(`'${text}' 풍등을 올렸어요`);
+  toast(T.lanternUp(text));
 }
 WISHES.forEach(w => {
   const b = document.createElement('button');
@@ -519,7 +548,7 @@ wishInput.addEventListener('input', () => { $('wishCount').textContent = `${wish
 $('wishForm').addEventListener('submit', e => {
   e.preventDefault();
   const text = wishInput.value.trim().replace(/\s+/g, ' ');
-  if (!text) { toast('소원을 한 줄 적어 주세요'); return; }
+  if (!text) { toast(T.wishEmpty); return; }
   wishInput.value = ''; $('wishCount').textContent = '0 / 24'; wishInput.blur();
   // 직접 쓴 소원은 서버로 보내지 않으므로 다른 사람에게 노출되지 않는다 (분석에도 글 내용은 보내지 않음)
   releaseLantern(text, true);
@@ -537,9 +566,9 @@ async function copy(text: string, done: string) {
 $('copyBtn').onclick = () => {
   track('share_copied', { streak: streakCount() });
   const n = streakCount();
-  copy(`☀ 오늘도 해 봤다 · ${place.name}${n ? ` · ${n}일째` : ''}\n${location.origin}`, '문구를 복사했어요');
+  copy(`${T.sawToday(placeName(place), n)}\n${location.origin}`, T.copied);
 };
-$('inviteBtn').onclick = () => { track('invite_copied'); }; $('inviteBtn').addEventListener('click', () => copy(`내일 아침 같이 해 보러 가요 ☀ ${location.origin}`, '초대 링크를 복사했어요'));
+$('inviteBtn').onclick = () => { track('invite_copied'); }; $('inviteBtn').addEventListener('click', () => copy(`${T.invite} ${location.origin}`, T.inviteCopied));
 
 let toastTimer = 0;
 function toast(msg: string) {
@@ -551,16 +580,16 @@ function toast(msg: string) {
 // ================= 연속 기록 =================
 function renderStreak() {
   const week = $('week'); week.innerHTML = '';
-  const names = ['일', '월', '화', '수', '목', '금', '토'];
+  const names = T.weekdays;
   for (let i = 6; i >= 0; i--) {
     const t = Date.now() - i * 86400000, v = store.days[dateKey(t)];
     const el = document.createElement('div');
     el.className = 'day' + (i === 0 ? ' today' : '');
-    el.innerHTML = `<i class="${v ?? ''}"></i>${i === 0 ? '오늘' : names[new Date(t).getDay()]}`;
+    el.innerHTML = `<i class="${v ?? ''}"></i>${i === 0 ? T.today : names[new Date(t).getDay()]}`;
     week.appendChild(el);
   }
   const n = streakCount();
-  $('streakText').innerHTML = n ? `<span class="big">${n}일째</span><br>해를 보고 있어요` : '오늘 해를 보면<br>기록이 시작돼요';
+  $('streakText').innerHTML = n ? T.streak(n) : T.streakEmpty;
 }
 
 // ================= 알람 =================
@@ -572,10 +601,10 @@ function nextAlarm() {
 function renderAlarm() {
   const on = store.alarm.on, a = nextAlarm(), tz = place.tz;
   $('alarmBtn').setAttribute('aria-pressed', String(on));
-  $('alarmBtn').textContent = on ? '알람 켜짐' : '알람 켜기';
+  $('alarmBtn').textContent = on ? T.alarmOn : T.alarmOff;
   $('alarmText').innerHTML = on
-    ? `<b>${dayName(a.at, tz)} ${hm(a.at, tz)}</b>에 깨워드릴게요<br>${place.name} 일출 ${hm(a.sr, tz)}`
-    : `해 뜨기 5분 전 알람<br>다음은 <b>${hm(a.at, tz)}</b> · ${place.name}`;
+    ? T.alarmOnText(dayName(a.at, tz), hm(a.at, tz), placeName(place), hm(a.sr, tz))
+    : T.alarmOffText(hm(a.at, tz), placeName(place));
 }
 function chime() {
   try {
@@ -595,9 +624,7 @@ function chime() {
 function openWake(atMs: number, demo: boolean) {
   const waiting = stats?.online[place.id] ?? 0;
   $('wakeClock').textContent = hm(atMs, place.tz);
-  $('wakeText').innerHTML = waiting > 0
-    ? `지금 <b>${place.name}</b> 해변에 <b>${waiting.toLocaleString('ko-KR')}명</b>이<br>먼저 나와 해를 기다리고 있어요.`
-    : `<b>${place.name}</b> 해변의 첫 번째 사람이 되어 보세요.`;
+  $('wakeText').innerHTML = waiting > 0 ? T.wakeWaiting(placeName(place), waiting) : T.wakeFirst(placeName(place));
   $('wake').dataset.demo = demo ? '1' : '0';
   $('wake').classList.add('open');
   chime(); clearInterval(ringTimer); ringTimer = window.setInterval(chime, 3200);
@@ -605,7 +632,7 @@ function openWake(atMs: number, demo: boolean) {
 $('alarmBtn').onclick = () => {
   store.alarm.on = !store.alarm.on; save();
   track('alarm_toggled', { on: store.alarm.on, place: place.id });
-  if (store.alarm.on) { chime(); toast('알람을 켰어요 · 해 뜨기 5분 전에 울려요'); }
+  if (store.alarm.on) { chime(); toast(T.alarmToggledOn); }
   renderAlarm();
 };
 $('demoBtn').onclick = () => {
@@ -626,7 +653,7 @@ $('wakeBtn').onclick = () => {
     track('woke_by_alarm', { place: place.id });
     if (connected) net.emit('woke');
   }
-  toast('좋은 아침이에요 · 같이 해 봐요');
+  toast(T.goodMorning);
 };
 setInterval(() => {
   if (!store.alarm.on) return;
@@ -645,26 +672,26 @@ const isKakao = /KAKAOTALK/i.test(ua);
 const SNOOZE = 3 * 86400000;
 
 function showInstall(force: boolean) {
-  if (isStandalone) { if (force) toast('이미 앱으로 열려 있어요'); return; }
+  if (isStandalone) { if (force) toast(T.alreadyApp); return; }
   if (!force && store.installSnooze && Date.now() - store.installSnooze < SNOOZE) return;
   if (!force && !installEvent && !isIOS && !isKakao) return; // 설치를 지원하지 않는 브라우저면 조용히 넘어감
   const ios = $('installIos'), go = $('installGo');
   ios.hidden = true;
   if (isKakao) {
     // 카카오톡 안의 브라우저는 설치가 안 돼서, 기본 브라우저로 열어 줌
-    $('installTitle').textContent = '브라우저에서 열어 설치해요';
-    go.textContent = '브라우저로 열기';
+    $('installTitle').textContent = T.installKakaoTitle;
+    go.textContent = T.installKakaoGo;
   } else if (installEvent) {
-    $('installTitle').textContent = '앱으로 설치할까요?';
-    go.textContent = '설치하기';
+    $('installTitle').textContent = T.installTitle;
+    go.textContent = T.installGo;
   } else if (isIOS) {
-    $('installTitle').textContent = '홈 화면에 추가할까요?';
+    $('installTitle').textContent = T.installIosTitle;
     ios.hidden = false;
-    go.textContent = '알겠어요';
+    go.textContent = T.ok;
   } else {
-    $('installTitle').textContent = '홈 화면에 추가하기';
-    go.textContent = '알겠어요';
-    toast("브라우저 메뉴(⋮)에서 '홈 화면에 추가'를 눌러 주세요");
+    $('installTitle').textContent = T.installManualTitle;
+    go.textContent = T.ok;
+    toast(T.installManualToast);
   }
   open('installSheet');
   track('install_prompt_shown', { native: !!installEvent, ios: isIOS, kakao: isKakao, manual: force });
@@ -674,7 +701,7 @@ addEventListener('beforeinstallprompt', e => {
   installEvent = e as InstallPromptEvent;
   if (store.hinted && !openSheet) setTimeout(() => showInstall(false), 3000);
 });
-addEventListener('appinstalled', () => { track('app_installed'); installEvent = null; close(); toast('설치됐어요 · 내일 아침 홈 화면에서 만나요'); });
+addEventListener('appinstalled', () => { track('app_installed'); installEvent = null; close(); toast(T.installed); });
 $('installGo').onclick = async () => {
   if (isKakao) { location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(location.href)}`; return; }
   if (installEvent) {
@@ -714,13 +741,13 @@ let weatherNow: Weather | null = null;
 function renderSoundBtn() {
   const b = $('soundBtn');
   b.textContent = store.soundOn ? '🔊' : '🔇';
-  b.setAttribute('aria-label', store.soundOn ? '소리 끄기' : '소리 켜기');
+  b.setAttribute('aria-label', store.soundOn ? T.soundOff : T.soundOn);
 }
 $('soundBtn').onclick = () => {
   store.soundOn = !store.soundOn; save();
   track('sound_toggled', { on: store.soundOn });
   amb.setOn(store.soundOn); renderSoundBtn();
-  toast(store.soundOn ? `${place.name}의 소리를 켰어요` : '소리를 껐어요');
+  toast(store.soundOn ? T.soundOnToast(placeName(place)) : T.soundOffToast);
 };
 renderSoundBtn();
 // 브라우저는 사용자가 화면을 한 번 눌러야 소리를 낼 수 있어서, 첫 터치 때 시작
@@ -750,21 +777,19 @@ function openBye() {
   const info = sunriseInfo(place, Date.now());
   let title: string, text: string;
   if (seenToday) {
-    title = others > 0 ? '같이 해를 봐 줘서 고마워요' : '오늘 해를 봐 줘서 고마워요';
-    text = (others > 0 ? `<b>${place.name}</b>에서 <b>${others}명</b>과 함께 오늘의 해를 봤어요.<br>` : `<b>${place.name}</b>에서 오늘의 해를 봤어요.<br>`)
-      + (n > 1 ? `벌써 <b>${n}일째</b>예요. 내일도 같이 봐요.` : '오늘 하루도 따뜻하게 보내요.');
+    title = others > 0 ? T.byeThanksTogether : T.byeThanks;
+    text = (others > 0 ? T.byeSawWith(placeName(place), others) : T.byeSaw(placeName(place)))
+      + (n > 1 ? T.byeStreak(n) : T.byeWarm);
   } else if (live && info.windowSR && Date.now() < info.windowSR) {
-    title = '해가 곧 떠요!';
-    text = `<b>${hm(info.windowSR, place.tz)}</b>에 해가 떠요. 조금만 더 있다 갈까요?`;
+    title = T.byeSoonTitle;
+    text = T.byeSoon(hm(info.windowSR, place.tz));
   } else {
-    title = '와 줘서 고마워요';
-    text = info.next
-      ? `다음 해돋이는 <b>${dayName(info.next, place.tz)} ${hm(info.next, place.tz)}</b>이에요.<br>그때 해변에서 같이 봐요.`
-      : '다음 해돋이에 다시 만나요.';
+    title = T.byeTitle;
+    text = info.next ? T.byeNext(dayName(info.next, place.tz), hm(info.next, place.tz)) : T.byeNextGeneric;
   }
   $('byeTitle').textContent = title;
   $('byeText').innerHTML = text;
-  $('byeStay').textContent = live && !seenToday ? '해 뜨는 거 보고 갈게요' : '조금 더 있을게요';
+  $('byeStay').textContent = live && !seenToday ? T.byeStayLive : T.byeStay;
   open('byeSheet');
 }
 function leave() {
@@ -772,14 +797,14 @@ function leave() {
   close();
   net.disconnect();
   amb.pause();
-  $('goodbyeText').innerHTML = store.days[dateKey(Date.now())]
-    ? '오늘 해를 같이 봐서 즐거웠어요.<br>내일 아침, 해변에서 다시 만나요.'
-    : '내일 아침, 해변에서 다시 만나요.';
+  $('goodbyeText').innerHTML = store.days[dateKey(Date.now())] ? T.goodbyeSeen : T.goodbye;
   $('goodbye').classList.add('open');
   // 이 사이트로 들어오기 전 페이지가 있으면 그쪽으로 돌아감 (없으면 작별 화면이 남아 있음)
   setTimeout(() => history.go(-2), 900);
 }
 $('exitBtn').onclick = openBye;
+$('langBtn').textContent = lang === 'ko' ? 'EN' : '한';
+$('langBtn').onclick = () => { track('lang_changed', { to: lang === 'ko' ? 'en' : 'ko' }); setLang(lang === 'ko' ? 'en' : 'ko'); };
 $('status').addEventListener('click', toggleBanner);
 $('byeStay').onclick = close;
 $('byeLeave').onclick = () => { track('left_beach', { seenToday: !!store.days[dateKey(Date.now())], others: remotes.size }); leave(); };
@@ -807,6 +832,7 @@ addEventListener('popstate', () => {
 initAnalytics(store.uid);
 track('session_start', {
   place: place.id,
+  lang,
   returning: Object.keys(store.days).length > 0,
   streak: streakCount(),
   standalone: isStandalone,

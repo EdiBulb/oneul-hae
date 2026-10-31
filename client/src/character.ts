@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
 export type CharState = 'idle' | 'walk' | 'sit';
-export type Emote = 'stretch' | 'wave';
+/** clink = 다른 사람과 커피잔을 부딪치는 동작 (서버가 짝을 지어 줄 때만) */
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink';
 
 export interface Char {
   root: THREE.Group;
@@ -11,6 +12,9 @@ export interface Char {
   state: CharState;
   emote: Emote | null;
   emoteT: number;
+  /** 짠 할 때만 보이는 머그컵 (오른손에 붙어 있음) */
+  mug: THREE.Group;
+  steam: THREE.Mesh;
 }
 
 const SKIN = 0xf2d0b2;
@@ -60,10 +64,20 @@ export function makeChar(bodyC: number, hatC: number): Char {
   };
   const armL = limb(-0.33, 0.86, 0.42, 0.07, bodyC), armR = limb(0.33, 0.86, 0.42, 0.07, bodyC);
   const legL = limb(-0.13, 0.33, 0.33, 0.09, 0x4a4250), legR = limb(0.13, 0.33, 0.33, 0.09, 0x4a4250);
+  // 머그컵: 오른팔 끝에 붙이고, 팔이 돌아가도 컵은 똑바로 서 있게 animChar에서 반대로 돌린다
+  const mug = new THREE.Group(); mug.position.set(0, -0.46, -0.04); mug.visible = false; armR.add(mug);
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.17, 14), M(0xfff6ea)); mug.add(cup);
+  const coffee = new THREE.Mesh(new THREE.CircleGeometry(0.075, 14), M(0x5a3520));
+  coffee.rotation.x = -Math.PI / 2; coffee.position.y = 0.081; mug.add(coffee);
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.014, 6, 12, Math.PI), M(0xfff6ea));
+  handle.rotation.z = -Math.PI / 2; handle.position.x = 0.085; mug.add(handle);
+  const steam = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
+  steam.position.y = 0.16; mug.add(steam);
   const sh = new THREE.Mesh(new THREE.CircleGeometry(0.42, 16),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.02; root.add(sh);
-  return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, state: 'idle', emote: null, emoteT: 0 };
+  return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, state: 'idle', emote: null, emoteT: 0, mug, steam };
 }
 
 export function disposeChar(c: Char) {
@@ -75,7 +89,8 @@ export function disposeChar(c: Char) {
   });
 }
 
-/** 걷기·앉기·기지개·손 흔들기 동작을 부드럽게 보간 */
+/** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
+const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6 };
 export function animChar(c: Char, dt: number) {
   c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
   let aL = 0, aR = 0, aRz = 0, lL = 0, lR = 0, y = 0;
@@ -89,11 +104,32 @@ export function animChar(c: Char, dt: number) {
   }
   if (c.emote) {
     c.emoteT += dt;
-    const T = c.emote === 'stretch' ? 1.8 : 1.9;
-    const k = Math.sin(Math.PI * clamp(c.emoteT / T, 0, 1));
+    const T = EMOTE_T[c.emote] ?? 1.9;
+    const u = clamp(c.emoteT / T, 0, 1), k = Math.sin(Math.PI * u);
     if (c.emote === 'stretch') { aL = aR = Math.PI * 0.95 * k; y += 0.05 * k; }
     if (c.emote === 'wave') { aRz = (2.4 + Math.sin(c.emoteT * 12) * 0.35) * k; aR = 0; }
+    if (c.emote === 'cheers') {
+      // 혼자: 컵을 입가로 가져가 한 모금 (중간에 살짝 기울임)
+      const sip = clamp((u - 0.35) / 0.3, 0, 1);
+      aR = (1.5 + 0.9 * Math.sin(Math.PI * sip)) * clamp(k * 1.6, 0, 1); aRz = 0.35 * clamp(k * 1.6, 0, 1);
+    }
+    if (c.emote === 'clink') {
+      // 둘이: 팔을 앞으로 쭉 내밀고, 가운데쯤 컵을 '톡' 두 번 부딪친 뒤 한 모금
+      const reach = clamp(k * 1.8, 0, 1);
+      const tap = u > 0.3 && u < 0.55 ? Math.abs(Math.sin((u - 0.3) / 0.25 * Math.PI * 2)) * 0.18 : 0;
+      const sip = clamp((u - 0.6) / 0.25, 0, 1);
+      aR = (1.45 + tap + 0.85 * Math.sin(Math.PI * sip)) * reach; aRz = 0.12 * reach;
+      y += 0.03 * Math.sin(Math.PI * clamp((u - 0.3) / 0.25, 0, 1));
+    }
     if (c.emoteT >= T) { c.emote = null; c.emoteT = 0; }
+  }
+  const hasMug = c.emote === 'cheers' || c.emote === 'clink';
+  c.mug.visible = hasMug;
+  if (hasMug) {
+    c.mug.rotation.x = -c.armR.rotation.x; c.mug.rotation.z = -c.armR.rotation.z; // 컵은 늘 똑바로
+    const s = (c.emoteT * 0.9) % 1;
+    c.steam.position.y = 0.14 + s * 0.22; c.steam.scale.setScalar(0.7 + s * 0.9);
+    (c.steam.material as THREE.MeshBasicMaterial).opacity = 0.35 * (1 - s);
   }
   const e = 1 - Math.pow(0.0005, dt);
   c.armL.rotation.x += (aL - c.armL.rotation.x) * e;

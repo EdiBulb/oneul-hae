@@ -1,3 +1,4 @@
+import { T } from './i18n';
 import * as THREE from 'three';
 import { animChar, makeChar, textSprite } from './character';
 import { groundY } from './world';
@@ -75,7 +76,7 @@ export function createBeachLife(scene: THREE.Scene) {
   rodM.position.y = 1.3; rod.add(rodM); rod.rotation.x = -1.05; fisher.inner.add(rod);
   const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.25, 2.25, -2.6), new THREE.Vector3(0.25, -0.1, -3.4)]), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
   fisher.root.add(line);
-  const tag = textSprite('낚시하는 동네 주민', 0.55); tag.position.y = 1.85; fisher.root.add(tag);
+  const tag = textSprite(T.fisher, 0.55); tag.position.y = 1.85; fisher.root.add(tag);
   fisher.state = 'sit';
   fisher.root.position.set(17.5, groundY(-1.4) + 0.2, -1.4);
   fisher.root.rotation.y = 0.15;

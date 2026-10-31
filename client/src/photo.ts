@@ -1,3 +1,4 @@
+import { T } from './i18n';
 // 지금 보고 있는 3D 화면을 사진으로: 화면 버튼(UI)은 빼고 장면만 찍은 뒤
 // 아래에 장소·날짜·주소를 작게 새겨 넣는다.
 
@@ -36,7 +37,7 @@ export function takePhoto(gl: HTMLCanvasElement, render: () => void, place: stri
   if (logo) { g.drawImage(logo, pad, H - pad - ls - 6 * u, ls + 6 * u, ls + 6 * u); x += ls + 16 * u; }
   g.fillStyle = '#fff'; g.textBaseline = 'alphabetic';
   g.font = `700 ${15 * u}px 'Gowun Batang', serif`;
-  g.fillText(`오늘의 해 · ${place}`, x, H - pad - 17 * u);
+  g.fillText(T.photoCaption(place), x, H - pad - 17 * u);
   g.fillStyle = 'rgba(255,255,255,.78)';
   g.font = `500 ${11 * u}px 'Pretendard', system-ui, sans-serif`;
   g.fillText(`${date} ${time} · hae.abracadelulu.com`, x, H - pad);
