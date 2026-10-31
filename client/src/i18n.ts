@@ -273,7 +273,7 @@ const HTML_EN: Record<string, string> = {
   'wishPh': 'e.g. Let me pass my interview this week',
   'wishAria': 'Write your own wish',
   'wishGo': 'Release',
-  'wishOr': 'or pick one',
+  'wishOr': 'Show wishes to pick from',
   'menuTitle': 'My mornings',
   'streakText': 'Watch the sunrise to start',
   'copyBtn': 'Copy "I saw the sunrise today"',

@@ -585,6 +585,10 @@ WISHES.forEach(w => {
   b.onclick = () => releaseLantern(w);
   $('wishes').appendChild(b);
 });
+const presetBox = $('showPresets') as HTMLInputElement;
+const renderPresets = () => { presetBox.checked = store.showPresets; $('wishSheet').classList.toggle('no-presets', !store.showPresets); };
+presetBox.onchange = () => { store.showPresets = presetBox.checked; save(); renderPresets(); track('presets_toggled', { on: store.showPresets }); };
+renderPresets();
 const shareBox = $('shareWish') as HTMLInputElement;
 shareBox.checked = store.shareWish;
 shareBox.onchange = () => { store.shareWish = shareBox.checked; save(); };

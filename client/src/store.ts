@@ -17,6 +17,8 @@ interface Saved {
   installSnooze?: number;
   /** 직접 쓴 소원을 다른 사람에게도 보여줄지 (기본: 안 보여줌) */
   shareWish: boolean;
+  /** 소원 창에서 고르는 문구 목록을 펼쳐 둘지 (기본: 펼침) */
+  showPresets: boolean;
   /** 다른 사람의 소원 글자를 볼지 (기본: 봄) */
   seeWishes: boolean;
   /** 푸시 알림을 예약해 둔 일출 시각 */
@@ -40,6 +42,7 @@ export const store: Saved = {
   installSnooze: raw.installSnooze,
   remindAt: raw.remindAt,
   shareWish: raw.shareWish ?? false,
+  showPresets: raw.showPresets ?? true,
   seeWishes: raw.seeWishes ?? true,
   soundOn: raw.soundOn ?? true,
 };
