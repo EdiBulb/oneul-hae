@@ -15,17 +15,24 @@ export const BONFIRE = { x: 11, z: 10 };
 const LOG = { r: 2.1, len: 1.3, rad: 0.2, n: 4 };
 const logAngle = (i: number) => (i / LOG.n) * Math.PI * 2 + Math.PI / 4;
 
-/** 통나무 하나에 두 사람씩 앉는 자리 (서버 방석 번호 22번부터 이어짐). 모두 모닥불을 바라봄 */
+interface HighSeat { x: number; z: number; ry: number; y: number; bench: true; kind: 'log' | 'pier'; sx: number; sz: number }
+/** 높은 자리들 (서버 방석 번호 22번부터 이어짐)
+ *  22~29: 통나무 4개 × 2자리, 모닥불을 바라봄 → 일어나면 모닥불 쪽으로 한 걸음
+ *  30~32: 데크 끝에 걸터앉는 3자리, 바다를 바라봄 → 일어나면 데크 안쪽으로 한 걸음 */
 export function benchSeats() {
-  const out: { x: number; z: number; ry: number; y: number; bench: true }[] = [];
+  const out: HighSeat[] = [];
   const top = groundY(BONFIRE.z) + LOG.rad * 2;
   for (let i = 0; i < LOG.n; i++) {
     const a = logAngle(i), cx = BONFIRE.x + Math.cos(a) * LOG.r, cz = BONFIRE.z + Math.sin(a) * LOG.r;
     const ax = Math.sin(a), az = -Math.cos(a); // 통나무 방향 (원의 접선)
     for (const k of [-0.32, 0.32]) {
-      out.push({ x: cx + ax * k, z: cz + az * k, ry: Math.atan2(Math.cos(a), Math.sin(a)), y: top, bench: true });
+      const x = cx + ax * k, z = cz + az * k;
+      out.push({ x, z, ry: Math.atan2(Math.cos(a), Math.sin(a)), y: top, bench: true, kind: 'log', sx: x - Math.cos(a) * 0.5, sz: z - Math.sin(a) * 0.5 });
     }
   }
+  // 데크 끝: 엉덩이는 끝에 걸치고 다리는 바다 쪽으로 (오른쪽 끝 가로등 기둥을 피해 3자리)
+  const ez = PIER.end + 0.15;
+  for (const dx of [-0.65, 0, 0.65]) out.push({ x: PIER.x + dx, z: ez, ry: 0, y: PIER.top, bench: true, kind: 'pier', sx: PIER.x + dx, sz: ez + 0.7 });
   return out;
 }
 const BENCH = benchSeats();

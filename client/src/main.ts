@@ -52,7 +52,7 @@ const traces = createTraces(scene, GLOW);
 const pier = createPier(scene, GLOW);
 const prints = createFootprints(scene);
 const bonfire = createBonfire(scene, GLOW);
-// 방석 22개 뒤에 모닥불 통나무 자리 8개를 붙임 (서버 번호와 같은 순서)
+// 방석 22개 뒤에 모닥불 통나무 8자리, 데크 끝 3자리를 붙임 (서버 번호와 같은 순서)
 const seats = world.seats;
 for (const b of benchSeats()) seats.push({ ...b, occ: null });
 
@@ -92,6 +92,7 @@ function addRemote(p: PlayerInfo) {
   c.root.position.set(p.x, floorY(p.x, p.z), p.z);
   c.root.rotation.y = p.ry;
   const label = textSprite(localizeNick(p.nick), 0.6); label.position.y = 1.85; c.root.add(label);
+  c.blanket.visible = !!p.blanket;
   scene.add(c.root);
   remotes.set(p.id, { info: p, c, label, tx: p.x, tz: p.z, ry: p.ry, st: p.st });
 }
@@ -149,6 +150,7 @@ net.on('welcome', w => {
   seats.forEach(s => (s.occ = null));
   for (const [idx, id] of Object.entries(w.seats)) if (seats[+idx]) seats[+idx].occ = id;
   if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
+  if (me.blanket.visible) net.emit('blanket', true); // 다시 접속·채널 이동 때 담요 상태 알려 주기
   traces.set(w.traces);
   todayVisitors = w.traces.visitors;
   if (w.players.length > 0) ticker(T.alreadyHere(w.players.length));
@@ -188,6 +190,7 @@ net.on('clink', (a, b) => {
     track('cheers_clink', { place: place.id });
   } else if (ca.root.position.distanceTo(me.root.position) < 12) ticker(T.clinkOthers(nickOf(a), nickOf(b)));
 });
+net.on('blanket', (id, on) => { const r = remotes.get(id); if (r) r.c.blanket.visible = on; });
 net.on('lantern', (id, x, z) => {
   const r = remotes.get(id);
   lanterns.launch(new THREE.Vector3(x, groundY(z), z));
@@ -321,7 +324,7 @@ function nearestFreeSeat(): number | null {
 function leaveSeat() {
   if (mySeat === null) return;
   const st = seats[mySeat], p = me.root.position;
-  if (st.bench) { p.x -= Math.sin(st.ry) * 0.5; p.z -= Math.cos(st.ry) * 0.5; }
+  if (st.sx !== undefined && st.sz !== undefined) { p.x = st.sx; p.z = st.sz; }
   p.y = floorY(p.x, p.z);
   st.occ = null; mySeat = null; me.bench = false;
 }
@@ -352,7 +355,11 @@ function updateMe(dt: number) {
   } else turnTo(me, seats[mySeat].ry, dt);
   animChar(me, dt);
   const near = mySeat === null ? nearestFreeSeat() : null;
-  $('sitBtn').textContent = mySeat !== null ? T.standUp : near !== null ? (seats[near].bench ? T.sitLog : T.sitDown) : T.findSeat;
+  // 담요 버튼은 앉아 있거나 이미 두르고 있을 때만 (버튼이 너무 많아지지 않게)
+  const bl = $('blanketBtn'), showBl = mySeat !== null || me.blanket.visible;
+  if (bl.hidden === showBl) bl.hidden = !showBl;
+  bl.textContent = me.blanket.visible ? T.blanketOff : T.blanketOn;
+  $('sitBtn').textContent = mySeat !== null ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : T.sitDown) : T.findSeat;
 }
 
 // ================= 상단 문구 =================
@@ -499,12 +506,18 @@ $('sitBtn').onclick = () => {
   };
   if (!connected) { sitHere(); return; }
   // 서버가 먼저 온 사람에게 방석을 준다
-  net.emit('sit', idx, ok => { if (ok) { sitHere(); track('sat_down', { place: place.id, log: !!seats[idx].bench }); } else toast(T.seatTaken); });
+  net.emit('sit', idx, ok => { if (ok) { sitHere(); track('sat_down', { place: place.id, spot: seats[idx].kind ?? 'cushion' }); } else toast(T.seatTaken); });
 };
 const doEmote = (e: 'stretch' | 'wave' | 'cheers') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
 $('stretchBtn').onclick = () => doEmote('stretch');
 $('waveBtn').onclick = () => doEmote('wave');
 $('cheersBtn').onclick = () => doEmote('cheers');
+$('blanketBtn').onclick = () => {
+  const on = !me.blanket.visible;
+  me.blanket.visible = on;
+  if (connected) net.emit('blanket', on);
+  track('blanket', { on, place: place.id, seated: mySeat !== null });
+};
 
 $('zoomIn').onclick = () => setView(cam.tDist / 1.5);
 $('zoomOut').onclick = () => setView(cam.tDist * 1.5, Math.max(cam.tPitch, 0.45));
