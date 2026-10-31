@@ -455,7 +455,12 @@ $('waveBtn').onclick = () => doEmote('wave');
 $('zoomIn').onclick = () => setView(cam.tDist / 1.5);
 $('zoomOut').onclick = () => setView(cam.tDist * 1.5, Math.max(cam.tPitch, 0.45));
 $('overview').onclick = () => setView(26, 0.5, 0);
-$('resetView').onclick = () => setView(6.4, 0.3, 0);
+// 내 시점: 내 캐릭터 등 뒤에서, 캐릭터가 바라보는 방향을 같이 본다
+$('resetView').onclick = () => {
+  let d = me.root.rotation.y - cam.yaw;
+  d = Math.atan2(Math.sin(d), Math.cos(d)); // 가장 가까운 쪽으로 돌기
+  setView(5.6, 0.24, cam.yaw + d);
+};
 
 let openSheet: HTMLElement | null = null;
 const back = $('sheetBack');
