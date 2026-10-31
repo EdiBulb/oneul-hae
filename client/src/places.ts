@@ -29,6 +29,13 @@ export const WISHES = lang === 'ko' ? WISHES_KO : WISHES_EN;
 const ADJ_EN = ['Easygoing', 'Early', 'Sleepy', 'Warm', 'Quiet', 'Excited', 'Brave', 'Squishy'];
 const NOUN_EN = ['Seagull', 'Wave', 'Sunbeam', 'Shell', 'Cloud', 'Lighthouse', 'Sand', 'Ripple'];
 
+/** 고른 소원(기본 문구)이면 보는 사람 언어로 바꿔 준다. 직접 쓴 소원은 그대로 */
+export function localizeWish(text: string): string {
+  let i = WISHES_KO.indexOf(text);
+  if (i < 0) i = WISHES_EN.indexOf(text);
+  return i < 0 ? text : WISHES[i];
+}
+
 /** 지금 화면 언어로 된 장소 이름 */
 export const placeName = (p: Place) => (lang === 'ko' ? p.name : p.nameEn);
 export const placeRegion = (p: Place) => (lang === 'ko' ? p.region : p.regionEn);

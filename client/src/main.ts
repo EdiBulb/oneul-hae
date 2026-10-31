@@ -11,7 +11,7 @@ import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createP
 import { takePhoto } from './photo';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
-import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, placeName, placeRegion, type Place } from './places';
+import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place } from './places';
 import { T, applyHtml, lang, num, setLang } from './i18n';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
 import { dayName, dur, hm, mmss, sunriseInfo, sunrises } from './sun';
@@ -191,10 +191,12 @@ net.on('clink', (a, b) => {
   } else if (ca.root.position.distanceTo(me.root.position) < 12) ticker(T.clinkOthers(nickOf(a), nickOf(b)));
 });
 net.on('blanket', (id, on) => { const r = remotes.get(id); if (r) r.c.blanket.visible = on; });
-net.on('lantern', (id, x, z) => {
+net.on('lantern', (id, x, z, text) => {
   const r = remotes.get(id);
-  lanterns.launch(new THREE.Vector3(x, groundY(z), z));
-  if (r) ticker(T.lanternBy(localizeNick(r.info.nick)));
+  // 공개된 소원이고, 내가 '다른 사람 소원 보기'를 켜 두었을 때만 글자를 띄움
+  const wish = text && store.seeWishes ? localizeWish(text) : undefined;
+  lanterns.launch(new THREE.Vector3(x, groundY(z), z), wish, true);
+  if (r) ticker(wish ? T.lanternByWish(localizeNick(r.info.nick), wish) : T.lanternBy(localizeNick(r.info.nick)));
 });
 net.on('seat', (idx, id) => {
   if (!seats[idx]) return;
@@ -571,9 +573,11 @@ function releaseLantern(text: string, custom = false) {
   lastMyLantern = performance.now();
   close();
   lanterns.launch(me.root.position, text);
-  if (connected) net.emit('lantern', +me.root.position.x.toFixed(2), +me.root.position.z.toFixed(2));
-  track('lantern_released', { place: place.id, custom });
-  toast(T.lanternUp(text));
+  // 고른 소원은 함께 보여 주고, 직접 쓴 소원은 '다른 사람에게도 보여주기'를 체크했을 때만 서버로 보낸다
+  const shared = !custom || store.shareWish;
+  if (connected) net.emit('lantern', +me.root.position.x.toFixed(2), +me.root.position.z.toFixed(2), shared ? text : undefined);
+  track('lantern_released', { place: place.id, custom, shared });
+  toast(custom && shared ? T.lanternUpShared(text) : T.lanternUp(text));
 }
 WISHES.forEach(w => {
   const b = document.createElement('button');
@@ -581,6 +585,20 @@ WISHES.forEach(w => {
   b.onclick = () => releaseLantern(w);
   $('wishes').appendChild(b);
 });
+const shareBox = $('shareWish') as HTMLInputElement;
+shareBox.checked = store.shareWish;
+shareBox.onchange = () => { store.shareWish = shareBox.checked; save(); };
+function renderSeeWishes() {
+  const b = $('seeWishesBtn');
+  b.setAttribute('aria-pressed', String(store.seeWishes));
+  b.textContent = store.seeWishes ? T.seeWishesOn : T.seeWishesOff;
+}
+$('seeWishesBtn').onclick = () => {
+  store.seeWishes = !store.seeWishes; save(); renderSeeWishes();
+  toast(T.seeWishesToast(store.seeWishes));
+  track('see_wishes_toggled', { on: store.seeWishes });
+};
+renderSeeWishes();
 const wishInput = $('wishInput') as HTMLInputElement;
 wishInput.addEventListener('input', () => { $('wishCount').textContent = `${wishInput.value.length} / 24`; });
 $('wishForm').addEventListener('submit', e => {
