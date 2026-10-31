@@ -85,7 +85,7 @@
   .custom{display:flex;gap:8px;margin-top:14px}
   .custom input{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:rgba(255,248,239,.07);border:1px solid var(--line);border-radius:12px;padding:11px 12px;outline:none;-webkit-user-select:text;user-select:text}
   .custom input:focus{border-color:#ffb25c}
-  .wish-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px}
+  .wish-row{display:flex;align-items:center;gap:14px;margin-top:8px}
   .wish-row .count{margin-top:0}
   .share{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-dim);cursor:pointer}
   .share input{width:16px;height:16px;accent-color:#ff8a3d}
@@ -96,7 +96,10 @@
   #wishSheet.typing{padding-top:12px;padding-bottom:12px}
   /* '골라서 띄우기 보기'를 끄면 고르는 문구를 접어 창을 작게 */
   #wishSheet.no-presets .wishes{display:none}
-  .or.share{margin-top:16px;width:fit-content}
+  .wish-row .or{margin-top:0;font-size:13px}
+  .wish-row .count{margin-left:auto}
+  .wish-row .share,.wish-row .count{white-space:nowrap}
+  @media (max-width:380px){ .wish-row{gap:9px} .wish-row .share,.wish-row .or{font-size:12px} .share input{width:15px;height:15px} }
   #wishSheet.typing h2,#wishSheet.typing .lead,#wishSheet.typing .or,#wishSheet.typing .wishes{display:none}
   #wishSheet.typing .custom{margin-top:0}
   .toast{position:fixed;left:50%;top:78px;transform:translate(-50%,-10px);background:var(--ink);color:#1b1206;font-size:13px;font-weight:500;padding:9px 14px;border-radius:999px;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 30px rgba(0,0,0,.3);max-width:92vw;overflow:hidden;text-overflow:ellipsis}
