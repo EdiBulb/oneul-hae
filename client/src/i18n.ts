@@ -41,8 +41,8 @@ const ko = {
   // 카메라
   viewAll: '전체 보기', view3rd: '3인칭', viewMine: '내 시점',
   // 방석
-  standUp: '일어나기', sitDown: '방석에 앉기', findSeat: '방석 찾기',
-  seatHint: '빈 방석 가까이 가면 앉을 수 있어요',
+  standUp: '일어나기', sitDown: '방석에 앉기', sitLog: '통나무에 앉기', findSeat: '앉을 곳 찾기',
+  seatHint: '빈 방석이나 모닥불 통나무 가까이 가면 앉을 수 있어요',
   seatTaken: '방금 다른 사람이 앉았어요',
   // 해돋이 안내
   replayOf: (d: string) => `다시보기 · ${d}`,
@@ -142,8 +142,8 @@ const en: Dict = {
   lanternBy: (nick: string) => `${nick} released a lantern`,
   me: 'Me',
   viewAll: 'Overview', view3rd: '3rd person', viewMine: 'My view',
-  standUp: 'Stand up', sitDown: 'Sit on cushion', findSeat: 'Find a cushion',
-  seatHint: 'Walk up to an empty cushion to sit',
+  standUp: 'Stand up', sitDown: 'Sit on cushion', sitLog: 'Sit on log', findSeat: 'Find a seat',
+  seatHint: 'Walk up to an empty cushion or a log by the fire to sit',
   seatTaken: 'Someone just took that seat',
   replayOf: (d: string) => `Replay · ${d}`,
   soon: 'The sun is about to rise', risen: 'The sun is up',

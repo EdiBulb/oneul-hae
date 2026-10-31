@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import type { Traces } from '../../server/src/protocol';
 import { animChar, disposeChar, makeChar, textSprite, type Char } from './character';
 import { BODY_COLORS, HAT_COLORS } from './places';
-import { floorY } from './beach-extras';
+import { benchAt, floorY } from './beach-extras';
 
 // 오늘 이 해변에 다녀간 진짜 사람들의 흔적.
 // 떠난 사람의 마지막 자리에 반투명한 실루엣, 하늘엔 오늘 올라간 풍등이 멀리 남아 있다.
@@ -39,7 +39,9 @@ export function createTraces(scene: THREE.Scene, GLOW: THREE.Texture) {
       const c = makeChar(BODY_COLORS[gh.look.body % BODY_COLORS.length], HAT_COLORS[gh.look.hat % HAT_COLORS.length]);
       ghostify(c);
       c.state = gh.sit ? 'sit' : 'idle';
-      c.root.position.set(gh.x, floorY(gh.x, gh.z) + (gh.sit ? 0.07 : 0), gh.z);
+      const bench = gh.sit ? benchAt(gh.x, gh.z) : null;
+      c.bench = !!bench;
+      c.root.position.set(gh.x, bench ? bench.y : floorY(gh.x, gh.z) + (gh.sit ? 0.07 : 0), gh.z);
       c.root.rotation.y = gh.ry;
       for (let i = 0; i < 40; i++) animChar(c, 0.05);
       const label = textSprite(T.traceLabel, 0.45);

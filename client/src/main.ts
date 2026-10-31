@@ -7,7 +7,7 @@ import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE } from './beach-extras';
 import { takePhoto } from './photo';
 import { connect } from './net';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, placeName, placeRegion, type Place } from './places';
@@ -51,7 +51,9 @@ const traces = createTraces(scene, GLOW);
 const pier = createPier(scene, GLOW);
 const prints = createFootprints(scene);
 const bonfire = createBonfire(scene, GLOW);
+// 방석 22개 뒤에 모닥불 통나무 자리 8개를 붙임 (서버 번호와 같은 순서)
 const seats = world.seats;
+for (const b of benchSeats()) seats.push({ ...b, occ: null });
 
 // ================= 상태 =================
 let place: Place = PLACES[0];
@@ -106,7 +108,9 @@ function updateRemotes(dt: number) {
     const dx = r.tx - p.x, dz = r.tz - p.z, d = Math.hypot(dx, dz);
     // 서버에서 초당 8번 정도 오는 위치 사이를 부드럽게 채움
     if (d > 6) { p.x = r.tx; p.z = r.tz; } else { p.x += dx * e; p.z += dz * e; }
-    p.y = floorY(p.x, p.z) + (r.st === 2 ? 0.07 : 0);
+    const bench = r.st === 2 ? benchAt(p.x, p.z) : null;
+    r.c.bench = !!bench;
+    p.y = bench ? bench.y : floorY(p.x, p.z) + (r.st === 2 ? 0.07 : 0);
     if (r.st !== 2) prints.step(r.info.id, p.x, p.z, r.c.root.rotation.y);
     r.c.state = r.st === 2 ? 'sit' : (r.st === 1 || d > 0.05) ? 'walk' : 'idle';
     turnTo(r.c, r.ry, dt);
@@ -141,7 +145,7 @@ net.on('welcome', w => {
   w.players.forEach(addRemote);
   seats.forEach(s => (s.occ = null));
   for (const [idx, id] of Object.entries(w.seats)) if (seats[+idx]) seats[+idx].occ = id;
-  if (mySeat !== null) { seats[mySeat].occ = null; mySeat = null; me.state = 'idle'; }
+  if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
   traces.set(w.traces);
   todayVisitors = w.traces.visitors;
   if (w.players.length > 0) ticker(T.alreadyHere(w.players.length));
@@ -310,8 +314,16 @@ function nearestFreeSeat(): number | null {
   });
   return best;
 }
+/** 자리에서 내려오기: 통나무였으면 모닥불 쪽으로 한 걸음 내려와 바닥에 선다 */
+function leaveSeat() {
+  if (mySeat === null) return;
+  const st = seats[mySeat], p = me.root.position;
+  if (st.bench) { p.x -= Math.sin(st.ry) * 0.5; p.z -= Math.cos(st.ry) * 0.5; }
+  p.y = floorY(p.x, p.z);
+  st.occ = null; mySeat = null; me.bench = false;
+}
 function standUp() {
-  if (mySeat !== null) { seats[mySeat].occ = null; mySeat = null; net.emit('stand'); }
+  if (mySeat !== null) { leaveSeat(); net.emit('stand'); }
   me.state = 'idle';
 }
 function updateMe(dt: number) {
@@ -334,9 +346,10 @@ function updateMe(dt: number) {
   } else if (mySeat === null) {
     me.state = 'idle';
     if (clinkFace && performance.now() < clinkFace.until) turnTo(me, clinkFace.ang, dt);
-  } else turnTo(me, 0, dt);
+  } else turnTo(me, seats[mySeat].ry, dt);
   animChar(me, dt);
-  $('sitBtn').textContent = mySeat !== null ? T.standUp : nearestFreeSeat() !== null ? T.sitDown : T.findSeat;
+  const near = mySeat === null ? nearestFreeSeat() : null;
+  $('sitBtn').textContent = mySeat !== null ? T.standUp : near !== null ? (seats[near].bench ? T.sitLog : T.sitDown) : T.findSeat;
 }
 
 // ================= 상단 문구 =================
@@ -451,7 +464,7 @@ PLACES.forEach(p => {
     place = p; replay = null; seenFlag = false; watchStart = 0;
     track('channel_changed', { place: p.id });
     [...chips.children].forEach((c, i) => c.setAttribute('aria-pressed', String(PLACES[i] === p)));
-    if (mySeat !== null) { mySeat = null; me.state = 'idle'; }
+    if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
     seats.forEach(s => (s.occ = null));
     clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); world.buildLandmark(p); renderAlarm(); renderCounts(); refreshWeather();
     spawn();
@@ -469,12 +482,12 @@ $('sitBtn').onclick = () => {
   if (idx === null) { toast(T.seatHint); return; }
   const sitHere = () => {
     const s = seats[idx];
-    s.occ = 'me'; mySeat = idx; me.state = 'sit';
-    me.root.position.set(s.x, groundY(s.z) + 0.07, s.z);
+    s.occ = 'me'; mySeat = idx; me.state = 'sit'; me.bench = !!s.bench;
+    me.root.position.set(s.x, s.bench ? s.y! : groundY(s.z) + 0.07, s.z);
   };
   if (!connected) { sitHere(); return; }
   // 서버가 먼저 온 사람에게 방석을 준다
-  net.emit('sit', idx, ok => { if (ok) { sitHere(); track('sat_down', { place: place.id }); } else toast(T.seatTaken); });
+  net.emit('sit', idx, ok => { if (ok) { sitHere(); track('sat_down', { place: place.id, log: !!seats[idx].bench }); } else toast(T.seatTaken); });
 };
 const doEmote = (e: 'stretch' | 'wave' | 'cheers') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
 $('stretchBtn').onclick = () => doEmote('stretch');
