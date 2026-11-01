@@ -17,7 +17,7 @@ const lastPost = new Map<string, number>();
 let seq = 0;
 
 /** 이 장소의 가장 최근 현지 정오 (밀물 시각) */
-function lastNoon(tz: string, now: number) {
+export function lastNoon(tz: string, now: number) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
     timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(now).map(p => [p.type, p.value]));

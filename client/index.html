@@ -99,6 +99,8 @@
       <button class="tile" id="clapBtn" role="menuitem"><i>👏</i><span data-i18n="clap">박수</span></button>
       <button class="tile" id="skipBtn" role="menuitem"><i>🪨</i><span data-i18n="skip">물수제비</span></button>
       <button class="tile" id="lieBtn" role="menuitem"><i>🌌</i><span data-i18n="lie">누워서 별 보기</span></button>
+      <button class="tile" id="castleBtn" role="menuitem"><i>🏰</i><span data-i18n="castle">모래성 쌓기</span></button>
+      <button class="tile" id="dexBtn" role="menuitem"><i>🐚</i><span data-i18n="dex">조개 도감</span></button>
     </div>
   </div>
 </div>
@@ -115,6 +117,13 @@
 <div class="sheet-back" id="sheetBack"></div>
 
 <div class="flash" id="flash"></div>
+<button class="star-wish pe" id="starWish" hidden data-i18n="starWish">🌠 별똥별! 소원 빌기</button>
+<div class="sheet" id="dexSheet" role="dialog" aria-labelledby="dexTitle">
+  <h2 id="dexTitle">조개 도감</h2>
+  <p class="lead" id="dexLead"></p>
+  <div class="dex-grid" id="dexGrid"></div>
+  <p class="note" data-i18n="dexNote">물가 젖은 모래에서 반짝이는 걸 찾아 가까이 가면 저절로 주워요. 해변마다 그곳에만 있는 조개가 있어요.</p>
+</div>
 <div class="sheet" id="photoSheet" role="dialog" aria-labelledby="photoTitle">
   <h2 id="photoTitle" data-i18n="photoTitle">오늘의 해를 찍었어요</h2>
   <img class="photo-prev" id="photoImg" alt="방금 찍은 해변 사진" data-i18n-alt="photoAlt">

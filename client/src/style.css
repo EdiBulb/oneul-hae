@@ -212,3 +212,15 @@
   .tile i{font-style:normal;font-size:22px;line-height:1}
   .tile:active{transform:scale(.95)}
   .tile:disabled{opacity:.4}
+
+  .act-tray{grid-template-columns:repeat(4,70px)}
+  .star-wish{position:fixed;left:50%;top:34%;transform:translateX(-50%);font:inherit;font-size:15px;font-weight:700;padding:12px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(30,34,80,.7);color:#fff;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 0 30px rgba(180,200,255,.45);animation:starIn .5s ease-out;z-index:20;cursor:pointer}
+  @keyframes starIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translateX(-50%)}}
+  .dex-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+  .dex{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:14px;background:rgba(255,248,239,.06);border:1px solid var(--line);text-align:center}
+  .dex i{width:30px;height:30px;border-radius:50% 50% 45% 45%;background:var(--c);box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),inset 0 3px 0 rgba(255,255,255,.25)}
+  .dex b{font-size:12px;word-break:keep-all}
+  .dex small{font-size:10.5px;color:var(--ink-dim)}
+  .dex.unknown b{color:var(--ink-dim)}
+  .dex.unknown i{background:none;border:2px dashed rgba(255,255,255,.18);box-shadow:none}
+  .dex.rare{border-color:rgba(255,200,110,.45)}

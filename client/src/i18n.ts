@@ -25,6 +25,8 @@ export function setLang(l: Lang) {
 }
 
 export const num = (n: number) => n.toLocaleString(locale);
+/** 받침에 따라 을/를 */
+const eul = (w: string) => { const c = w.charCodeAt(w.length - 1) - 0xac00; return c >= 0 && c < 11172 && c % 28 ? '을' : '를'; };
 const people = (n: number) => `${num(n)} ${n === 1 ? 'person' : 'people'}`;
 
 const ko = {
@@ -56,9 +58,22 @@ const ko = {
   skipLand: '모래에 툭. 바다 쪽을 보고 던져 보세요',
   skipFar: '물가 가까이 가서 던질 수 있어요',
   skipBy: (nick: string, n: number) => `${nick}님이 물수제비 ${n}번`,
-  lieHint: '모래에 누웠어요 · 움직이면 일어나요',
+  lieHint: '모래에 누웠어요 · 화면을 끌어 하늘을 둘러보고, 움직이면 일어나요',
   lieNo: '모래사장에서만 누울 수 있어요',
   clapBy: (nick: string) => `${nick}님이 박수를 쳐요 👏`,
+  shellGot: (name: string, n: number, all: number) => `🐚 ${name}${eul(name)} 주웠어요 · 오늘 ${n}/${all}`,
+  shellNew: (name: string, found: number, all: number) => `✨ 새 조개! ${name} · 도감 ${found}/${all}`,
+  dexTitle: (found: number, all: number) => `조개 도감 ${found}/${all}`,
+  dexLead: (n: number, all: number) => `오늘 이 해변에서 ${n}/${all}개 주웠어요 · 내일 새 조개가 밀려와요`,
+  dexRare: '희귀',
+  castleNew: '🏰 모래성을 쌓기 시작했어요 · 한 번 더 누르면 한 단 더',
+  castleGrow: (lv: number) => (lv >= 3 ? '🏰 모래성 완성! 깃발을 꽂았어요' : `🏰 모래성 ${lv}단째`),
+  castleTower: (n: number) => `🏰 작은 탑을 얹어 줬어요 (${n}/4)`,
+  castleDone: '이 모래성은 다 지어졌어요 · 옆에 새로 지어 보세요',
+  castleFull: '오늘 해변에 모래성이 가득해요 · 정오에 밀물이 쓸어 가요',
+  castleSlow: '모래를 고르는 중… 잠깐만요',
+  castleNoSand: '마른 모래사장 위에서 쌓을 수 있어요',
+  castleOffline: '연결된 뒤에 쌓을 수 있어요',
   // 해돋이 안내
   replayOf: (d: string) => `다시보기 · ${d}`,
   soon: '곧 해가 떠요', risen: '해가 떴어요',
@@ -192,9 +207,22 @@ const en: Dict = {
   skipLand: 'Thud on the sand. Face the sea and try again',
   skipFar: 'Get closer to the water to skip stones',
   skipBy: (nick: string, n: number) => `${nick} skipped a stone ${n} time${n === 1 ? '' : 's'}`,
-  lieHint: 'Lying on the sand · move to get up',
+  lieHint: 'Lying on the sand · drag to look around the sky, move to get up',
   lieNo: 'You can only lie down on the sand',
   clapBy: (nick: string) => `${nick} is clapping 👏`,
+  shellGot: (name: string, n: number, all: number) => `🐚 Found a ${name} · today ${n}/${all}`,
+  shellNew: (name: string, found: number, all: number) => `✨ New shell! ${name} · collection ${found}/${all}`,
+  dexTitle: (found: number, all: number) => `Shell collection ${found}/${all}`,
+  dexLead: (n: number, all: number) => `${n}/${all} found on this beach today · new shells wash up tomorrow`,
+  dexRare: 'Rare',
+  castleNew: '🏰 Started a sandcastle · tap again to build it higher',
+  castleGrow: (lv: number) => (lv >= 3 ? '🏰 Sandcastle done! Flag planted' : `🏰 Sandcastle level ${lv}`),
+  castleTower: (n: number) => `🏰 You added a little tower (${n}/4)`,
+  castleDone: 'This castle is finished · build a new one next to it',
+  castleFull: 'The beach is full of castles today · the tide clears them at noon',
+  castleSlow: 'Smoothing the sand… one moment',
+  castleNoSand: 'You can build on the dry sand',
+  castleOffline: 'You can build once connected',
   replayOf: (d: string) => `Replay · ${d}`,
   soon: 'The sun is about to rise', risen: 'The sun is up',
   replaySoonOrRisen: (p: string, risen: boolean) => `Replay · ${p} ${risen ? 'sun is up' : 'sunrise soon'}`,
@@ -305,7 +333,7 @@ const HTML_EN: Record<string, string> = {
   'cheers': 'Cheers ☕',
   'stretch': 'Stretch',
   'cheersTile': 'Cheers', 'actMore': 'Actions', 'actAria': 'More actions',
-  'clap': 'Clap', 'skip': 'Skip stones', 'lie': 'Lie & stargaze', 'actTrayAria': 'Things to do while waiting',
+  'clap': 'Clap', 'skip': 'Skip stones', 'lie': 'Lie & stargaze', 'castle': 'Sandcastle', 'dex': 'Shells', 'starWish': '🌠 Shooting star! Make a wish', 'dexNote': 'Look for something sparkling on the wet sand by the water and walk up to it to pick it up. Some shells only wash up on one beach.', 'actTrayAria': 'Things to do while waiting',
   'sit': 'Sit on cushion',
   'lantern': 'Release lantern',
   'photoAria': 'Take a photo of this view',

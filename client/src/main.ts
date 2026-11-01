@@ -10,6 +10,9 @@ import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
 import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt } from './beach-extras';
 import { takePhoto } from './photo';
+import { createCastles } from './castles';
+import { createShells, PER_DAY, SHELLS } from './shells';
+import { createSkyLife } from './skylife';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place } from './places';
@@ -57,7 +60,10 @@ const stones = createStones(scene, (x, z, last, mine) => {
   const d = Math.hypot(me.root.position.x - x, me.root.position.z - z);
   amb.plop((mine ? 1 : 0.7) * clamp(1.2 - d / 25, 0, 1), last);
 });
-let lying = false;
+let lying = false, lieSince = 0;
+const castles = createCastles(scene);
+const shells = createShells(scene, GLOW);
+const sky = createSkyLife(scene, GLOW);
 const bonfire = createBonfire(scene, GLOW);
 const sandBoard = createSandBoard(scene);
 // 방석 22개 뒤에 모닥불 통나무 8자리, 데크 끝 3자리를 붙임 (서버 번호와 같은 순서)
@@ -154,6 +160,7 @@ net.on('welcome', w => {
   if (w.place !== place.id) return;
   myId = w.id;
   clearRemotes();
+  castles.setAll(w.castles ?? []);
   w.players.forEach(addRemote);
   seats.forEach(s => (s.occ = null));
   for (const [idx, id] of Object.entries(w.seats)) if (seats[+idx]) seats[+idx].occ = id;
@@ -290,6 +297,9 @@ function setView(d: number, pitch?: number, yaw?: number) {
   if (yaw !== undefined) cam.tYaw = yaw;
 }
 const camLook = new THREE.Vector3(0, 1.5, 0), target = new THREE.Vector3(), want = new THREE.Vector3();
+const eye = { yaw: 0, pitch: 0.95, tYaw: 0, tPitch: 0.95 };
+let eyeK = 0;
+const eyePos = new THREE.Vector3(), eyeLook = new THREE.Vector3(), lookTmp = new THREE.Vector3();
 function updateCamera(dt: number) {
   const e = 1 - Math.pow(0.004, dt);
   cam.yaw += (cam.tYaw - cam.yaw) * e; cam.pitch += (cam.tPitch - cam.pitch) * e; cam.dist += (cam.tDist - cam.dist) * e;
@@ -313,6 +323,21 @@ function updateCamera(dt: number) {
     sandLook.copy(camLook).lerp(sandBoard.center, k);
     camera.lookAt(sandLook);
   }
+  // 누워서 별 보기: 3인칭으로 눕는 모습을 잠깐 보여 준 뒤, 카메라가 눈 위치로 들어가 하늘을 올려다봄
+  const eyeWant = lying && performance.now() - lieSince > 1300 ? 1 : 0;
+  eyeK = clamp(eyeK + clamp(eyeWant - eyeK, -dt * 1.4, dt * 0.7), 0, 1);
+  eye.yaw += (eye.tYaw - eye.yaw) * e; eye.pitch += (eye.tPitch - eye.pitch) * e;
+  if (eyeK > 0.001) {
+    const k = eyeK * eyeK * (3 - 2 * eyeK);
+    me.root.updateMatrixWorld(true);
+    me.inner.localToWorld(eyePos.set(0, 1.17, -0.46));
+    const yaw = me.root.rotation.y + eye.yaw, cp = Math.cos(eye.pitch);
+    eyeLook.set(eyePos.x - Math.sin(yaw) * cp * 10, eyePos.y + Math.sin(eye.pitch) * 10, eyePos.z - Math.cos(yaw) * cp * 10);
+    camera.position.lerp(eyePos, k);
+    lookTmp.copy(camLook).lerp(eyeLook, k);
+    camera.lookAt(lookTmp);
+  }
+  meLabel.visible = meRing.visible = eyeK < 0.4;
   const k = clamp(cam.dist / 10, 1, 2.2);
   meLabel.scale.set(meLabelBase.x * k, meLabelBase.y * k, 1);
   meLabel.position.y = 1.9 + (k - 1) * 0.12;
@@ -332,7 +357,8 @@ cvs.addEventListener('pointermove', e => {
   if (!prev) return;
   const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (ptrs.size === 1) { cam.tYaw -= dx * 0.007; cam.tPitch = clamp(cam.tPitch + dy * 0.005, 0.04, 1.35); }
+  if (ptrs.size === 1 && eyeK > 0.5) { eye.tYaw = clamp(eye.tYaw - dx * 0.006, -1.7, 1.7); eye.tPitch = clamp(eye.tPitch + dy * 0.005, 0.12, 1.5); }
+  else if (ptrs.size === 1) { cam.tYaw -= dx * 0.007; cam.tPitch = clamp(cam.tPitch + dy * 0.005, 0.04, 1.35); }
   else if (ptrs.size === 2 && pinch0) {
     const [a, b] = [...ptrs.values()];
     setView(dist0 * pinch0 / Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)));
@@ -501,6 +527,11 @@ function loop(t: number) {
   amb.setFire(bonfire.level * clamp(1.15 - fireDist / 14, 0, 1));
   prints.update(dt);
   stones.update(dt);
+  castles.update(dt, t);
+  if (sky.update(dt, t, alt, camera, lying && eyeK > 0.5)) showStarWish();
+  const shell = shells.update(dt, t, me.root.position);
+  if (shell) gotShell(shell.i, shell.kind);
+  if (t - lastShellCheck > 60000) { lastShellCheck = t; if (shellKey() !== store.shells?.key) placeShells(); }
   sandBoard.update(camera);
   // 실제 시간 기준이라 느린 폰에서도 0.6초 안에 게시판이 열림
   sandK = clamp(sandK + (sandOpen ? realDt : -realDt) * 1.6, 0, 1);
@@ -526,7 +557,7 @@ PLACES.forEach(p => {
     if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
     seats.forEach(s => (s.occ = null));
     closeSand(); sandPosts = []; renderSandLabel();
-    clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); world.buildLandmark(p); renderAlarm(); renderCounts(); refreshWeather();
+    clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); placeShells(); renderAlarm(); renderCounts(); refreshWeather();
     spawn();
     if (connected) join();
     expandBanner();
@@ -590,7 +621,8 @@ $('lieBtn').onclick = () => {
   if (mySeat !== null) standUp();
   const p = me.root.position;
   if (surfaceAt(p.x, p.z) !== 'sand' || onPier(p.x, p.z)) { toast(T.lieNo); return; }
-  lying = true; me.state = 'lie'; me.emote = null;
+  lying = true; lieSince = performance.now(); me.state = 'lie'; me.emote = null;
+  eye.yaw = eye.tYaw = 0; eye.pitch = eye.tPitch = 0.95;
   // 누우면 카메라를 낮춰 하늘이 화면 가득 들어오게
   setView(5.5, 0.12, me.root.rotation.y + 1.1); // 비스듬히 옆에서: 누운 모습과 하늘·바다가 같이 보이게
   toast(T.lieHint);
@@ -603,11 +635,12 @@ $('blanketBtn').onclick = () => {
   track('blanket', { on, place: place.id, seated: mySeat !== null });
 };
 
-$('zoomIn').onclick = () => setView(cam.tDist / 1.5);
-$('zoomOut').onclick = () => setView(cam.tDist * 1.5, Math.max(cam.tPitch, 0.45));
-$('overview').onclick = () => setView(26, 0.5, 0);
+$('zoomIn').onclick = () => { lying = false; setView(cam.tDist / 1.5); };
+$('zoomOut').onclick = () => { lying = false; setView(cam.tDist * 1.5, Math.max(cam.tPitch, 0.45)); };
+$('overview').onclick = () => { lying = false; setView(26, 0.5, 0); };
 // 내 시점: 내 캐릭터 등 뒤에서, 캐릭터가 바라보는 방향을 같이 본다
 $('resetView').onclick = () => {
+  lying = false; // 카메라 버튼을 누르면 별 보기에서 나옴
   let d = me.root.rotation.y - cam.yaw;
   d = Math.atan2(Math.sin(d), Math.cos(d)); // 가장 가까운 쪽으로 돌기
   setView(5.6, 0.24, cam.yaw + d);
@@ -1117,6 +1150,7 @@ net.on('sandPost', p => {
   if (sandOpen && !$('sand').hidden) renderSand();
   else if (sandBoard.distance(me.root.position) < 30) ticker(T.sandNew);
 });
+net.on('castle', c => castles.upsert(c));
 net.on('sandRemove', id => { sandPosts = sandPosts.filter(p => p.id !== id); renderSandLabel(); if (sandOpen) renderSand(); });
 // 글이 흐려지고 사라지는 건 시간에 따라: 1분마다 다시 그림
 setInterval(() => { renderSandLabel(); if (sandOpen && !$('sand').hidden && openSheet?.id !== 'sandSheet') renderSand(); }, 60000);
@@ -1173,4 +1207,64 @@ renderStreak(); renderAlarm(); renderCounts();
 requestAnimationFrame(loop);
 
 // 테스트용 (브라우저 콘솔에서 확인)
-Object.assign(window, { __hae: { remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+// ================= 별똥별 · 조개 · 모래성 =================
+let starTimer = 0;
+function showStarWish() {
+  const b = $('starWish'); b.hidden = false;
+  clearTimeout(starTimer); starTimer = window.setTimeout(() => (b.hidden = true), 8000);
+  track('shooting_star', { place: place.id, lying });
+}
+$('starWish').onclick = () => { $('starWish').hidden = true; open('wishSheet'); track('star_wish', { place: place.id }); };
+
+// 조개: 장소의 현지 날짜마다 새로 깔림
+let lastShellCheck = 0;
+const shellKey = () => `${place.id}|${new Intl.DateTimeFormat('en-CA', { timeZone: place.tz }).format(new Date())}`;
+function placeShells() {
+  const key = shellKey();
+  if (store.shells?.key !== key) { store.shells = { key, got: [] }; save(); }
+  shells.set(place.id, key.split('|')[1], store.shells.got);
+}
+placeShells();
+const shellName = (i: number) => (lang === 'ko' ? SHELLS[i].ko : SHELLS[i].en);
+function gotShell(i: number, kind: number) {
+  const st = store.shells!; st.got.push(i);
+  const dex = (store.dex ??= {});
+  const isNew = !dex[SHELLS[kind].id];
+  dex[SHELLS[kind].id] = (dex[SHELLS[kind].id] ?? 0) + 1;
+  save();
+  const found = SHELLS.filter(k => dex[k.id]).length;
+  toast(isNew ? T.shellNew(shellName(kind), found, SHELLS.length) : T.shellGot(shellName(kind), st.got.length, PER_DAY));
+  amb.plop(0.5);
+  track('shell_found', { place: place.id, kind: SHELLS[kind].id, new: isNew, today: st.got.length });
+}
+function renderDex() {
+  const dex = store.dex ?? {}, found = SHELLS.filter(k => dex[k.id]).length;
+  $('dexTitle').textContent = T.dexTitle(found, SHELLS.length);
+  $('dexLead').textContent = T.dexLead(store.shells?.got.length ?? 0, PER_DAY);
+  $('dexGrid').innerHTML = SHELLS.map((k, i) => {
+    const n = dex[k.id] ?? 0, c = `#${k.color.toString(16).padStart(6, '0')}`;
+    return `<div class="dex${n ? '' : ' unknown'}${k.rare ? ' rare' : ''}"><i style="--c:${n ? c : '#3a3b55'}"></i><b>${n ? shellName(i) : '???'}</b><small>${n ? `×${n}` : k.rare ? T.dexRare : ''}</small></div>`;
+  }).join('');
+}
+$('dexBtn').onclick = () => { renderDex(); open('dexSheet'); track('dex_opened', { found: Object.keys(store.dex ?? {}).length }); };
+
+// 모래성: 앞에 있는 성을 키우거나, 없으면 새로 짓기 (다 같이 쌓는다)
+$('castleBtn').onclick = () => {
+  if (!connected) { toast(T.castleOffline); return; }
+  if (mySeat !== null) standUp();
+  lying = false;
+  const p = me.root.position, ry = me.root.rotation.y;
+  const near = castles.near(p.x, p.z, 1.9);
+  const x = near ? near.x : p.x - Math.sin(ry) * 1.1, z = near ? near.z : p.z - Math.cos(ry) * 1.1;
+  if (!near && (surfaceAt(x, z) !== 'sand' || onPier(x, z) || z < -1.4)) { toast(T.castleNoSand); return; }
+  if (near) turnTo(me, Math.atan2(-(near.x - p.x), -(near.z - p.z)), 1);
+  me.emote = 'dig'; me.emoteT = 0; net.emit('emote', 'dig');
+  net.emit('castle', x, z, r => {
+    if (!r.ok) { toast(r.reason === 'cooldown' ? T.castleSlow : r.reason === 'full' ? T.castleFull : r.reason === 'done' ? T.castleDone : T.castleNoSand); return; }
+    setTimeout(() => castles.upsert(r.castle), 500);
+    toast(r.kind === 'new' ? T.castleNew : r.kind === 'grow' ? T.castleGrow(r.castle.level) : T.castleTower(r.castle.towers));
+    track('castle', { place: place.id, kind: r.kind, level: r.castle.level });
+  });
+};
+
+Object.assign(window, { __hae: { forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

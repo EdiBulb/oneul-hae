@@ -6,6 +6,7 @@ import type {
 import { handleReminderHttp, pushEnabled } from './reminders.js';
 import { cleanWish } from './wish-filter.js';
 import { addPost, boardOf, report } from './sand-board.js';
+import { build, castlesOf } from './castles.js';
 
 // ---------- 설정 (환경 변수로 바꿀 수 있음) ----------
 const PORT = Number(process.env.PORT ?? 3001);
@@ -208,6 +209,7 @@ io.on('connection', (socket: Sock) => {
       seats: Object.fromEntries(c.seats),
       traces: traces(c.place, socket.data.uid),
       board: boardOf(c.place, PLACES[c.place].tz),
+      castles: castlesOf(c.place, PLACES[c.place].tz),
     });
     socket.to(c.key).emit('joined', me);
   });
@@ -233,7 +235,7 @@ io.on('connection', (socket: Sock) => {
 
   socket.on('emote', (e: Emote) => {
     const c = socket.data.channel, now = Date.now();
-    if (!c || !['stretch', 'wave', 'cheers', 'clap'].includes(e) || now - socket.data.lastEmote < 800) return;
+    if (!c || !['stretch', 'wave', 'cheers', 'clap', 'dig'].includes(e) || now - socket.data.lastEmote < 800) return;
     socket.data.lastEmote = now;
     if (e === 'cheers') {
       const partner = findCheersPartner(socket, c, now);
@@ -286,6 +288,14 @@ io.on('connection', (socket: Sock) => {
     const r = addPost(c.place, PLACES[c.place].tz, socket.data.uid, text);
     if (r.ok) socket.to(`p:${c.place}`).emit('sandPost', r.post);
     reply(r);
+  });
+
+  socket.on('castle', (x, z, ack) => {
+    const c = socket.data.channel, reply = typeof ack === 'function' ? ack : () => {};
+    if (!c || !socket.data.uid) return reply({ ok: false, reason: 'place' });
+    const r = build(c.place, PLACES[c.place].tz, socket.data.uid, num(x, -30, 30, 99), num(z, -30, 30, 99));
+    reply(r);
+    if (r.ok) socket.to(`p:${c.place}`).emit('castle', r.castle);
   });
 
   socket.on('sandReport', id => {

@@ -17,6 +17,10 @@ interface Saved {
   installSnooze?: number;
   /** 물수제비 최고 기록 */
   skipBest?: number;
+  /** 오늘 주운 조개: key = 장소|현지날짜, got = 그날 조개 번호 */
+  shells?: { key: string; got: number[] };
+  /** 조개 도감: 종류 → 주운 개수 */
+  dex?: Record<string, number>;
   /** 직접 쓴 소원을 다른 사람에게도 보여줄지 (기본: 안 보여줌) */
   shareWish: boolean;
   /** 내가 모래 게시판에 쓴 글 id (신고 버튼 대신 '내가 남긴 글') */

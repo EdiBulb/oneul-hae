@@ -10,7 +10,7 @@ export interface Look { body: number; hat: number }
 export type St = 0 | 1 | 2 | 3;
 
 /** cheers = 모닝커피 짠. 혼자면 한 모금 마시고, 가까운 사람과 3초 안에 같이 누르면 컵을 부딪친다 */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap' | 'dig';
 
 /** [id, x, z, ry, st] — 자주 오가므로 객체 대신 배열 */
 export type Move = [string, number, number, number, St];
@@ -54,6 +54,10 @@ export interface Traces {
 export interface SandPost { id: string; text: string; at: number }
 export type SandWriteResult = { ok: true; post: SandPost } | { ok: false; reason: 'cooldown' | 'filtered'; wait?: number };
 
+/** 모래성: level 1 모래 더미 → 2 성벽 → 3 탑과 깃발, towers는 다른 사람들이 얹은 작은 탑 */
+export interface Castle { id: string; x: number; z: number; level: number; towers: number }
+export type CastleResult = { ok: true; castle: Castle; kind: 'new' | 'grow' | 'tower' } | { ok: false; reason: 'cooldown' | 'place' | 'full' | 'done' };
+
 export interface Welcome {
   id: string;
   place: PlaceId;
@@ -64,6 +68,8 @@ export interface Welcome {
   traces: Traces;
   /** 이 해변의 모래 게시판 (지금 남아 있는 글) */
   board: SandPost[];
+  /** 이 해변의 모래성 */
+  castles: Castle[];
 }
 
 export interface Stats {
@@ -88,6 +94,7 @@ export interface ServerToClient {
   blanket: (id: string, on: boolean) => void;
   sandPost: (p: SandPost) => void;
   sandRemove: (id: string) => void;
+  castle: (c: Castle) => void;
   /** text: 쓴 사람이 공개를 고르고, 서버 필터를 통과한 소원만. 없으면 불빛만 */
   lantern: (id: string, x: number, z: number, text?: string) => void;
   seat: (idx: number, id: string | null) => void;
@@ -106,5 +113,6 @@ export interface ClientToServer {
   blanket: (on: boolean) => void;
   sandWrite: (text: string, ack: (r: SandWriteResult) => void) => void;
   sandReport: (id: string) => void;
+  castle: (x: number, z: number, ack: (r: CastleResult) => void) => void;
   woke: () => void;
 }
