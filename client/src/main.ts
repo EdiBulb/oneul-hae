@@ -60,7 +60,8 @@ const stones = createStones(scene, (x, z, last, mine) => {
   const d = Math.hypot(me.root.position.x - x, me.root.position.z - z);
   amb.plop((mine ? 1 : 0.7) * clamp(1.2 - d / 25, 0, 1), last);
 });
-let lying = false, lieSince = 0;
+/** lying: 몸이 누워 있는지 / eyeView: 누운 채 눈으로 보는 시점인지 (카메라 버튼은 시점만 바꾸고 몸은 그대로) */
+let lying = false, lieSince = 0, eyeView = false;
 const castles = createCastles(scene);
 const shells = createShells(scene, GLOW);
 const sky = createSkyLife(scene, GLOW);
@@ -324,7 +325,7 @@ function updateCamera(dt: number) {
     camera.lookAt(sandLook);
   }
   // 누워서 별 보기: 3인칭으로 눕는 모습을 잠깐 보여 준 뒤, 카메라가 눈 위치로 들어가 하늘을 올려다봄
-  const eyeWant = lying && performance.now() - lieSince > 1300 ? 1 : 0;
+  const eyeWant = lying && eyeView && performance.now() - lieSince > 1300 ? 1 : 0;
   eyeK = clamp(eyeK + clamp(eyeWant - eyeK, -dt * 1.4, dt * 0.7), 0, 1);
   eye.yaw += (eye.tYaw - eye.yaw) * e; eye.pitch += (eye.tPitch - eye.pitch) * e;
   if (eyeK > 0.001) {
@@ -342,7 +343,7 @@ function updateCamera(dt: number) {
   meLabel.scale.set(meLabelBase.x * k, meLabelBase.y * k, 1);
   meLabel.position.y = 1.9 + (k - 1) * 0.12;
   meRing.scale.setScalar(Math.min(3, 0.8 + cam.dist / 14));
-  $('viewName').textContent = cam.tDist > 20 ? T.viewAll : cam.tDist > 9 ? T.view3rd : T.viewMine;
+  $('viewName').textContent = lying && eyeView ? T.viewMine : cam.tDist > 20 ? T.viewAll : cam.tDist > 9 ? T.view3rd : T.viewMine;
 }
 
 // 화면 드래그 = 둘러보기, 두 손가락/휠 = 줌
@@ -420,7 +421,7 @@ function updateMe(dt: number) {
   const bl = $('blanketBtn'), showBl = mySeat !== null || me.blanket.visible;
   if (bl.hidden === showBl) bl.hidden = !showBl;
   bl.textContent = me.blanket.visible ? T.blanketOff : T.blanketOn;
-  $('sitBtn').textContent = mySeat !== null ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : T.sitDown) : T.findSeat;
+  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : T.sitDown) : T.findSeat;
 }
 
 // ================= 상단 문구 =================
@@ -528,7 +529,7 @@ function loop(t: number) {
   prints.update(dt);
   stones.update(dt);
   castles.update(dt, t);
-  if (sky.update(dt, t, alt, camera, lying && eyeK > 0.5)) showStarWish();
+  if (sky.update(dt, t, alt, camera, lying)) showStarWish();
   const shell = shells.update(dt, t, me.root.position);
   if (shell) gotShell(shell.i, shell.kind);
   if (t - lastShellCheck > 60000) { lastShellCheck = t; if (shellKey() !== store.shells?.key) placeShells(); }
@@ -568,6 +569,7 @@ PLACES.forEach(p => {
 
 // ================= 버튼 =================
 $('sitBtn').onclick = () => {
+  if (lying) { lying = false; eyeView = false; me.state = 'idle'; return; } // 누워 있다가 일어나기
   if (mySeat !== null) { standUp(); return; }
   const idx = nearestFreeSeat();
   if (idx === null) { toast(T.seatHint); return; }
@@ -621,7 +623,7 @@ $('lieBtn').onclick = () => {
   if (mySeat !== null) standUp();
   const p = me.root.position;
   if (surfaceAt(p.x, p.z) !== 'sand' || onPier(p.x, p.z)) { toast(T.lieNo); return; }
-  lying = true; lieSince = performance.now(); me.state = 'lie'; me.emote = null;
+  lying = true; eyeView = true; lieSince = performance.now(); me.state = 'lie'; me.emote = null;
   eye.yaw = eye.tYaw = 0; eye.pitch = eye.tPitch = 0.95;
   // 누우면 카메라를 낮춰 하늘이 화면 가득 들어오게
   setView(5.5, 0.12, me.root.rotation.y + 1.1); // 비스듬히 옆에서: 누운 모습과 하늘·바다가 같이 보이게
@@ -635,12 +637,13 @@ $('blanketBtn').onclick = () => {
   track('blanket', { on, place: place.id, seated: mySeat !== null });
 };
 
-$('zoomIn').onclick = () => { lying = false; setView(cam.tDist / 1.5); };
-$('zoomOut').onclick = () => { lying = false; setView(cam.tDist * 1.5, Math.max(cam.tPitch, 0.45)); };
-$('overview').onclick = () => { lying = false; setView(26, 0.5, 0); };
+$('zoomIn').onclick = () => { eyeView = false; setView(cam.tDist / 1.5); };
+$('zoomOut').onclick = () => { eyeView = false; setView(cam.tDist * 1.5, Math.max(cam.tPitch, 0.45)); };
+$('overview').onclick = () => { eyeView = false; setView(26, 0.5, 0); };
 // 내 시점: 내 캐릭터 등 뒤에서, 캐릭터가 바라보는 방향을 같이 본다
 $('resetView').onclick = () => {
-  lying = false; // 카메라 버튼을 누르면 별 보기에서 나옴
+  // 누워 있으면 '내 시점' = 누운 채 눈으로 하늘 보기
+  if (lying) { eyeView = true; lieSince = 0; eye.tYaw = 0; eye.tPitch = 0.95; return; }
   let d = me.root.rotation.y - cam.yaw;
   d = Math.atan2(Math.sin(d), Math.cos(d)); // 가장 가까운 쪽으로 돌기
   setView(5.6, 0.24, cam.yaw + d);
