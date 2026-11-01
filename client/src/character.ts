@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-export type CharState = 'idle' | 'walk' | 'sit';
+export type CharState = 'idle' | 'walk' | 'sit' | 'lie';
 /** clink = 다른 사람과 커피잔을 부딪치는 동작 (서버가 짝을 지어 줄 때만) */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip';
 
 export interface Char {
   root: THREE.Group;
@@ -125,10 +125,10 @@ export function disposeChar(c: Char) {
 }
 
 /** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
-const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6 };
+const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1 };
 export function animChar(c: Char, dt: number) {
   c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
-  let aL = 0, aR = 0, aRz = 0, lL = 0, lR = 0, y = 0;
+  let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
   if (c.state === 'walk') {
     const s = Math.sin(c.phase);
     lL = s * 0.6; lR = -s * 0.6; aL = -s * 0.5; aR = s * 0.5; y = Math.abs(Math.cos(c.phase)) * 0.06;
@@ -136,6 +136,9 @@ export function animChar(c: Char, dt: number) {
     // 방석: 다리를 앞으로 쭉 / 통나무: 무릎 아래로 다리를 내리고 손은 무릎 위에
     y = -0.3;
     if (c.bench) { lL = lR = 1.05; aL = aR = 0.75; } else { lL = lR = Math.PI / 2; aL = aR = 0.55; }
+  } else if (c.state === 'lie') {
+    // 모래에 등을 대고 누워 하늘 보기: 팔은 머리 뒤로 깍지
+    rx = Math.PI / 2; y = 0.3; aL = aR = Math.PI * 0.85; aLz = -0.5; aRz = 0.5; lR = 0.25;
   } else {
     y = Math.sin(c.phase) * 0.012;
   }
@@ -158,6 +161,16 @@ export function animChar(c: Char, dt: number) {
       aR = (1.45 + tap + 0.85 * Math.sin(Math.PI * sip)) * reach; aRz = 0.12 * reach;
       y += 0.03 * Math.sin(Math.PI * clamp((u - 0.3) / 0.25, 0, 1));
     }
+    if (c.emote === 'clap') {
+      // 두 손을 앞으로 모아 짝짝짝
+      const reach = clamp(k * 2, 0, 1), tap = Math.abs(Math.sin(c.emoteT * 13)) * 0.3;
+      aL = aR = 1.3 * reach; aLz = -(0.25 + tap) * reach; aRz = (0.25 + tap) * reach;
+    }
+    if (c.emote === 'skip') {
+      // 물수제비: 팔을 뒤로 젖혔다가 옆으로 낮게 휙
+      aR = u < 0.4 ? -0.9 * (u / 0.4) : -0.9 + 2.3 * clamp((u - 0.4) / 0.25, 0, 1) * (1 - clamp((u - 0.75) / 0.25, 0, 1));
+      aRz = 0.9 * k; y -= 0.06 * k;
+    }
     if (c.emoteT >= T) { c.emote = null; c.emoteT = 0; }
   }
   const hasMug = c.emote === 'cheers' || c.emote === 'clink';
@@ -172,6 +185,8 @@ export function animChar(c: Char, dt: number) {
   c.armL.rotation.x += (aL - c.armL.rotation.x) * e;
   c.armR.rotation.x += (aR - c.armR.rotation.x) * e;
   c.armR.rotation.z += (aRz - c.armR.rotation.z) * e;
+  c.armL.rotation.z += (aLz - c.armL.rotation.z) * e;
+  c.inner.rotation.x += (rx - c.inner.rotation.x) * e;
   c.legL.rotation.x += (lL - c.legL.rotation.x) * e;
   c.legR.rotation.x += (lR - c.legR.rotation.x) * e;
   c.inner.position.y += (y - c.inner.position.y) * e;

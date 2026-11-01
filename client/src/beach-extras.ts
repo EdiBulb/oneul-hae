@@ -263,3 +263,60 @@ export function createBonfire(scene: THREE.Scene, GLOW: THREE.Texture) {
 
 /** 해 고도 → 밤의 정도 (해 뜨면 0, 동트기 전 어두우면 1) */
 export const nightness = (alt: number) => clamp((2 - alt) / 6, 0, 1);
+
+// ---------- 물수제비 ----------
+// 손에서 날아간 돌이 물 위에서 통통 튀다가 가라앉는다. 튀는 횟수는 던질 때 정해진다.
+interface Stone { m: THREE.Mesh; hops: { x: number; z: number; len: number; h: number }[]; i: number; t: number; dx: number; dz: number; sx: number; sz: number; sy: number; land: boolean; sink: number }
+export function createStones(scene: THREE.Scene, onBounce: (x: number, z: number, last: boolean, mine: boolean) => void) {
+  const geo = new THREE.SphereGeometry(0.07, 8, 6); geo.scale(1, 0.45, 1);
+  const mat = new THREE.MeshLambertMaterial({ color: 0x6e6a66 });
+  const list: (Stone & { mine: boolean })[] = [];
+
+  /** 튈 횟수: 대부분 2~5번, 가끔 8번 넘게 */
+  const rollSkips = () => Math.max(0, Math.round(1 + Math.pow(Math.random(), 1.6) * 9 + (Math.random() - 0.5) * 2));
+
+  function toss(from: THREE.Vector3, ry: number, mine: boolean, skips = rollSkips()) {
+    const dx = -Math.sin(ry), dz = -Math.cos(ry);
+    const m = new THREE.Mesh(geo, mat);
+    const sx = from.x + dx * 0.4, sz = from.z + dz * 0.4, sy = from.y + 0.95;
+    m.position.set(sx, sy, sz); scene.add(m);
+    // 첫 착지는 3.5m 앞, 이후 점점 짧고 낮게
+    const hops: Stone['hops'] = [];
+    let x = sx + dx * 3.5, z = sz + dz * 3.5, len = 3.5, h = 0.9;
+    hops.push({ x, z, len, h });
+    const land = z >= -1.8; // 바다 쪽이 아니면 모래에 툭 떨어짐
+    if (!land) for (let i = 0; i < skips; i++) {
+      len *= 0.78; h *= 0.6;
+      x += dx * len; z += dz * len;
+      hops.push({ x, z, len, h: Math.max(h, 0.08) });
+    }
+    list.push({ m, hops, i: 0, t: 0, dx, dz, sx, sz, sy, land, sink: -1, mine });
+    return land ? -1 : skips;
+  }
+
+  function update(dt: number) {
+    for (let k = list.length - 1; k >= 0; k--) {
+      const s = list[k];
+      if (s.sink >= 0) {
+        s.sink += dt; s.m.position.y -= dt * 0.6;
+        if (s.sink > 0.6) { scene.remove(s.m); list.splice(k, 1); }
+        continue;
+      }
+      const hop = s.hops[s.i];
+      const dur = 0.18 + hop.len * 0.09;
+      s.t += dt;
+      const u = Math.min(1, s.t / dur);
+      const px = s.i === 0 ? s.sx : s.hops[s.i - 1].x, pz = s.i === 0 ? s.sz : s.hops[s.i - 1].z;
+      const py = s.i === 0 ? s.sy : 0.02, ty = s.land ? floorY(hop.x, hop.z) + 0.03 : 0.02;
+      s.m.position.set(px + (hop.x - px) * u, py + (ty - py) * u + Math.sin(Math.PI * u) * hop.h, pz + (hop.z - pz) * u);
+      s.m.rotation.y += dt * 20;
+      if (u >= 1) {
+        const last = s.i === s.hops.length - 1;
+        if (!s.land) onBounce(hop.x, hop.z, last, s.mine);
+        s.i++; s.t = 0;
+        if (last) { s.sink = 0; if (s.land) s.sink = 0.3; }
+      }
+    }
+  }
+  return { toss, update, roll: rollSkips };
+}

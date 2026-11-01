@@ -220,13 +220,20 @@ io.on('connection', (socket: Sock) => {
     me.x = num(x, BOUNDS.minX, BOUNDS.maxX, me.x);
     me.z = num(z, BOUNDS.minZ, BOUNDS.maxZ, me.z);
     me.ry = num(ry, -10, 10, me.ry);
-    me.st = (st === 1 || st === 2 ? st : 0) as St;
+    me.st = (st === 1 || st === 2 || st === 3 ? st : 0) as St;
     c.dirty.add(socket.id); // 바로 보내지 않고 다음 틱에 묶어서 보냄
+  });
+
+  socket.on('skip', n => {
+    const c = socket.data.channel, now = Date.now();
+    if (!c || now - socket.data.lastEmote < 800) return;
+    socket.data.lastEmote = now;
+    socket.to(c.key).emit('skip', socket.id, Math.round(num(n, -1, 12)));
   });
 
   socket.on('emote', (e: Emote) => {
     const c = socket.data.channel, now = Date.now();
-    if (!c || (e !== 'stretch' && e !== 'wave' && e !== 'cheers') || now - socket.data.lastEmote < 800) return;
+    if (!c || !['stretch', 'wave', 'cheers', 'clap'].includes(e) || now - socket.data.lastEmote < 800) return;
     socket.data.lastEmote = now;
     if (e === 'cheers') {
       const partner = findCheersPartner(socket, c, now);

@@ -8,7 +8,7 @@ import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt } from './beach-extras';
 import { takePhoto } from './photo';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
@@ -52,6 +52,12 @@ const life = createBeachLife(scene);
 const traces = createTraces(scene, GLOW);
 const pier = createPier(scene, GLOW);
 const prints = createFootprints(scene);
+const stones = createStones(scene, (x, z, last, mine) => {
+  prints.ripple(x, z, last ? 1.5 : 0.7);
+  const d = Math.hypot(me.root.position.x - x, me.root.position.z - z);
+  amb.plop((mine ? 1 : 0.7) * clamp(1.2 - d / 25, 0, 1), last);
+});
+let lying = false;
 const bonfire = createBonfire(scene, GLOW);
 const sandBoard = createSandBoard(scene);
 // 방석 22개 뒤에 모닥불 통나무 8자리, 데크 끝 3자리를 붙임 (서버 번호와 같은 순서)
@@ -117,8 +123,8 @@ function updateRemotes(dt: number) {
     const bench = r.st === 2 ? benchAt(p.x, p.z) : null;
     r.c.bench = !!bench;
     p.y = bench ? bench.y : floorY(p.x, p.z) + (r.st === 2 ? 0.07 : 0);
-    if (r.st !== 2) prints.step(r.info.id, p.x, p.z, r.c.root.rotation.y);
-    r.c.state = r.st === 2 ? 'sit' : (r.st === 1 || d > 0.05) ? 'walk' : 'idle';
+    if (r.st < 2) prints.step(r.info.id, p.x, p.z, r.c.root.rotation.y);
+    r.c.state = r.st === 2 ? 'sit' : r.st === 3 ? 'lie' : (r.st === 1 || d > 0.05) ? 'walk' : 'idle';
     turnTo(r.c, r.ry, dt);
     animChar(r.c, dt);
     r.label.visible = camera.position.distanceTo(p) < 18;
@@ -172,8 +178,21 @@ net.on('emote', (id, e) => {
   const r = remotes.get(id);
   if (!r) return;
   r.c.emote = e; r.c.emoteT = 0;
+  const near = r.c.root.position.distanceTo(me.root.position);
+  if (e === 'clap') { amb.clap(clamp(1.1 - near / 18, 0, 0.8)); if (near < 12) ticker(T.clapBy(localizeNick(r.info.nick))); }
   // 가까운 사람이 커피를 들면 같이 누르라고 알려 줌
   if (e === 'cheers' && r.c.root.position.distanceTo(me.root.position) < 3) toast(T.cheersNearby(localizeNick(r.info.nick)));
+});
+net.on('skip', (id, n) => {
+  const r = remotes.get(id);
+  if (!r) return;
+  r.c.emote = 'skip'; r.c.emoteT = 0;
+  const who = r.c.root.position.clone(), ry = r.c.root.rotation.y, nick = localizeNick(r.info.nick);
+  const near = who.distanceTo(me.root.position);
+  setTimeout(() => {
+    const got = stones.toss(who, ry, false, Math.max(0, n));
+    if (got > 0 && near < 25) setTimeout(() => ticker(T.skipBy(nick, got)), 900 + got * 280);
+  }, 450);
 });
 // 짠: 서버가 가까이 있는 두 사람을 짝지어 줌 → 서로 마주 보고 컵을 부딪침
 let clinkFace: { ang: number; until: number } | null = null;
@@ -212,7 +231,7 @@ let lastSent = 0, lastSentKey = '';
 function sendState(t: number) {
   if (!connected) return;
   const p = me.root.position;
-  const st: St = mySeat !== null ? 2 : me.state === 'walk' ? 1 : 0;
+  const st: St = mySeat !== null ? 2 : lying ? 3 : me.state === 'walk' ? 1 : 0;
   const key = `${p.x.toFixed(2)},${p.z.toFixed(2)},${me.root.rotation.y.toFixed(2)},${st}`;
   if (t - lastSent < 125 || (key === lastSentKey && t - lastSent < 1000)) return;
   lastSent = t; lastSentKey = key;
@@ -350,6 +369,7 @@ function updateMe(dt: number) {
   const p = me.root.position, moving = Math.hypot(input.x, input.y) > 0.12;
   if (moving) {
     if (mySeat !== null) standUp();
+    lying = false;
     // 조이스틱 위쪽 = 카메라가 바라보는 방향
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     const mx = rx * input.x + fx * input.y, mz = rz * input.x + fz * input.y;
@@ -363,7 +383,7 @@ function updateMe(dt: number) {
     const surf = prints.step('me', p.x, p.z, me.root.rotation.y);
     if (surf) amb.step(surf);
   } else if (mySeat === null) {
-    me.state = 'idle';
+    me.state = lying ? 'lie' : 'idle';
     if (clinkFace && performance.now() < clinkFace.until) turnTo(me, clinkFace.ang, dt);
   } else turnTo(me, seats[mySeat].ry, dt);
   animChar(me, dt);
@@ -480,6 +500,7 @@ function loop(t: number) {
   const fireDist = Math.hypot(me.root.position.x - BONFIRE.x, me.root.position.z - BONFIRE.z);
   amb.setFire(bonfire.level * clamp(1.15 - fireDist / 14, 0, 1));
   prints.update(dt);
+  stones.update(dt);
   sandBoard.update(camera);
   // 실제 시간 기준이라 느린 폰에서도 0.6초 안에 게시판이 열림
   sandK = clamp(sandK + (sandOpen ? realDt : -realDt) * 1.6, 0, 1);
@@ -528,10 +549,53 @@ $('sitBtn').onclick = () => {
   // 서버가 먼저 온 사람에게 방석을 준다
   net.emit('sit', idx, ok => { if (ok) { sitHere(); track('sat_down', { place: place.id, spot: seats[idx].kind ?? 'cushion' }); } else toast(T.seatTaken); });
 };
-const doEmote = (e: 'stretch' | 'wave' | 'cheers') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
+const doEmote = (e: 'stretch' | 'wave' | 'cheers' | 'clap') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
 $('stretchBtn').onclick = () => doEmote('stretch');
 $('waveBtn').onclick = () => doEmote('wave');
 $('cheersBtn').onclick = () => doEmote('cheers');
+
+// ================= 행동 모음 (✨ 행동) =================
+const tray = $('actTray'), moreBtn = $('actMore');
+function setTray(open: boolean) {
+  tray.hidden = !open; moreBtn.setAttribute('aria-expanded', String(open));
+}
+moreBtn.onclick = () => { setTray(tray.hidden); if (!tray.hidden) track('actions_opened'); };
+// 타일을 누르면 그 행동을 하고 닫힘
+tray.addEventListener('click', e => { if ((e.target as HTMLElement).closest('.tile')) setTray(false); });
+// 바깥(해변 화면)을 누르면 닫힘
+addEventListener('pointerdown', e => {
+  if (!tray.hidden && !(e.target as HTMLElement).closest('#actTray, #actMore')) setTray(false);
+});
+
+$('clapBtn').onclick = () => { doEmote('clap'); amb.clap(1); };
+
+$('skipBtn').onclick = () => {
+  const p = me.root.position;
+  if (!(p.z < 1.5 || onPier(p.x, p.z))) { toast(T.skipFar); return; }
+  lying = false;
+  me.emote = 'skip'; me.emoteT = 0;
+  const from = p.clone(), ry = me.root.rotation.y, roll = stones.roll();
+  if (connected) net.emit('skip', roll);
+  setTimeout(() => {
+    const n = stones.toss(from, ry, true, roll);
+    track('stone_skipped', { place: place.id, skips: n });
+    if (n < 0) { setTimeout(() => toast(T.skipLand), 700); return; }
+    const best = Math.max(store.skipBest ?? 0, n);
+    if (best !== store.skipBest) { store.skipBest = best; save(); }
+    setTimeout(() => toast(n === 0 ? T.skipZero : T.skipResult(n, best)), 900 + n * 280);
+  }, 450);
+};
+
+$('lieBtn').onclick = () => {
+  if (mySeat !== null) standUp();
+  const p = me.root.position;
+  if (surfaceAt(p.x, p.z) !== 'sand' || onPier(p.x, p.z)) { toast(T.lieNo); return; }
+  lying = true; me.state = 'lie'; me.emote = null;
+  // 누우면 카메라를 낮춰 하늘이 화면 가득 들어오게
+  setView(5.5, 0.12, me.root.rotation.y + 1.1); // 비스듬히 옆에서: 누운 모습과 하늘·바다가 같이 보이게
+  toast(T.lieHint);
+  track('lie_down', { place: place.id });
+};
 $('blanketBtn').onclick = () => {
   const on = !me.blanket.visible;
   me.blanket.visible = on;

@@ -226,6 +226,30 @@ export function createAmbience() {
         burst(t, 0.07, 'bandpass', rand(1500, 2400), 0.7, 0.08, pan);
       }
     },
+    /** 박수 짝짝짝 (vol: 가까울수록 큼) */
+    clap(vol = 1, n = 6) {
+      if (!ctx || ctx.state !== 'running' || vol < 0.03) return;
+      const t = ctx.currentTime + 0.02;
+      for (let i = 0; i < n; i++) {
+        const at = t + i * rand(0.14, 0.19);
+        burst(at, 0.06, 'bandpass', rand(1100, 1600), 1.1, 0.9 * vol, rand(-0.2, 0.2));
+        burst(at, 0.025, 'highpass', 3000, 0.6, 0.35 * vol);
+      }
+    },
+    /** 물수제비 돌이 물에 닿는 '톡' (last면 퐁당) */
+    plop(vol = 1, last = false) {
+      if (!ctx || ctx.state !== 'running' || vol < 0.03) return;
+      const t = ctx.currentTime + 0.01;
+      if (last) {
+        const o = ctx.createOscillator(); o.type = 'sine';
+        o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(900, t + 0.08);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.35 * vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        o.connect(g).connect(fxBus); o.start(t); o.stop(t + 0.14);
+        burst(t, 0.25, 'bandpass', 700, 0.8, 0.5 * vol);
+      } else {
+        burst(t, 0.05, 'bandpass', rand(1800, 2600), 1.4, 0.55 * vol);
+      }
+    },
     /** 모닥불 소리 크기 (0~1): 밤의 정도 × 불과의 거리 */
     setFire(level: number) { fireLevel = clamp(level, 0, 1); },
     /** 다른 앱으로 넘어가면 잠시 멈춤 */

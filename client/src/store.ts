@@ -15,6 +15,8 @@ interface Saved {
   wokeOn?: string;
   /** 설치 안내를 '나중에'로 미룬 시각 */
   installSnooze?: number;
+  /** 물수제비 최고 기록 */
+  skipBest?: number;
   /** 직접 쓴 소원을 다른 사람에게도 보여줄지 (기본: 안 보여줌) */
   shareWish: boolean;
   /** 내가 모래 게시판에 쓴 글 id (신고 버튼 대신 '내가 남긴 글') */
