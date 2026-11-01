@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, setOutfit } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, setOutfit, outfitOf, showLeftFlowers } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
@@ -438,6 +438,7 @@ function updateMe(dt: number) {
   const bl = $('blanketBtn'), showBl = mySeat !== null || me.blanket.visible;
   if (bl.hidden === showBl) bl.hidden = !showBl;
   bl.textContent = me.blanket.visible ? T.blanketOff : T.blanketOn;
+  updateGiveBtn();
   $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : T.sitDown) : T.findSeat;
 }
 
@@ -547,6 +548,8 @@ function loop(t: number) {
   stones.update(dt);
   castles.update(dt, t);
   jetties.update(t, night);
+  updateHandoff(dt);
+  updateSparkles(dt);
   if (sky.update(dt, t, alt, camera, lying)) showStarWish();
   const shell = shells.update(dt, t, me.root.position);
   if (shell) gotShell(shell.i, shell.kind);
@@ -1295,7 +1298,7 @@ function applyTerrain(p: Place) {
   setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id);
   $('routeBtn').hidden = p.id !== 'jumunjin';
 }
-const OUTFIT_BTNS: [string, number][] = [['ofCoat', OUTFIT.coat], ['ofScarf', OUTFIT.scarf], ['ofFlowers', OUTFIT.flowers]];
+const OUTFIT_BTNS: [string, number][] = [['ofSweat', OUTFIT.sweat], ['ofScarf', OUTFIT.scarf], ['ofFlowers', OUTFIT.flowers]];
 function renderOutfit() { OUTFIT_BTNS.forEach(([id, bit]) => $(id).setAttribute('aria-pressed', String(!!((store.outfit ?? 0) & bit)))); }
 setOutfit(me, store.outfit ?? 0);
 OUTFIT_BTNS.forEach(([id, bit]) => {
@@ -1310,5 +1313,69 @@ $('outfitBtn').onclick = () => { renderOutfit(); open('outfitSheet'); };
 ($('routeMap') as HTMLAnchorElement).href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('도깨비 촬영지 주문진 방사제');
 $('routeBtn').onclick = () => { open('routeSheet'); track('route_opened', { place: place.id }); };
 $('routeMap').addEventListener('click', () => track('route_map', { place: place.id }));
+
+// ================= 꽃다발 건네주기 =================
+// 사진 자리 두 곳에 마주 서 있고 내가 꽃을 들고 있으면 버튼이 켜진다.
+// 누르면 서버가 확인한 뒤 모두에게 같은 순간을 보내고, 두 사람의 손이 맞닿는 순간 꽃이 옮겨 간다.
+let giveTarget: string | null = null, handoff: { a: Char; b: Char; aId: string; bId: string; t: number; swapped: boolean } | null = null;
+function updateGiveBtn() {
+  giveTarget = null;
+  if (hasPhotoSpots() && !handoff && (outfitOf(me) & OUTFIT.flowers) && !lying && mySeat === null) {
+    const p = me.root.position, i = PHOTO_SPOTS.findIndex(sp => Math.hypot(sp.x - p.x, sp.z - p.z) < 0.42);
+    if (i >= 0) {
+      const o = PHOTO_SPOTS[1 - i];
+      for (const [id, r] of remotes) {
+        const q = r.c.root.position;
+        if (Math.hypot(o.x - q.x, o.z - q.z) < 0.5 && !(outfitOf(r.c) & OUTFIT.flowers)) { giveTarget = id; break; }
+      }
+    }
+  }
+  const b = $('giveBtn'), show = !!giveTarget;
+  if (b.hidden === show) b.hidden = !show;
+}
+$('giveBtn').onclick = () => { if (giveTarget && connected) { net.emit('give', giveTarget); track('give_flowers', { place: place.id }); } };
+net.on('give', (from, to) => {
+  const a = charOf(from), b = charOf(to);
+  if (!a || !b) return;
+  a.emote = 'give'; a.emoteT = 0; b.emote = 'take'; b.emoteT = 0;
+  handoff = { a, b, aId: from, bId: to, t: 0, swapped: false };
+  if (from !== myId && to !== myId) ticker(T.giveSeen(nickOf(from), nickOf(to)));
+});
+function updateHandoff(dt: number) {
+  if (!handoff) return;
+  handoff.t += dt;
+  // 팔을 뻗어 손이 맞닿는 때(약 0.9초)에 꽃이 왼손으로 넘어가고, 끝나면 받은 사람 오른손으로
+  if (!handoff.swapped && handoff.t > 0.9) {
+    handoff.swapped = true;
+    setOutfit(handoff.a, outfitOf(handoff.a) & ~OUTFIT.flowers);
+    showLeftFlowers(handoff.b, true);
+    sparkleAt(handoff.a.root.position, handoff.b.root.position);
+  }
+  if (handoff.t > 2.0) {
+    showLeftFlowers(handoff.b, false);
+    setOutfit(handoff.b, outfitOf(handoff.b) | OUTFIT.flowers);
+    if (handoff.aId === myId) { store.outfit = outfitOf(me); save(); toast(T.gave); }
+    if (handoff.bId === myId) { store.outfit = outfitOf(me); save(); toast(T.got); }
+    handoff = null;
+  }
+}
+// 손이 맞닿는 자리에 작은 반짝임
+const sparkles: { s: THREE.Sprite; t: number; v: THREE.Vector3 }[] = [];
+function sparkleAt(a: THREE.Vector3, b: THREE.Vector3) {
+  const mid = a.clone().add(b).multiplyScalar(0.5); mid.y += 0.95;
+  for (let i = 0; i < 14; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: i % 3 ? 0xfff6e0 : 0xffc0cb, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    s.position.copy(mid); s.scale.setScalar(0.18); scene.add(s);
+    sparkles.push({ s, t: 0, v: new THREE.Vector3((Math.random() - 0.5) * 0.9, Math.random() * 0.9 + 0.2, (Math.random() - 0.5) * 0.9) });
+  }
+}
+function updateSparkles(dt: number) {
+  for (let i = sparkles.length - 1; i >= 0; i--) {
+    const p = sparkles[i]; p.t += dt;
+    p.s.position.addScaledVector(p.v, dt); p.v.y -= dt * 0.6;
+    p.s.material.opacity = Math.max(0, 1 - p.t / 1.2);
+    if (p.t > 1.2) { scene.remove(p.s); p.s.material.dispose(); sparkles.splice(i, 1); }
+  }
+}
 
 Object.assign(window, { __hae: { shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

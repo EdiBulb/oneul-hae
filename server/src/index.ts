@@ -275,6 +275,18 @@ io.on('connection', (socket: Sock) => {
     reply(true);
   });
 
+  // 꽃다발 건네주기: 들고 있는 사람만, 바로 앞(2m 안)에 있는 사람에게
+  socket.on('give', to => {
+    const c = socket.data.channel, me = c?.players.get(socket.id), other = c?.players.get(String(to));
+    const now = Date.now();
+    if (!c || !me || !other || other.id === me.id || now - socket.data.lastEmote < 1500) return;
+    if (!((me.outfit ?? 0) & 4) || Math.hypot(me.x - other.x, me.z - other.z) > 2) return;
+    socket.data.lastEmote = now;
+    me.outfit = (me.outfit ?? 0) & ~4;
+    other.outfit = (other.outfit ?? 0) | 4;
+    io.to(c.key).emit('give', me.id, other.id);
+  });
+
   socket.on('outfit', mask => {
     const c = socket.data.channel, me = c?.players.get(socket.id);
     if (!c || !me) return;

@@ -52,7 +52,7 @@ const JUMUNJIN_JETTIES: Jetty[] = [
 ];
 export const jetties = () => (terrain === 'jumunjin' ? JUMUNJIN_JETTIES : []);
 /** 사진 자리: 방사제 끝에서 서로 마주 보는 두 점 */
-export const PHOTO_SPOTS = [{ x: 4.35, z: -10.2 }, { x: 5.65, z: -10.2 }];
+export const PHOTO_SPOTS = [{ x: 4.5, z: -10.2 }, { x: 5.5, z: -10.2 }];
 export const hasPhotoSpots = () => terrain === 'jumunjin';
 const pierHere = () => terrain !== 'jumunjin';
 const onJetty = (x: number, z: number) => jetties().find(j => Math.abs(x - j.x) < j.half && z <= j.start && z >= j.end) ?? null;

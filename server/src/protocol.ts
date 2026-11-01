@@ -25,7 +25,7 @@ export interface PlayerInfo {
   st: St;
   /** 담요를 두르고 있는지 (켜 두는 상태라 나중에 들어온 사람도 볼 수 있게 서버가 기억) */
   blanket?: boolean;
-  /** 소품 비트마스크: 1 긴 코트, 2 빨간 목도리, 4 꽃다발 */
+  /** 소품 비트마스크: 1 회색 맨투맨·검은 슬랙스, 2 빨간 목도리, 4 꽃다발 */
   outfit?: number;
 }
 
@@ -95,6 +95,8 @@ export interface ServerToClient {
   clink: (a: string, b: string) => void;
   blanket: (id: string, on: boolean) => void;
   outfit: (id: string, mask: number) => void;
+  /** 꽃다발 건네주기: from의 꽃이 to에게 간다 (모두가 같은 순간에 봄) */
+  give: (from: string, to: string) => void;
   sandPost: (p: SandPost) => void;
   sandRemove: (id: string) => void;
   castle: (c: Castle) => void;
@@ -115,6 +117,7 @@ export interface ClientToServer {
   stand: () => void;
   blanket: (on: boolean) => void;
   outfit: (mask: number) => void;
+  give: (to: string) => void;
   sandWrite: (text: string, ack: (r: SandWriteResult) => void) => void;
   sandReport: (id: string) => void;
   castle: (x: number, z: number, ack: (r: CastleResult) => void) => void;
