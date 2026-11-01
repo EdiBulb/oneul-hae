@@ -169,7 +169,8 @@ export function createBeachLife(scene: THREE.Scene) {
     p.y = groundY(p.z);
     // 자세: 앉기는 엉덩이를 내리고, 발라당은 옆으로 누워 배를 보임
     const e = 1 - Math.pow(0.002, dt);
-    const tRx = mode === 'sit' ? -0.45 : 0, tRz = mode === 'belly' ? 2.6 : 0, tY = mode === 'sit' ? -0.08 : mode === 'belly' ? 0.12 : 0;
+    // 발라당: 발 높이를 축으로 거의 뒤집으므로, 그만큼 몸을 들어 올려 등이 모래 위에 닿게 한다
+    const tRx = mode === 'sit' ? -0.45 : 0, tRz = mode === 'belly' ? 2.9 : 0, tY = mode === 'sit' ? -0.08 : mode === 'belly' ? 0.72 : 0;
     pose.rotation.x += (tRx - pose.rotation.x) * e; pose.rotation.z += (tRz - pose.rotation.z) * e; pose.position.y += (tY - pose.position.y) * e;
     if (moving) {
       dogState.phase += dt * (mode === 'follow' ? 16 : 12);
