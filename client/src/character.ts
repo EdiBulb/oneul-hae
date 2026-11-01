@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 export type CharState = 'idle' | 'walk' | 'sit' | 'lie';
 /** clink = 다른 사람과 커피잔을 부딪치는 동작 (서버가 짝을 지어 줄 때만) */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet';
 
 export interface Char {
   root: THREE.Group;
@@ -126,7 +126,7 @@ export function disposeChar(c: Char) {
 }
 
 /** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
-const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8 };
+const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0 };
 export function animChar(c: Char, dt: number) {
   c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
   let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
@@ -170,6 +170,11 @@ export function animChar(c: Char, dt: number) {
       // 두 손을 앞으로 모아 짝짝짝
       const reach = clamp(k * 2, 0, 1), tap = Math.abs(Math.sin(c.emoteT * 13)) * 0.3;
       aL = aR = 1.3 * reach; aLz = -(0.25 + tap) * reach; aRz = (0.25 + tap) * reach;
+    }
+    if (c.emote === 'pet') {
+      // 쪼그려 앉아 오른손으로 머리를 토닥토닥
+      const kk = clamp(k * 2.2, 0, 1), pat = Math.abs(Math.sin(c.emoteT * 8)) * 0.3;
+      y -= 0.3 * kk; lL = lR = 1.25 * kk; aR = (0.95 + pat) * kk;
     }
     if (c.emote === 'dig') {
       // 쪼그려 앉아 모래를 토닥토닥

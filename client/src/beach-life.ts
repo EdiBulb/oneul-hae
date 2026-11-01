@@ -1,5 +1,6 @@
 import { T } from './i18n';
 import * as THREE from 'three';
+import type { DogState } from '../../server/src/protocol';
 import { animChar, makeChar, textSprite } from './character';
 import { groundY } from './world';
 
@@ -64,6 +65,35 @@ export function createBeachLife(scene: THREE.Scene) {
   dog.position.set(-6, groundY(1), 1);
   scene.add(dog);
   const dogState = { target: new THREE.Vector3(4, 0, 0.5), wait: 0, phase: 0 };
+  // 몸을 기울이는 축 (앉기·발라당)
+  const pose = new THREE.Group(); dog.add(pose);
+  for (const ch of [...dog.children]) if (ch !== pose && ch !== dShadow) pose.add(ch);
+  let dogName = textSprite('', 0.5);
+  dog.add(dogName);
+  /** 서버가 정한 강아지 (연결 안 됐을 땐 null → 혼자 어슬렁) */
+  let net: DogState | null = null;
+  // 하트
+  const hearts: { s: THREE.Sprite; t: number }[] = [];
+  const heartTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d')!;
+    // 하트 모양을 직접 그림 (이모지 글꼴이 없는 기기에서도 분홍 하트)
+    g.fillStyle = '#ff5f87';
+    g.beginPath(); g.moveTo(32, 54);
+    g.bezierCurveTo(6, 36, 6, 12, 22, 12); g.bezierCurveTo(28, 12, 32, 17, 32, 21);
+    g.bezierCurveTo(32, 17, 36, 12, 42, 12); g.bezierCurveTo(58, 12, 58, 36, 32, 54);
+    g.fill();
+    g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(22, 22, 5, 3, -0.6, 0, Math.PI * 2); g.fill();
+    return new THREE.CanvasTexture(c);
+  })();
+  function heartBurst(n = 3) {
+    for (let i = 0; i < n; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: heartTex, transparent: true, depthWrite: false }));
+      s.scale.setScalar(0.28); scene.add(s);
+      s.position.set(dog.position.x + rand(-0.25, 0.25), dog.position.y + 0.9, dog.position.z + rand(-0.25, 0.25));
+      hearts.push({ s, t: -i * 0.25 });
+    }
+  }
 
   // ---------- 낚시하는 동네 주민 ----------
   const fisher = makeChar(0x6b6f5a, 0xd9b36a);
@@ -108,30 +138,68 @@ export function createBeachLife(scene: THREE.Scene) {
         if (gl.rest > 25) landGull(gl);
       }
     }
-    // 강아지: 물가를 어슬렁, 가끔 멈춰서 꼬리 흔들기
-    const p = dog.position, d = Math.hypot(dogState.target.x - p.x, dogState.target.z - p.z);
-    if (dogState.wait > 0) {
-      dogState.wait -= dt;
-      tail.rotation.z = Math.sin(t / 70) * 0.6;
-      legs.forEach(l => (l.rotation.x *= 0.8));
-    } else if (d > 0.1) {
-      const sp = Math.min(d, 1.4 * dt);
-      p.x += (dogState.target.x - p.x) / d * sp; p.z += (dogState.target.z - p.z) / d * sp;
-      p.y = groundY(p.z);
-      dog.rotation.y = Math.atan2(-(dogState.target.x - p.x), -(dogState.target.z - p.z));
-      dogState.phase += dt * 12;
-      legs.forEach((l, i) => (l.rotation.x = Math.sin(dogState.phase + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI : 0)) * 0.5));
-      tail.rotation.z = Math.sin(t / 120) * 0.3;
+    // 강아지
+    const p = dog.position;
+    let moving = false, mode: DogState['mode'] = 'wander';
+    if (net) {
+      // 서버 위치로 부드럽게 따라감 (1초마다 오므로 그 사이를 채움)
+      mode = net.mode;
+      const dx = net.x - p.x, dz = net.z - p.z, d = Math.hypot(dx, dz);
+      if (d > 6) { p.x = net.x; p.z = net.z; }
+      else if (d > 0.05) {
+        const sp = Math.min(d, (mode === 'follow' ? 2.4 : 1.6) * dt);
+        p.x += (dx / d) * sp; p.z += (dz / d) * sp; moving = d > 0.12;
+      }
+      const want = moving ? Math.atan2(-dx, -dz) : net.ry;
+      let dr = want - dog.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr));
+      dog.rotation.y += dr * Math.min(1, dt * 8);
     } else {
-      dogState.wait = rand(2, 6);
-      // 가끔은 내 쪽으로 다가옴
-      if (Math.random() < 0.3) dogState.target.set(me.x + rand(-1.5, 1.5), 0, me.z - rand(1, 2));
-      else dogState.target.set(rand(-16, 14), 0, rand(-1.4, 4));
+      const d = Math.hypot(dogState.target.x - p.x, dogState.target.z - p.z);
+      if (dogState.wait > 0) dogState.wait -= dt;
+      else if (d > 0.1) {
+        const sp = Math.min(d, 1.4 * dt);
+        p.x += (dogState.target.x - p.x) / d * sp; p.z += (dogState.target.z - p.z) / d * sp;
+        dog.rotation.y = Math.atan2(-(dogState.target.x - p.x), -(dogState.target.z - p.z)); moving = true;
+      } else {
+        dogState.wait = rand(2, 6);
+        if (Math.random() < 0.3) dogState.target.set(me.x + rand(-1.5, 1.5), 0, me.z - rand(1, 2));
+        else dogState.target.set(rand(-16, 14), 0, rand(-1.4, 4));
+      }
+    }
+    p.y = groundY(p.z);
+    // 자세: 앉기는 엉덩이를 내리고, 발라당은 옆으로 누워 배를 보임
+    const e = 1 - Math.pow(0.002, dt);
+    const tRx = mode === 'sit' ? -0.45 : 0, tRz = mode === 'belly' ? 2.6 : 0, tY = mode === 'sit' ? -0.08 : mode === 'belly' ? 0.12 : 0;
+    pose.rotation.x += (tRx - pose.rotation.x) * e; pose.rotation.z += (tRz - pose.rotation.z) * e; pose.position.y += (tY - pose.position.y) * e;
+    if (moving) {
+      dogState.phase += dt * (mode === 'follow' ? 16 : 12);
+      legs.forEach((l, i) => (l.rotation.x = Math.sin(dogState.phase + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI : 0)) * 0.5));
+      tail.rotation.z = Math.sin(t / (mode === 'follow' ? 60 : 120)) * (mode === 'follow' ? 0.7 : 0.3);
+    } else if (mode === 'belly') {
+      legs.forEach((l, i) => (l.rotation.x = Math.sin(t / 90 + i) * 0.5)); // 다리 버둥버둥
+      tail.rotation.z = Math.sin(t / 50) * 0.8;
+    } else {
+      legs.forEach(l => (l.rotation.x *= 0.8));
+      tail.rotation.z = Math.sin(t / (mode === 'sit' ? 45 : 70)) * (mode === 'sit' ? 0.9 : 0.6);
+    }
+    dogName.visible = cam.position.distanceTo(p) < 14;
+    for (let i = hearts.length - 1; i >= 0; i--) {
+      const h = hearts[i]; h.t += dt;
+      h.s.visible = h.t > 0;
+      if (h.t > 0) { h.s.position.y += dt * 0.6; h.s.position.x += Math.sin(h.t * 4 + i) * dt * 0.15; h.s.material.opacity = Math.max(0, 1 - h.t / 1.6); }
+      if (h.t > 1.6) { scene.remove(h.s); h.s.material.dispose(); hearts.splice(i, 1); }
     }
     // 동네 주민: 낚싯대가 살짝 흔들림
     rod.rotation.x = -1.05 + Math.sin(t / 900) * 0.04;
     tag.visible = cam.position.distanceTo(fisher.root.position) < 22;
   }
 
-  return { update };
+  return {
+    update,
+    /** 서버에서 온 강아지 상태 (null이면 혼자 어슬렁) */
+    setDog(d: DogState | null) { if (d && !net) { dog.position.x = d.x; dog.position.z = d.z; } net = d; },
+    setName(name: string) { dog.remove(dogName); dogName = textSprite(name, 0.5); dogName.position.y = 1.15; dog.add(dogName); },
+    heartBurst,
+    get dogPos() { return dog.position; },
+  };
 }

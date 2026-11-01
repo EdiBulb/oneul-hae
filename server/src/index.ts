@@ -7,6 +7,7 @@ import { handleReminderHttp, pushEnabled } from './reminders.js';
 import { cleanWish } from './wish-filter.js';
 import { addPost, boardOf, report } from './sand-board.js';
 import { build, castlesOf } from './castles.js';
+import { newDog, petDog, pub as dogPub, stepDog, type Dog } from './dog.js';
 
 // ---------- 설정 (환경 변수로 바꿀 수 있음) ----------
 const PORT = Number(process.env.PORT ?? 3001);
@@ -40,6 +41,8 @@ interface Channel {
   seats: Map<number, string>;
   /** 이번 틱에 움직인 사람들 */
   dirty: Set<string>;
+  /** 이 채널의 해변 강아지 */
+  dog: Dog;
 }
 interface SocketData {
   channel?: Channel;
@@ -112,7 +115,7 @@ function pickChannel(place: PlaceId): Channel {
     const key = `${place}:${n}`;
     let c = channels.get(key);
     if (!c) {
-      c = { key, place, n, players: new Map(), seats: new Map(), dirty: new Set() };
+      c = { key, place, n, players: new Map(), seats: new Map(), dirty: new Set(), dog: newDog(place) };
       channels.set(key, c);
     }
     if (c.players.size < CAP) return c;
@@ -213,6 +216,7 @@ io.on('connection', (socket: Sock) => {
       traces: traces(c.place, socket.data.uid),
       board: boardOf(c.place, PLACES[c.place].tz),
       castles: castlesOf(c.place, PLACES[c.place].tz),
+      dog: dogPub(c.dog),
     });
     socket.to(c.key).emit('joined', me);
   });
@@ -278,6 +282,15 @@ io.on('connection', (socket: Sock) => {
   });
 
   // 꽃다발 건네주기: 들고 있는 사람만, 바로 앞(2m 안)에 있는 사람에게
+  socket.on('pet', () => {
+    const c = socket.data.channel, me = c?.players.get(socket.id), now = Date.now();
+    if (!c || !me || now - socket.data.lastEmote < 900) return;
+    if (!petDog(c.dog, socket.id, me, now)) return;
+    socket.data.lastEmote = now;
+    io.to(c.key).emit('pet', socket.id);
+    io.to(c.key).emit('dog', dogPub(c.dog));
+  });
+
   socket.on('give', to => {
     const c = socket.data.channel, me = c?.players.get(socket.id), other = c?.players.get(String(to));
     const now = Date.now();
@@ -356,6 +369,18 @@ setInterval(() => {
 }, TICK_MS);
 
 // 위치 전송 한도 회복 + 통계 방송
+// 강아지: 0.25초마다 움직이고, 1초마다(또는 기분이 바뀌면 바로) 위치를 보냄
+let dogSend = 0;
+setInterval(() => {
+  const now = Date.now(), send = now - dogSend > 1000;
+  if (send) dogSend = now;
+  for (const c of channels.values()) {
+    if (!c.players.size) continue;
+    const changed = stepDog(c.dog, c.place, 0.25, c.players, now);
+    if (changed || send) io.to(c.key).volatile.emit('dog', dogPub(c.dog));
+  }
+}, 250);
+
 setInterval(() => { for (const s of io.sockets.sockets.values()) (s as Sock).data.moveBudget = 20; }, 1000);
 setInterval(() => io.emit('stats', stats()), 3000);
 // 지난 날짜의 알람 기록 정리

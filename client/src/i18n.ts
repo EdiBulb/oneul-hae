@@ -27,6 +27,7 @@ export function setLang(l: Lang) {
 export const num = (n: number) => n.toLocaleString(locale);
 /** 받침에 따라 을/를 */
 const eul = (w: string) => { const c = w.charCodeAt(w.length - 1) - 0xac00; return c >= 0 && c < 11172 && c % 28 ? '을' : '를'; };
+const ga = (w: string) => { const c = w.charCodeAt(w.length - 1) - 0xac00; return c >= 0 && c < 11172 && c % 28 ? '이' : '가'; };
 const people = (n: number) => `${num(n)} ${n === 1 ? 'person' : 'people'}`;
 
 const ko = {
@@ -75,6 +76,12 @@ const ko = {
   castleNoSand: '마른 모래사장 위에서 쌓을 수 있어요',
   castleOffline: '연결된 뒤에 쌓을 수 있어요',
   gave: '💐 꽃을 건넸어요',
+  petBtn: (name: string) => `🐶 ${name} 쓰다듬기`,
+  petted: (name: string, n: number) => (n > 1 ? `🐶 ${name}${eul(name)} 오늘 ${n}번째 쓰다듬었어요` : `🐶 ${name}${ga(name)} 꼬리를 흔들어요`),
+  pettedBy: (nick: string, name: string) => `${nick}님이 ${name}${eul(name)} 쓰다듬어요`,
+  belly: (name: string) => `🐶 ${name}${ga(name)} 발라당 누워 배를 보여 줘요`,
+  following: (name: string) => `🐶 ${name}${ga(name)} 나를 졸졸 따라와요`,
+  dogLine: (name: string, n: number) => `🐶 오늘 ${name}${eul(name)} ${n}번 쓰다듬었어요`,
   groupSunrise: '🌅 해돋이 해변', groupKcontent: '🎬 K-콘텐츠 촬영지', groupSeoul: '🏙 서울',
   hereNow: (n: number) => `${num(n)}명`,
   sitBench: '벤치에 앉기',
@@ -235,6 +242,12 @@ const en: Dict = {
   castleNoSand: 'You can build on the dry sand',
   castleOffline: 'You can build once connected',
   gave: '💐 You gave the flowers',
+  petBtn: (name: string) => `🐶 Pet ${name}`,
+  petted: (name: string, n: number) => (n > 1 ? `🐶 Pets for ${name}: ${n} today` : `🐶 ${name} is wagging their tail`),
+  pettedBy: (nick: string, name: string) => `${nick} is petting ${name}`,
+  belly: (name: string) => `🐶 ${name} rolled over for belly rubs`,
+  following: (name: string) => `🐶 ${name} is following you around`,
+  dogLine: (name: string, n: number) => `🐶 You petted ${name} ${n} time${n === 1 ? '' : 's'} today`,
   groupSunrise: '🌅 Sunrise beaches', groupKcontent: '🎬 K-drama & K-pop spots', groupSeoul: '🏙 Seoul',
   hereNow: (n: number) => `${num(n)} here`,
   sitBench: 'Sit on the bench',

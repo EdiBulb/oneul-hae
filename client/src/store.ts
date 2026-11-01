@@ -23,6 +23,8 @@ interface Saved {
   shells?: { key: string; got: number[] };
   /** 조개 도감: 종류 → 주운 개수 */
   dex?: Record<string, number>;
+  /** 오늘 강아지 쓰다듬은 횟수: key = 장소|현지날짜 */
+  pets?: { key: string; n: number };
   /** 직접 쓴 소원을 다른 사람에게도 보여줄지 (기본: 안 보여줌) */
   shareWish: boolean;
   /** 내가 모래 게시판에 쓴 글 id (신고 버튼 대신 '내가 남긴 글') */

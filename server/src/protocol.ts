@@ -60,6 +60,10 @@ export type SandWriteResult = { ok: true; post: SandPost } | { ok: false; reason
 export interface Castle { id: string; x: number; z: number; level: number; towers: number }
 export type CastleResult = { ok: true; castle: Castle; kind: 'new' | 'grow' | 'tower' } | { ok: false; reason: 'cooldown' | 'place' | 'full' | 'done' };
 
+/** 해변 강아지 상태 (채널마다 한 마리) */
+export type DogMode = 'wander' | 'sit' | 'belly' | 'follow';
+export interface DogState { x: number; z: number; ry: number; mode: DogMode; by: string }
+
 export interface Welcome {
   id: string;
   place: PlaceId;
@@ -72,6 +76,7 @@ export interface Welcome {
   board: SandPost[];
   /** 이 해변의 모래성 */
   castles: Castle[];
+  dog: DogState;
 }
 
 export interface Stats {
@@ -97,6 +102,9 @@ export interface ServerToClient {
   outfit: (id: string, mask: number) => void;
   /** 꽃다발 건네주기: from의 꽃이 to에게 간다 (모두가 같은 순간에 봄) */
   give: (from: string, to: string) => void;
+  dog: (d: DogState) => void;
+  /** 누가 강아지를 쓰다듬었는지 (손 동작·하트용) */
+  pet: (id: string) => void;
   sandPost: (p: SandPost) => void;
   sandRemove: (id: string) => void;
   castle: (c: Castle) => void;
@@ -118,6 +126,7 @@ export interface ClientToServer {
   blanket: (on: boolean) => void;
   outfit: (mask: number) => void;
   give: (to: string) => void;
+  pet: () => void;
   sandWrite: (text: string, ack: (r: SandWriteResult) => void) => void;
   sandReport: (id: string) => void;
   castle: (x: number, z: number, ack: (r: CastleResult) => void) => void;

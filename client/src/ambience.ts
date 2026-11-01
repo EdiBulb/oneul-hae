@@ -227,6 +227,19 @@ export function createAmbience() {
       }
     },
     /** 박수 짝짝짝 (vol: 가까울수록 큼) */
+    /** 강아지 '멍!' (두 번 짧게) */
+    bark(vol = 1) {
+      if (!ctx || ctx.state !== 'running' || vol < 0.03) return;
+      for (const [d, f] of [[0, 560], [0.2, 620]] as const) {
+        const t = ctx.currentTime + 0.02 + d;
+        const o = ctx.createOscillator(); o.type = 'sawtooth';
+        o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 0.62, t + 0.1);
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500;
+        const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.32 * vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+        o.connect(lp).connect(g).connect(fxBus); o.start(t); o.stop(t + 0.15);
+        burst(t, 0.05, 'bandpass', 900, 1, 0.25 * vol);
+      }
+    },
     clap(vol = 1, n = 6) {
       if (!ctx || ctx.state !== 'running' || vol < 0.03) return;
       const t = ctx.currentTime + 0.02;

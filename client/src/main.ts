@@ -53,6 +53,14 @@ const world = createWorld(scene, renderer, GLOW);
 const lanterns = createLanterns(scene, GLOW);
 // 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
 const life = createBeachLife(scene);
+// 해변 강아지 이름 (해변마다 한 마리)
+const DOG_NAMES: Record<string, [string, string]> = {
+  jeongdongjin: ['해피', 'Happy'], seongsan: ['감귤', 'Gamgyul'], homigot: ['호두', 'Hodu'], gisborne: ['키위', 'Kiwi'],
+  jumunjin: ['메밀', 'Memil'], hyangho: ['보리', 'Bori'], hangang: ['라면', 'Ramyeon'],
+};
+let lastDogMode = 'wander';
+const dogName = () => (DOG_NAMES[place?.id] ?? ['댕댕이', 'Pup'])[lang === 'ko' ? 0 : 1];
+
 const traces = createTraces(scene, GLOW);
 const pier = createPier(scene, GLOW);
 const jetties = createJetties(scene, GLOW);
@@ -161,7 +169,8 @@ function join() {
   net.emit('join', { place: place.id, uid: store.uid, nick: store.nick, look: store.look, woke: wokeToday() });
 }
 net.on('connect', () => { connected = true; $('conn').classList.remove('show'); join(); renderCounts(); });
-net.on('disconnect', () => { connected = false; $('conn').classList.add('show'); clearRemotes(); renderCounts(); });
+net.on('disconnect', () => {
+  life.setDog(null); connected = false; $('conn').classList.add('show'); clearRemotes(); renderCounts(); });
 net.on('connect_error', () => { $('conn').classList.add('show'); });
 $('conn').classList.add('show');
 
@@ -170,6 +179,7 @@ net.on('welcome', w => {
   myId = w.id;
   clearRemotes();
   castles.setAll(w.castles ?? []);
+  if (w.dog) { life.setDog(w.dog); lastDogMode = w.dog.mode; }
   w.players.forEach(addRemote);
   seats.forEach(s => (s.occ = null));
   for (const [idx, id] of Object.entries(w.seats)) if (seats[+idx]) seats[+idx].occ = id;
@@ -440,6 +450,7 @@ function updateMe(dt: number) {
   if (bl.hidden === showBl) bl.hidden = !showBl;
   bl.textContent = me.blanket.visible ? T.blanketOff : T.blanketOn;
   updateGiveBtn();
+  updatePetBtn();
   $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : T.sitDown) : T.findSeat;
 }
 
@@ -602,6 +613,7 @@ function switchPlace(p: Place) {
   if (connected) join();
   expandBanner();
   toast(T.arrived(placeName(p), p.id === 'gisborne'));
+  applyDogName(); life.setDog(null);
 }
 
 // ================= 버튼 =================
@@ -822,6 +834,7 @@ function toast(msg: string) {
 
 // ================= 연속 기록 =================
 function renderStreak() {
+  renderDogLine();
   const week = $('week'); week.innerHTML = '';
   const names = T.weekdays;
   for (let i = 6; i >= 0; i--) {
@@ -1191,6 +1204,26 @@ net.on('sandPost', p => {
   else if (sandBoard.distance(me.root.position) < 30) ticker(T.sandNew);
 });
 net.on('castle', c => castles.upsert(c));
+net.on('dog', d => {
+  if (d.mode === 'belly' && lastDogMode !== 'belly') { life.heartBurst(6); ticker(T.belly(dogName())); }
+  if (d.mode === 'follow' && lastDogMode !== 'follow' && d.by === myId) toast(T.following(dogName()));
+  lastDogMode = d.mode;
+  life.setDog(d);
+});
+net.on('pet', id => {
+  const c = charOf(id);
+  if (c) { c.emote = 'pet'; c.emoteT = 0; }
+  life.heartBurst(3);
+  const near = Math.hypot(life.dogPos.x - me.root.position.x, life.dogPos.z - me.root.position.z);
+  amb.bark(clamp(1.1 - near / 16, 0, 0.9));
+  if (id === myId) {
+    const key = shellKey();
+    if (store.pets?.key !== key) store.pets = { key, n: 0 };
+    store.pets.n++; save();
+    toast(T.petted(dogName(), store.pets.n));
+    track('dog_pet', { place: place.id, n: store.pets.n });
+  } else if (near < 12) ticker(T.pettedBy(nickOf(id), dogName()));
+});
 net.on('sandRemove', id => { sandPosts = sandPosts.filter(p => p.id !== id); renderSandLabel(); if (sandOpen) renderSand(); });
 // 글이 흐려지고 사라지는 건 시간에 따라: 1분마다 다시 그림
 setInterval(() => { renderSandLabel(); if (sandOpen && !$('sand').hidden && openSheet?.id !== 'sandSheet') renderSand(); }, 60000);
@@ -1434,4 +1467,26 @@ $('ramenBtn').onclick = () => {
   setTimeout(() => { ramenCooking = false; if (place.id !== 'hangang') return; setRamen(true); nextBite = 0; toast(T.ramenDone); }, 4000);
 };
 
-Object.assign(window, { __hae: { shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+// ================= 해변 강아지 =================
+// 강아지는 서버가 채널마다 한 마리씩 움직이고, 쓰다듬으면 모두에게 같은 반응이 보인다.
+function applyDogName() { life.setName(dogName()); ($('petBtn') as HTMLButtonElement).textContent = T.petBtn(dogName()); }
+applyDogName();
+function updatePetBtn() {
+  const d = Math.hypot(life.dogPos.x - me.root.position.x, life.dogPos.z - me.root.position.z);
+  const b = $('petBtn');
+  // 1.7m 안에 들어오면 켜고 2.3m 밖으로 나가야 끔 (경계에서 깜빡이지 않게)
+  const show = connected && !lying && !handoff && d < (b.hidden ? 1.7 : 2.3);
+  if (b.hidden === show) b.hidden = !show;
+}
+$('petBtn').onclick = () => {
+  if (mySeat !== null) standUp();
+  turnTo(me, Math.atan2(-(life.dogPos.x - me.root.position.x), -(life.dogPos.z - me.root.position.z)), 1);
+  net.emit('pet');
+};
+function renderDogLine() {
+  const key = `${place.id}|${new Intl.DateTimeFormat('en-CA', { timeZone: place.tz }).format(new Date())}`;
+  const n = store.pets?.key === key ? store.pets.n : 0;
+  $('dogLine').hidden = !n; if (n) $('dogLine').textContent = T.dogLine(dogName(), n);
+}
+
+Object.assign(window, { __hae: { dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
