@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { PlaceId } from '../../server/src/protocol';
 import type { Place } from './places';
 import { sunPos } from './sun';
 
@@ -18,7 +19,7 @@ const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
 
 /** 앉을 자리. 방석·데크는 바다(ry 0)를, 통나무는 모닥불을 바라본다.
  *  bench(통나무·데크 끝)면 y가 엉덩이 높이, sx·sz는 일어날 때 내려설 자리 */
-export interface Seat { x: number; z: number; occ: string | null; ry: number; y?: number; bench?: boolean; kind?: 'log' | 'pier'; sx?: number; sz?: number }
+export interface Seat { x: number; z: number; occ: string | null; ry: number; y?: number; bench?: boolean; kind?: 'log' | 'pier' | 'bus'; sx?: number; sz?: number; places?: PlaceId[] }
 
 /** 해안선은 z = -3. 뒤로 갈수록 모래사장이 살짝 높아진다 */
 export const groundY = (z: number) => Math.max(0, (z + 3) * 0.05 - 0.06);
@@ -114,9 +115,16 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     pos.setY(i, (z + 3) * 0.05 - 0.06 + Math.sin(x * 0.15) * Math.max(0, z - 20) * 0.02);
   }
   sandGeo.computeVertexNormals();
-  scene.add(new THREE.Mesh(sandGeo, new THREE.MeshLambertMaterial({ color: 0xcdb28a })));
+  const sandMat = new THREE.MeshLambertMaterial({ color: 0xcdb28a });
+  scene.add(new THREE.Mesh(sandGeo, sandMat));
   const wet = new THREE.Mesh(new THREE.PlaneGeometry(400, 1.6), new THREE.MeshLambertMaterial({ color: 0x8f7a5e, transparent: true, opacity: 0.7 }));
   wet.rotation.x = -Math.PI / 2; wet.position.set(0, 0.012, -2.4); scene.add(wet);
+  /** 땅 색 바꾸기: 한강은 잔디와 콘크리트 강변 */
+  function setGround(id: string) {
+    sandMat.color.setHex(id === 'hangang' ? 0x6f8b56 : 0xcdb28a);
+    (wet.material as THREE.MeshLambertMaterial).color.setHex(id === 'hangang' ? 0x9a9a94 : 0x8f7a5e);
+    (wet.material as THREE.MeshLambertMaterial).opacity = id === 'hangang' ? 1 : 0.7;
+  }
 
   // ---------- 조명 ----------
   const hemi = new THREE.HemisphereLight(0xffffff, 0x3a2c24, 0.5); scene.add(hemi);
@@ -149,7 +157,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   };
   function buildLandmark(place: Place) {
     landmark.clear();
-    rock(-15, -1.5, 1.6); rock(-17.5, 0.5, 1.1); rock(16, -1, 1.4); rock(18.5, 2, 0.9);
+    if (place.id !== 'hangang') { rock(-15, -1.5, 1.6); rock(-17.5, 0.5, 1.1); rock(16, -1, 1.4); rock(18.5, 2, 0.9); }
     if (place.id === 'seongsan') {
       dome(0x3d5640, 80, 38, 60, -150, -4, -260);
       const crater = new THREE.Mesh(new THREE.CylinderGeometry(42, 52, 4, 24), lam(0x34492f));
@@ -213,5 +221,5 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     return alt;
   }
 
-  return { seats, buildLandmark, update };
+  return { seats, buildLandmark, update, setGround };
 }

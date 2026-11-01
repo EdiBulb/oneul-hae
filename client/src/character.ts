@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 export type CharState = 'idle' | 'walk' | 'sit' | 'lie';
 /** clink = 다른 사람과 커피잔을 부딪치는 동작 (서버가 짝을 지어 줄 때만) */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat';
 
 export interface Char {
   root: THREE.Group;
@@ -126,7 +126,7 @@ export function disposeChar(c: Char) {
 }
 
 /** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
-const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2 };
+const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8 };
 export function animChar(c: Char, dt: number) {
   c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
   let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
@@ -146,6 +146,7 @@ export function animChar(c: Char, dt: number) {
   // 꽃다발을 들고 있으면 오른팔을 살짝 앞으로
   // 꽃다발을 들고 있으면 오른팔을 앞으로 (꽃은 아래 animChar 끝에서 똑바로 세움)
   if (c.state !== 'walk' && c.state !== 'lie' && c.armR.getObjectByName('flowers')?.visible) aR = 1.0;
+  if (c.state !== 'lie' && c.armR.getObjectByName('ramen')?.visible) aR = c.state === 'walk' ? 0.8 : 1.15;
   if (c.emote) {
     c.emoteT += dt;
     const T = EMOTE_T[c.emote] ?? 1.9;
@@ -175,6 +176,7 @@ export function animChar(c: Char, dt: number) {
       const kk = clamp(k * 2.2, 0, 1), pat = Math.abs(Math.sin(c.emoteT * 9)) * 0.35;
       y -= 0.32 * kk; lL = lR = 1.3 * kk; aL = aR = (1.0 + pat) * kk;
     }
+    if (c.emote === 'eat') { const up = Math.sin(Math.PI * u); aR = 1.15 + 0.85 * up; aRz = 0.3 * up; }
     if (c.emote === 'give') { aR = 1.0 + 0.5 * clamp(k * 2, 0, 1); aRz = -0.15 * clamp(k * 2, 0, 1); }
     if (c.emote === 'take') { aL = 1.5 * clamp(k * 2, 0, 1); aLz = 0.15 * clamp(k * 2, 0, 1); }
     if (c.emote === 'skip') {
@@ -202,10 +204,12 @@ export function animChar(c: Char, dt: number) {
   c.legR.rotation.x += (lR - c.legR.rotation.x) * e;
   c.inner.position.y += (y - c.inner.position.y) * e;
   // 꽃다발은 팔이 어떻게 움직여도 꽃이 위로 오게
-  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL']] as const) {
+  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL'], [c.armR, 'ramen']] as const) {
     const f = arm.getObjectByName(name);
     if (f?.visible) { f.rotation.x = -arm.rotation.x; f.rotation.z = -arm.rotation.z; }
   }
+  const bs = c.armR.getObjectByName('bsteam') as THREE.Mesh | undefined;
+  if (bs?.parent?.visible) { const k = (c.phase * 0.5) % 1; bs.position.y = 0.14 + k * 0.2; bs.scale.setScalar(0.7 + k); (bs.material as THREE.MeshBasicMaterial).opacity = 0.3 * (1 - k); }
   // 걸을 때 담요 자락이 살짝 펄럭임
   if (c.blanket.visible) c.blanket.rotation.x = c.state === 'walk' ? 0.08 + Math.sin(c.phase * 2) * 0.04 : 0;
 }
@@ -222,7 +226,7 @@ export function turnTo(c: Char, ang: number, dt: number) {
 // ---------- 소품 (주문진 사진 자리용) ----------
 // 1: 회색 맨투맨 + 검은 슬랙스, 2: 빨간 목도리, 4: 메밀꽃 다발.
 // 이름 없는 평범한 옷과 소품만 쓰고, 특정 인물의 얼굴·이름은 쓰지 않는다.
-export const OUTFIT = { sweat: 1, scarf: 2, flowers: 4 } as const;
+export const OUTFIT = { sweat: 1, scarf: 2, flowers: 4, ramen: 8 } as const;
 
 /** 메밀꽃 다발: 붉은 줄기 끝에 작고 하얀 꽃송이가 몽글몽글, 크라프트지로 감쌈. 꽃이 위로 오게 세운다 */
 function makeBuckwheat() {
@@ -273,6 +277,16 @@ export function setOutfit(c: Char, mask: number) {
     for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL']] as const) {
       const f = makeBuckwheat(); f.name = name; f.position.set(0, -0.44, -0.05); f.visible = false; arm.add(f);
     }
+    // 라면 그릇: 오른손에 종이 용기 + 젓가락 + 김
+    const bowl = new THREE.Group(); bowl.name = 'ramen'; bowl.position.set(0, -0.46, -0.06); bowl.visible = false; c.armR.add(bowl);
+    const cupM = new THREE.MeshLambertMaterial({ color: 0xf4efe6 });
+    const cupMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.08, 0.13, 14), cupM); bowl.add(cupMesh);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.112, 0.105, 0.04, 14, 1, true), new THREE.MeshLambertMaterial({ color: 0xd8302f, side: THREE.DoubleSide })); band.position.y = 0.02; bowl.add(band);
+    const soup = new THREE.Mesh(new THREE.CircleGeometry(0.1, 14), new THREE.MeshLambertMaterial({ color: 0xc8541f })); soup.rotation.x = -Math.PI / 2; soup.position.y = 0.06; bowl.add(soup);
+    for (let k = 0; k < 6; k++) { const n = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.006, 4, 8), new THREE.MeshLambertMaterial({ color: 0xf1d08a })); n.rotation.x = Math.PI / 2; n.position.set((k % 3 - 1) * 0.035, 0.065, (k < 3 ? -1 : 1) * 0.025); bowl.add(n); }
+    for (const dx of [-0.012, 0.012]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, 0.26, 4), new THREE.MeshLambertMaterial({ color: 0xc9a46a })); ch.position.set(0.05 + dx, 0.12, 0); ch.rotation.z = -0.5; bowl.add(ch); }
+    const bsteam = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }));
+    bsteam.name = 'bsteam'; bsteam.position.y = 0.14; bowl.add(bsteam);
     // 원래 옷 색 기억 (맨투맨을 벗으면 되돌림)
     const firstMesh = (g: THREE.Object3D) => g.children.find(ch => (ch as THREE.Mesh).isMesh) as THREE.Mesh;
     const body = c.inner.children.find(ch => (ch as THREE.Mesh).isMesh) as THREE.Mesh;
@@ -289,6 +303,7 @@ export function setOutfit(c: Char, mask: number) {
   o.getObjectByName('hem')!.visible = sweat;
   o.getObjectByName('scarf')!.visible = !!(mask & OUTFIT.scarf);
   c.armR.getObjectByName('flowers')!.visible = !!(mask & OUTFIT.flowers);
+  c.armR.getObjectByName('ramen')!.visible = !!(mask & OUTFIT.ramen);
   o.userData.mask = mask;
 }
 export const outfitOf = (c: Char) => ((c.inner.getObjectByName('outfit')?.userData.mask as number) ?? 0);

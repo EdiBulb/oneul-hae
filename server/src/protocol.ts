@@ -1,7 +1,7 @@
 // 서버와 클라이언트가 함께 쓰는 실시간 이벤트 타입.
 // 클라이언트는 `import type`으로만 가져가므로 이 파일에는 타입만 둔다.
 
-export type PlaceId = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin';
+export type PlaceId = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin' | 'hyangho' | 'hangang';
 
 /** 캐릭터 겉모습: 색상 팔레트의 인덱스 */
 export interface Look { body: number; hat: number }
@@ -10,7 +10,7 @@ export interface Look { body: number; hat: number }
 export type St = 0 | 1 | 2 | 3;
 
 /** cheers = 모닝커피 짠. 혼자면 한 모금 마시고, 가까운 사람과 3초 안에 같이 누르면 컵을 부딪친다 */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap' | 'dig';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap' | 'dig' | 'eat';
 
 /** [id, x, z, ry, st] — 자주 오가므로 객체 대신 배열 */
 export type Move = [string, number, number, number, St];

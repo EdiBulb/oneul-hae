@@ -18,12 +18,14 @@ const ORIGINS = (process.env.CORS_ORIGIN ?? '*').split(',').map(s => s.trim());
 const PLACES: Record<PlaceId, { tz: string }> = {
   jeongdongjin: { tz: 'Asia/Seoul' },
   jumunjin: { tz: 'Asia/Seoul' },
+  hyangho: { tz: 'Asia/Seoul' },
+  hangang: { tz: 'Asia/Seoul' },
   seongsan: { tz: 'Asia/Seoul' },
   homigot: { tz: 'Asia/Seoul' },
   gisborne: { tz: 'Pacific/Auckland' },
 };
 /** 방석 22개 + 모닥불 통나무 4개 × 2자리 + 데크 끝 3자리 */
-const SEAT_COUNT = 33;
+const SEAT_COUNT = 36;
 // 해변 + 얕은 물 + 바다로 뻗은 데크(z -26까지). 세부 모양은 클라이언트가 막는다
 const BOUNDS = { minX: -22, maxX: 22, minZ: -26, maxZ: 17 };
 /** 짠: 이 거리(m) 안에서, 이 시간(ms) 안에 둘 다 눌러야 컵이 부딪친다 */
@@ -140,7 +142,7 @@ function countWoke(place: PlaceId, uid: string) {
 }
 
 function stats(): Stats {
-  const online = { jeongdongjin: 0, seongsan: 0, homigot: 0, gisborne: 0, jumunjin: 0 } as Record<PlaceId, number>;
+  const online = { jeongdongjin: 0, seongsan: 0, homigot: 0, gisborne: 0, jumunjin: 0, hyangho: 0, hangang: 0 } as Record<PlaceId, number>;
   const woke = { ...online }, today = { ...online };
   for (const c of channels.values()) online[c.place] += c.players.size;
   for (const p of Object.keys(PLACES) as PlaceId[]) {
@@ -236,7 +238,7 @@ io.on('connection', (socket: Sock) => {
 
   socket.on('emote', (e: Emote) => {
     const c = socket.data.channel, now = Date.now();
-    if (!c || !['stretch', 'wave', 'cheers', 'clap', 'dig'].includes(e) || now - socket.data.lastEmote < 800) return;
+    if (!c || !['stretch', 'wave', 'cheers', 'clap', 'dig', 'eat'].includes(e) || now - socket.data.lastEmote < 800) return;
     socket.data.lastEmote = now;
     if (e === 'cheers') {
       const partner = findCheersPartner(socket, c, now);
@@ -290,7 +292,7 @@ io.on('connection', (socket: Sock) => {
   socket.on('outfit', mask => {
     const c = socket.data.channel, me = c?.players.get(socket.id);
     if (!c || !me) return;
-    me.outfit = Math.floor(num(mask, 0, 7));
+    me.outfit = Math.floor(num(mask, 0, 15));
     socket.to(c.key).emit('outfit', socket.id, me.outfit);
   });
 

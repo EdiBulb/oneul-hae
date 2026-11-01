@@ -8,14 +8,15 @@ import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
+import { createPlaceScenery } from './place-scenery';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
-import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place } from './places';
+import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place, placeBlurb, placeRoute, type PlaceGroup } from './places';
 import { T, applyHtml, lang, num, setLang } from './i18n';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
 import { dayName, dur, hm, mmss, sunriseInfo, sunrises } from './sun';
@@ -69,6 +70,7 @@ const castles = createCastles(scene);
 const shells = createShells(scene, GLOW);
 const sky = createSkyLife(scene, GLOW);
 const bonfire = createBonfire(scene, GLOW);
+const scenery = createPlaceScenery(scene, GLOW);
 const sandBoard = createSandBoard(scene);
 // 방석 22개 뒤에 모닥불 통나무 8자리, 데크 끝 3자리를 붙임 (서버 번호와 같은 순서)
 const seats = world.seats;
@@ -172,7 +174,7 @@ net.on('welcome', w => {
   seats.forEach(s => (s.occ = null));
   for (const [idx, id] of Object.entries(w.seats)) if (seats[+idx]) seats[+idx].occ = id;
   if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
-  if (store.outfit) net.emit('outfit', store.outfit);
+  if (outfitOf(me)) net.emit('outfit', outfitOf(me));
   if (me.blanket.visible) net.emit('blanket', true); // 다시 접속·채널 이동 때 담요 상태 알려 주기
   traces.set(w.traces);
   sandPosts = w.board ?? []; renderSandLabel(); if (sandOpen) renderSand();
@@ -258,10 +260,9 @@ function renderCounts() {
   const online = stats?.online[place.id] ?? (connected ? remotes.size + 1 : 0);
   $('viewerCount').textContent = connected ? num(online) : T.connecting;
   $('viewerUnit').textContent = connected ? T.unitPeople : '';
-  [...$('chips').children].forEach((el, i) => {
-    const n = stats?.online[PLACES[i].id] ?? 0;
-    (el.querySelector('em') as HTMLElement).textContent = n ? T.chipCount(n) : '';
-  });
+  $('placeBtnName').textContent = `📍 ${placeName(place)}`;
+  $('placeBtnCount').textContent = connected ? `· ${T.hereNow(online)}` : '';
+  if (openSheet?.id === 'placeSheet') renderPlaceList();
 }
 
 // ================= 입력 =================
@@ -381,7 +382,7 @@ cvs.addEventListener('wheel', e => { e.preventDefault(); setView(cam.tDist * (1 
 function nearestFreeSeat(): number | null {
   let best: number | null = null, bd = 2.6;
   seats.forEach((s, i) => {
-    if (s.occ) return;
+    if (s.occ || (s.places && !s.places.includes(place.id))) return;
     const d = Math.hypot(s.x - me.root.position.x, s.z - me.root.position.z);
     if (d < bd) { bd = d; best = i; }
   });
@@ -416,7 +417,7 @@ function updateMe(dt: number) {
     else if (canStand(p.x, nz)) p.z = nz;
     p.y = floorY(p.x, p.z); me.state = 'walk'; turnTo(me, faceAngle(mx, mz), dt);
     const surf = prints.step('me', p.x, p.z, me.root.rotation.y);
-    if (surf) amb.step(surf);
+    if (surf) amb.step(surf === 'grass' ? 'sand' : surf);
   } else if (mySeat === null) {
     me.state = lying ? 'lie' : 'idle';
     // 사진 자리: 동그라미에 서면 맞은편 자리를 바라봄
@@ -439,7 +440,7 @@ function updateMe(dt: number) {
   if (bl.hidden === showBl) bl.hidden = !showBl;
   bl.textContent = me.blanket.visible ? T.blanketOff : T.blanketOn;
   updateGiveBtn();
-  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : T.sitDown) : T.findSeat;
+  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : T.sitDown) : T.findSeat;
 }
 
 // ================= 상단 문구 =================
@@ -549,6 +550,8 @@ function loop(t: number) {
   castles.update(dt, t);
   jetties.update(t, night);
   updateHandoff(dt);
+  scenery.update(dt, t, night);
+  updateRamen(t);
   updateSparkles(dt);
   if (sky.update(dt, t, alt, camera, lying)) showStarWish();
   const shell = shells.update(dt, t, me.root.position);
@@ -564,30 +567,42 @@ function loop(t: number) {
   requestAnimationFrame(loop);
 }
 
-// ================= 채널 =================
-const chips = $('chips');
-PLACES.forEach(p => {
-  const b = document.createElement('button');
-  b.className = 'chip';
-  b.innerHTML = `${placeName(p)}<span>${placeRegion(p)}</span><em></em>`;
-  b.setAttribute('aria-pressed', String(p === place));
-  b.onclick = () => {
-    if (place === p) return;
-    place = p; replay = null; seenFlag = false; watchStart = 0;
-    track('channel_changed', { place: p.id });
-    [...chips.children].forEach((c, i) => c.setAttribute('aria-pressed', String(PLACES[i] === p)));
-    if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
-    seats.forEach(s => (s.occ = null));
-    closeSand(); sandPosts = []; renderSandLabel();
-    clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); applyTerrain(p);
-    history.replaceState(history.state, '', `/${p.id}${location.search}`); placeShells(); renderAlarm(); renderCounts(); refreshWeather();
-    spawn();
-    if (connected) join();
-    expandBanner();
-    toast(T.arrived(placeName(p), p.id === 'gisborne'));
-  };
-  chips.appendChild(b);
+// ================= 장소 고르기 =================
+// 상단에는 지금 장소 하나만 두고, 누르면 묶음별 목록이 열린다 (장소가 늘어도 화면이 지저분해지지 않게)
+const GROUPS: [PlaceGroup, () => string][] = [['sunrise', () => T.groupSunrise], ['kcontent', () => T.groupKcontent], ['seoul', () => T.groupSeoul]];
+const ICON: Record<string, string> = { jeongdongjin: '🚉', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜' };
+function renderPlaceList() {
+  $('placeList').innerHTML = GROUPS.map(([g, label]) => {
+    const rows = PLACES.filter(p => p.group === g).map(p => {
+      const n = stats?.online[p.id] ?? 0;
+      return `<button class="place-row" data-id="${p.id}" aria-current="${p === place}"><i class="pi">${ICON[p.id] ?? '📍'}</i><span class="pt"><b>${placeName(p)}<small>${placeRegion(p)}</small></b><span>${placeBlurb(p)}</span></span><em>${n ? T.hereNow(n) : ''}</em></button>`;
+    }).join('');
+    return rows ? `<div class="place-group"><h3>${label()}</h3>${rows}</div>` : '';
+  }).join('');
+}
+$('placeBtn').onclick = () => { renderPlaceList(); open('placeSheet'); track('place_picker_opened', { place: place.id }); };
+$('placeList').addEventListener('click', e => {
+  const row = (e.target as HTMLElement).closest<HTMLElement>('.place-row');
+  const p = row && PLACES.find(x => x.id === row.dataset.id);
+  if (!p) return;
+  close();
+  switchPlace(p);
 });
+function switchPlace(p: Place) {
+  if (place === p) return;
+  place = p; replay = null; seenFlag = false; watchStart = 0;
+  track('channel_changed', { place: p.id });
+  if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
+  lying = false;
+  seats.forEach(s => (s.occ = null));
+  closeSand(); sandPosts = []; renderSandLabel();
+  clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); applyTerrain(p);
+  history.replaceState(history.state, '', `/${p.id}${location.search}`); placeShells(); renderAlarm(); renderCounts(); refreshWeather();
+  spawn();
+  if (connected) join();
+  expandBanner();
+  toast(T.arrived(placeName(p), p.id === 'gisborne'));
+}
 
 // ================= 버튼 =================
 $('sitBtn').onclick = () => {
@@ -1246,6 +1261,7 @@ $('starWish').onclick = () => { $('starWish').hidden = true; open('wishSheet'); 
 let lastShellCheck = 0;
 const shellKey = () => `${place.id}|${new Intl.DateTimeFormat('en-CA', { timeZone: place.tz }).format(new Date())}`;
 function placeShells() {
+  if (!has.shells(place.id)) { shells.clear(); return; }
   const key = shellKey();
   if (store.shells?.key !== key) { store.shells = { key, got: [] }; save(); }
   shells.set(place.id, key.split('|')[1], store.shells.got);
@@ -1276,6 +1292,7 @@ $('dexBtn').onclick = () => { renderDex(); open('dexSheet'); track('dex_opened',
 
 // 모래성: 앞에 있는 성을 키우거나, 없으면 새로 짓기 (다 같이 쌓는다)
 $('castleBtn').onclick = () => {
+  if (!has.castles(place.id)) { toast(T.castleNoGrass); return; }
   if (!connected) { toast(T.castleOffline); return; }
   if (mySeat !== null) standUp();
   lying = false;
@@ -1295,8 +1312,10 @@ $('castleBtn').onclick = () => {
 
 // ================= 해변별 지형 · 소품 · 실제로 가 보기 =================
 function applyTerrain(p: Place) {
-  setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id);
-  $('routeBtn').hidden = p.id !== 'jumunjin';
+  setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id); bonfire.setPlace(p.id); scenery.setPlace(p.id); world.setGround(p.id);
+  $('routeBtn').hidden = !placeRoute(p);
+  // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
+  if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
 }
 const OUTFIT_BTNS: [string, number][] = [['ofSweat', OUTFIT.sweat], ['ofScarf', OUTFIT.scarf], ['ofFlowers', OUTFIT.flowers]];
 function renderOutfit() { OUTFIT_BTNS.forEach(([id, bit]) => $(id).setAttribute('aria-pressed', String(!!((store.outfit ?? 0) & bit)))); }
@@ -1304,14 +1323,21 @@ setOutfit(me, store.outfit ?? 0);
 OUTFIT_BTNS.forEach(([id, bit]) => {
   $(id).onclick = () => {
     store.outfit = (store.outfit ?? 0) ^ bit; save();
-    setOutfit(me, store.outfit); renderOutfit();
-    if (connected) net.emit('outfit', store.outfit);
+    setOutfit(me, store.outfit | (outfitOf(me) & OUTFIT.ramen)); renderOutfit();
+    if (connected) net.emit('outfit', outfitOf(me));
     track('outfit', { place: place.id, mask: store.outfit });
   };
 });
 $('outfitBtn').onclick = () => { renderOutfit(); open('outfitSheet'); };
-($('routeMap') as HTMLAnchorElement).href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('도깨비 촬영지 주문진 방사제');
-$('routeBtn').onclick = () => { open('routeSheet'); track('route_opened', { place: place.id }); };
+$('routeBtn').onclick = () => {
+  const r = placeRoute(place);
+  if (!r) return;
+  $('routeTitle').textContent = r.title;
+  $('routeLead').innerHTML = r.lead;
+  $('routeSteps').innerHTML = r.steps.map(x => `<li>${x}</li>`).join('');
+  ($('routeMap') as HTMLAnchorElement).href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(r.map);
+  open('routeSheet'); track('route_opened', { place: place.id });
+};
 $('routeMap').addEventListener('click', () => track('route_map', { place: place.id }));
 
 // ================= 꽃다발 건네주기 =================
@@ -1354,8 +1380,8 @@ function updateHandoff(dt: number) {
   if (handoff.t > 2.0) {
     showLeftFlowers(handoff.b, false);
     setOutfit(handoff.b, outfitOf(handoff.b) | OUTFIT.flowers);
-    if (handoff.aId === myId) { store.outfit = outfitOf(me); save(); toast(T.gave); }
-    if (handoff.bId === myId) { store.outfit = outfitOf(me); save(); toast(T.got); }
+    if (handoff.aId === myId) { store.outfit = outfitOf(me) & ~OUTFIT.ramen; save(); toast(T.gave); }
+    if (handoff.bId === myId) { store.outfit = outfitOf(me) & ~OUTFIT.ramen; save(); toast(T.got); }
     handoff = null;
   }
 }
@@ -1377,5 +1403,35 @@ function updateSparkles(dt: number) {
     if (p.t > 1.2) { scene.remove(p.s); p.s.material.dispose(); sparkles.splice(i, 1); }
   }
 }
+
+// ================= 한강 라면 =================
+// 라면 기계 앞에 가면 '라면 끓이기' → 4초 뒤 손에 라면. 돗자리에 앉으면 몇 초마다 후루룩.
+let ramenBites = 0, nextBite = 0, ramenCooking = false;
+function setRamen(on: boolean) {
+  const mask = on ? outfitOf(me) | OUTFIT.ramen : outfitOf(me) & ~OUTFIT.ramen;
+  setOutfit(me, mask);
+  if (connected) net.emit('outfit', mask);
+  ramenBites = 0;
+}
+function updateRamen(t: number) {
+  const b = $('ramenBtn');
+  const near = place.id === 'hangang' && !ramenCooking && !(outfitOf(me) & OUTFIT.ramen)
+    && Math.hypot(me.root.position.x - RAMEN_MACHINE.x, me.root.position.z - RAMEN_MACHINE.z) < 2.4;
+  if (b.hidden === near) b.hidden = !near;
+  // 앉아서 라면 먹기
+  if ((outfitOf(me) & OUTFIT.ramen) && mySeat !== null && !me.emote && t > nextBite) {
+    nextBite = t + 3500;
+    me.emote = 'eat'; me.emoteT = 0; if (connected) net.emit('emote', 'eat');
+    amb.step('water');
+    if (++ramenBites >= 6) { setTimeout(() => { setRamen(false); toast(T.ramenAte); track('ramen_eaten', { place: place.id }); }, 1600); nextBite = t + 1e9; }
+  }
+}
+$('ramenBtn').onclick = () => {
+  ramenCooking = true; $('ramenBtn').hidden = true;
+  scenery.cook(); toast(T.ramenCooking);
+  turnTo(me, Math.atan2(-(RAMEN_MACHINE.x - me.root.position.x), -(RAMEN_MACHINE.z - me.root.position.z)), 1);
+  track('ramen_cook', { place: place.id });
+  setTimeout(() => { ramenCooking = false; if (place.id !== 'hangang') return; setRamen(true); nextBite = 0; toast(T.ramenDone); }, 4000);
+};
 
 Object.assign(window, { __hae: { shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

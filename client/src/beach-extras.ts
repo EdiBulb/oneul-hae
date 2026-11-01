@@ -17,7 +17,22 @@ export const BONFIRE = { x: 11, z: 10 };
 const LOG = { r: 2.1, len: 1.3, rad: 0.2, n: 4 };
 const logAngle = (i: number) => (i / LOG.n) * Math.PI * 2 + Math.PI / 4;
 
-interface HighSeat { x: number; z: number; ry: number; y: number; bench: true; kind: 'log' | 'pier'; sx: number; sz: number }
+interface HighSeat { x: number; z: number; ry: number; y: number; bench: true; kind: 'log' | 'pier' | 'bus'; sx: number; sz: number; places: PlaceId[] }
+/** 해변마다 있는 것 */
+const SUNRISE: PlaceId[] = ['jeongdongjin', 'seongsan', 'homigot', 'gisborne'];
+const ALL: PlaceId[] = [...SUNRISE, 'jumunjin', 'hyangho', 'hangang'];
+export const has = {
+  pier: (id: PlaceId) => SUNRISE.includes(id),
+  bonfire: (id: PlaceId) => id !== 'hangang',
+  shells: (id: PlaceId) => id !== 'hangang',
+  castles: (id: PlaceId) => id !== 'hangang',
+  wading: (id: PlaceId) => id !== 'hangang',
+};
+/** 향호 버스정류장: 바다를 등지고 육지 쪽을 보는 정류장 */
+export const BUS_STOP = { x: -12, z: 1.2 };
+/** 한강 편의점과 라면 기계 */
+export const STORE = { x: -11, z: 12, w: 5, d: 3.2 };
+export const RAMEN_MACHINE = { x: -8.1, z: 13.4 };
 /** 높은 자리들 (서버 방석 번호 22번부터 이어짐)
  *  22~29: 통나무 4개 × 2자리, 모닥불을 바라봄 → 일어나면 모닥불 쪽으로 한 걸음
  *  30~32: 데크 끝에 걸터앉는 3자리, 바다를 바라봄 → 일어나면 데크 안쪽으로 한 걸음 */
@@ -29,12 +44,17 @@ export function benchSeats() {
     const ax = Math.sin(a), az = -Math.cos(a); // 통나무 방향 (원의 접선)
     for (const k of [-0.32, 0.32]) {
       const x = cx + ax * k, z = cz + az * k;
-      out.push({ x, z, ry: Math.atan2(Math.cos(a), Math.sin(a)), y: top, bench: true, kind: 'log', sx: x - Math.cos(a) * 0.5, sz: z - Math.sin(a) * 0.5 });
+      out.push({ x, z, ry: Math.atan2(Math.cos(a), Math.sin(a)), y: top, bench: true, kind: 'log', sx: x - Math.cos(a) * 0.5, sz: z - Math.sin(a) * 0.5, places: ALL.filter(has.bonfire) });
     }
   }
   // 데크 끝: 엉덩이는 끝에 걸치고 다리는 바다 쪽으로 (오른쪽 끝 가로등 기둥을 피해 3자리)
   const ez = PIER.end + 0.15;
-  for (const dx of [-0.65, 0, 0.65]) out.push({ x: PIER.x + dx, z: ez, ry: 0, y: PIER.top, bench: true, kind: 'pier', sx: PIER.x + dx, sz: ez + 0.7 });
+  for (const dx of [-0.65, 0, 0.65]) out.push({ x: PIER.x + dx, z: ez, ry: 0, y: PIER.top, bench: true, kind: 'pier', sx: PIER.x + dx, sz: ez + 0.7, places: SUNRISE });
+  // 33~35: 향호 버스정류장 벤치 (육지 쪽을 바라봄)
+  for (const dx of [-0.6, 0, 0.6]) {
+    const x = BUS_STOP.x + dx, z = BUS_STOP.z + 0.05;
+    out.push({ x, z, ry: Math.PI, y: groundY(z) + 0.44, bench: true, kind: 'bus', sx: x, sz: z + 0.75, places: ['hyangho'] });
+  }
   return out;
 }
 const BENCH = benchSeats();
@@ -54,12 +74,14 @@ export const jetties = () => (terrain === 'jumunjin' ? JUMUNJIN_JETTIES : []);
 /** 사진 자리: 방사제 끝에서 서로 마주 보는 두 점 */
 export const PHOTO_SPOTS = [{ x: 4.5, z: -10.2 }, { x: 5.5, z: -10.2 }];
 export const hasPhotoSpots = () => terrain === 'jumunjin';
-const pierHere = () => terrain !== 'jumunjin';
+const pierHere = () => has.pier(terrain);
+export const terrainId = () => terrain;
 const onJetty = (x: number, z: number) => jetties().find(j => Math.abs(x - j.x) < j.half && z <= j.start && z >= j.end) ?? null;
 
 export const onPier = (x: number, z: number) => (pierHere() && Math.abs(x - PIER.x) < PIER.half && z <= PIER.start && z >= PIER.end) || !!onJetty(x, z);
-export type Surface = 'sand' | 'water' | 'wood';
+export type Surface = 'sand' | 'water' | 'wood' | 'grass';
 export function surfaceAt(x: number, z: number): Surface {
+  if (terrain === 'hangang') return z < -1.8 ? 'water' : 'grass';
   if (onPier(x, z) && z < -1.2) return 'wood';
   return z < -1.8 ? 'water' : 'sand';
 }
@@ -79,11 +101,14 @@ export function floorY(x: number, z: number) {
 }
 export function canStand(x: number, z: number) {
   if (onPier(x, z)) return true;
-  if (Math.abs(x) > BEACH_X || z > 17 || z < WADE_MIN_Z) return false;
+  if (Math.abs(x) > BEACH_X || z > 17 || z < (has.wading(terrain) ? WADE_MIN_Z : -1.3)) return false;
+  // 정류장 지붕 기둥·뒷벽, 한강 편의점 건물 안으로는 못 들어감
+  if (terrain === 'hyangho' && Math.abs(x - BUS_STOP.x) < 1.25 && z > BUS_STOP.z - 0.45 && z < BUS_STOP.z - 0.05) return false;
+  if (terrain === 'hangang' && x > STORE.x - STORE.w / 2 - 0.3 && x < STORE.x + STORE.w / 2 + 0.3 && z > STORE.z - STORE.d / 2 - 0.3 && z < STORE.z + STORE.d / 2) return false;
   // 모닥불 한가운데는 못 들어감
   // 모래 게시판 판 위로는 못 올라감
   if (insideSandBoard(x, z)) return false;
-  return Math.hypot(x - BONFIRE.x, z - BONFIRE.z) > 0.95;
+  return !has.bonfire(terrain) || Math.hypot(x - BONFIRE.x, z - BONFIRE.z) > 0.95;
 }
 
 // ---------- 데크 ----------
@@ -133,7 +158,7 @@ export function createPier(scene: THREE.Scene, GLOW: THREE.Texture) {
   scene.add(g);
   return {
     /** 주문진에서는 나무 데크를 감춘다 */
-    setPlace(id: PlaceId) { g.visible = id !== 'jumunjin'; },
+    setPlace(id: PlaceId) { g.visible = has.pier(id); },
     update(night: number) {
       halo.material.opacity = night * 0.8; halo.visible = night > 0.02;
       (bulb.material as THREE.MeshBasicMaterial).color.setRGB(0.55 + 0.45 * night, 0.5 + 0.35 * night, 0.4 + 0.22 * night);
@@ -282,7 +307,7 @@ export function createBonfire(scene: THREE.Scene, GLOW: THREE.Texture) {
       em.e.material.opacity = level * (1 - em.t / 2.5);
     }
   }
-  return { update, get level() { return level; } };
+  return { update, get level() { return level; }, setPlace(id: PlaceId) { g.visible = has.bonfire(id); if (!g.visible) level = 0; } };
 }
 
 /** 해 고도 → 밤의 정도 (해 뜨면 0, 동트기 전 어두우면 1) */

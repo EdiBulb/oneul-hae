@@ -13,7 +13,21 @@ const PAGES = {
     title: "Jumunjin Breakwater, Korea · Today's Sun",
     desc: "Stand on the little breakwater known from the K-drama 'Goblin'. A live 3D Korean seaside you can visit from anywhere: real sunrise, long coats, red scarves and photos together.",
     image: 'og-jumunjin.png',
-    alt: 'Two characters in a long coat and a red scarf facing each other on a breakwater at sunrise',
+    alt: 'Two characters, one holding a buckwheat bouquet and one in a red scarf, facing each other on a breakwater at sunrise',
+  },
+  hyangho: {
+    lang: 'en',
+    title: "Hyangho Bus Stop, Korea · Today's Sun",
+    desc: 'Sit at the little seaside bus stop from a famous K-pop album cover, on the beach in Gangneung. A live 3D Korean seaside you can visit from anywhere.',
+    image: 'og-hyangho.png',
+    alt: 'A small blue-roofed bus stop with a purple bench on a sandy beach, the sea behind it',
+  },
+  hangang: {
+    lang: 'en',
+    title: "Han River Ramyeon, Seoul · Today's Sun",
+    desc: "Cook convenience-store ramyeon and eat it on a picnic mat by Seoul's Han River at night, with people from around the world. No app needed.",
+    image: 'og-hangang.png',
+    alt: 'Characters eating instant noodles on picnic mats by the Han River with the lit-up Seoul skyline across the water',
   },
 };
 
