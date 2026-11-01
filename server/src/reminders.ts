@@ -11,16 +11,17 @@ import webpush, { type PushSubscription } from 'web-push';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 type Lang = 'ko' | 'en';
-type PlaceKey = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne';
+type PlaceKey = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin';
 
 const PLACE_NAMES: Record<PlaceKey, Record<Lang, string>> = {
   jeongdongjin: { ko: '정동진', en: 'Jeongdongjin' },
   seongsan: { ko: '성산일출봉', en: 'Seongsan Ilchulbong' },
   homigot: { ko: '호미곶', en: 'Homigot' },
   gisborne: { ko: '기스본', en: 'Gisborne' },
+  jumunjin: { ko: '주문진 방파제', en: 'Jumunjin Breakwater' },
 };
 const TZ: Record<PlaceKey, string> = {
-  jeongdongjin: 'Asia/Seoul', seongsan: 'Asia/Seoul', homigot: 'Asia/Seoul', gisborne: 'Pacific/Auckland',
+  jeongdongjin: 'Asia/Seoul', seongsan: 'Asia/Seoul', homigot: 'Asia/Seoul', gisborne: 'Pacific/Auckland', jumunjin: 'Asia/Seoul',
 };
 const SITE = 'https://hae.abracadelulu.com';
 const LEAD = 5 * 60000; // 해 뜨기 5분 전

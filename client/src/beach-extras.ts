@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { PlaceId } from '../../server/src/protocol';
 import { groundY } from './world';
 import { insideSandBoard } from './sand-board';
 
@@ -40,7 +41,23 @@ const BENCH = benchSeats();
 /** 이 자리가 통나무 위면 그 자리 (다른 사람·흔적의 앉은 높이를 맞출 때) */
 export const benchAt = (x: number, z: number) => BENCH.find(s => Math.hypot(s.x - x, s.z - z) < 0.3) ?? null;
 
-export const onPier = (x: number, z: number) => Math.abs(x - PIER.x) < PIER.half && z <= PIER.start && z >= PIER.end;
+// ---------- 해변마다 다른 지형 ----------
+// 주문진: 나무 데크 대신 짧은 콘크리트 방사제 두 개 (오른쪽 것 끝에 사진 찍는 자리)
+let terrain: PlaceId = 'jeongdongjin';
+export function setTerrain(id: PlaceId) { terrain = id; }
+export interface Jetty { x: number; half: number; start: number; end: number; top: number }
+const JUMUNJIN_JETTIES: Jetty[] = [
+  { x: 5, half: 0.8, start: -1.0, end: -11, top: 0.7 },
+  { x: -7, half: 0.7, start: -1.0, end: -8, top: 0.6 },
+];
+export const jetties = () => (terrain === 'jumunjin' ? JUMUNJIN_JETTIES : []);
+/** 사진 자리: 방사제 끝에서 서로 마주 보는 두 점 */
+export const PHOTO_SPOTS = [{ x: 4.35, z: -10.2 }, { x: 5.65, z: -10.2 }];
+export const hasPhotoSpots = () => terrain === 'jumunjin';
+const pierHere = () => terrain !== 'jumunjin';
+const onJetty = (x: number, z: number) => jetties().find(j => Math.abs(x - j.x) < j.half && z <= j.start && z >= j.end) ?? null;
+
+export const onPier = (x: number, z: number) => (pierHere() && Math.abs(x - PIER.x) < PIER.half && z <= PIER.start && z >= PIER.end) || !!onJetty(x, z);
 export type Surface = 'sand' | 'water' | 'wood';
 export function surfaceAt(x: number, z: number): Surface {
   if (onPier(x, z) && z < -1.2) return 'wood';
@@ -48,6 +65,11 @@ export function surfaceAt(x: number, z: number): Surface {
 }
 /** 서 있는 발 높이. 물에서는 정강이까지 잠기고, 데크 위는 데크 높이 */
 export function floorY(x: number, z: number) {
+  const j = onJetty(x, z);
+  if (j) {
+    const k = clamp((j.start - z) / 1.6, 0, 1); // 콘크리트 계단 경사
+    return groundY(z) * (1 - k) + j.top * k;
+  }
   if (onPier(x, z)) {
     const k = clamp((PIER.start - z) / 2, 0, 1); // 처음 2m는 경사로
     return groundY(z) * (1 - k) + PIER.top * k;
@@ -110,6 +132,8 @@ export function createPier(scene: THREE.Scene, GLOW: THREE.Texture) {
   halo.scale.set(3, 3, 1); halo.position.copy(bulb.position); g.add(halo);
   scene.add(g);
   return {
+    /** 주문진에서는 나무 데크를 감춘다 */
+    setPlace(id: PlaceId) { g.visible = id !== 'jumunjin'; },
     update(night: number) {
       halo.material.opacity = night * 0.8; halo.visible = night > 0.02;
       (bulb.material as THREE.MeshBasicMaterial).color.setRGB(0.55 + 0.45 * night, 0.5 + 0.35 * night, 0.4 + 0.22 * night);
@@ -319,4 +343,53 @@ export function createStones(scene: THREE.Scene, onBounce: (x: number, z: number
     }
   }
   return { toss, update, roll: rollSkips };
+}
+
+// ---------- 주문진 방사제 ----------
+export function createJetties(scene: THREE.Scene, GLOW: THREE.Texture) {
+  const root = new THREE.Group(); root.visible = false; scene.add(root);
+  const concrete = new THREE.MeshLambertMaterial({ color: 0xb9b6ae });
+  const edge = new THREE.MeshLambertMaterial({ color: 0x8f8c85 });
+  for (const j of JUMUNJIN_JETTIES) {
+    const len = j.start - 1.6 - j.end, w = j.half * 2 + 0.1;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, j.top + 1.2, len), concrete);
+    body.position.set(j.x, (j.top - 1.2) / 2, j.end + len / 2); root.add(body);
+    // 물가 쪽 계단
+    for (let i = 0; i < 4; i++) {
+      const h = groundY(j.start) + ((j.top - groundY(j.start)) * (i + 1)) / 4;
+      const step = new THREE.Mesh(new THREE.BoxGeometry(w, h + 0.4, 0.4), edge);
+      step.position.set(j.x, h / 2 - 0.2, j.start - 0.2 - i * 0.4); root.add(step);
+    }
+    // 바다 쪽 끝을 둘러싼 테트라포드 몇 개
+    for (let i = 0; i < 5; i++) {
+      const t = new THREE.Mesh(new THREE.TetrahedronGeometry(0.55, 0), edge);
+      t.position.set(j.x + (i - 2) * 0.6, -0.1, j.end - 0.6 - (i % 2) * 0.4); t.rotation.set(i, i * 2, i * 3); root.add(t);
+    }
+  }
+  // 사진 자리 표시: 바닥에 은은한 동그라미 두 개
+  const ringGeo = new THREE.RingGeometry(0.26, 0.34, 28); ringGeo.rotateX(-Math.PI / 2);
+  const spots = PHOTO_SPOTS.map(p => {
+    const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffd38a, transparent: true, opacity: 0.7, depthWrite: false }));
+    m.position.set(p.x, JUMUNJIN_JETTIES[0].top + 0.015, p.z); root.add(m); return m;
+  });
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffcf8a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 }));
+  glow.scale.set(2.6, 1.2, 1); glow.position.set(5, JUMUNJIN_JETTIES[0].top + 0.3, -10.2); root.add(glow);
+  // 멀리 항구 방파제 끝의 빨간 등대
+  const lh = new THREE.Group();
+  const red = new THREE.MeshLambertMaterial({ color: 0xc8372d }), white = new THREE.MeshLambertMaterial({ color: 0xf2efe8 });
+  const towerM = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.95, 5, 12), red); towerM.position.y = 2.5; lh.add(towerM);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.5, 12), white); band.position.y = 3.6; lh.add(band);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 0.9, 10), white); top.position.y = 5.4; lh.add(top);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.65, 0.7, 10), red); roof.position.y = 6.2; lh.add(roof);
+  const lamp = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffe0b0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+  lamp.scale.set(5, 5, 1); lamp.position.y = 5.4; lh.add(lamp);
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(3, 1.4, 30), concrete); wall.position.set(0, 0.2, 14); lh.add(wall);
+  lh.position.set(-34, 0, -48); root.add(lh);
+  return {
+    setPlace(id: PlaceId) { root.visible = id === 'jumunjin'; },
+    update(t: number, night: number) {
+      spots.forEach((m, i) => ((m.material as THREE.MeshBasicMaterial).opacity = 0.45 + Math.sin(t / 500 + i) * 0.2));
+      lamp.material.opacity = night * (0.6 + 0.4 * Math.max(0, Math.sin(t / 700)));
+    },
+  };
 }

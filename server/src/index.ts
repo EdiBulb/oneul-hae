@@ -17,6 +17,7 @@ const ORIGINS = (process.env.CORS_ORIGIN ?? '*').split(',').map(s => s.trim());
 
 const PLACES: Record<PlaceId, { tz: string }> = {
   jeongdongjin: { tz: 'Asia/Seoul' },
+  jumunjin: { tz: 'Asia/Seoul' },
   seongsan: { tz: 'Asia/Seoul' },
   homigot: { tz: 'Asia/Seoul' },
   gisborne: { tz: 'Pacific/Auckland' },
@@ -139,7 +140,7 @@ function countWoke(place: PlaceId, uid: string) {
 }
 
 function stats(): Stats {
-  const online = { jeongdongjin: 0, seongsan: 0, homigot: 0, gisborne: 0 } as Record<PlaceId, number>;
+  const online = { jeongdongjin: 0, seongsan: 0, homigot: 0, gisborne: 0, jumunjin: 0 } as Record<PlaceId, number>;
   const woke = { ...online }, today = { ...online };
   for (const c of channels.values()) online[c.place] += c.players.size;
   for (const p of Object.keys(PLACES) as PlaceId[]) {
@@ -272,6 +273,13 @@ io.on('connection', (socket: Sock) => {
     c.seats.set(idx, socket.id);
     io.to(c.key).emit('seat', idx, socket.id);
     reply(true);
+  });
+
+  socket.on('outfit', mask => {
+    const c = socket.data.channel, me = c?.players.get(socket.id);
+    if (!c || !me) return;
+    me.outfit = Math.floor(num(mask, 0, 7));
+    socket.to(c.key).emit('outfit', socket.id, me.outfit);
   });
 
   socket.on('blanket', on => {

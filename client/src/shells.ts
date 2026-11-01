@@ -20,7 +20,7 @@ export const SHELLS: ShellKind[] = [
   { id: 'starfish', ko: '불가사리', en: 'Starfish', color: 0xff8a4d, shape: 'star', weight: 4 },
   { id: 'urchin', ko: '성게 껍데기', en: 'Urchin shell', color: 0xa77cc4, shape: 'urchin', weight: 4 },
   { id: 'turban', ko: '소라', en: 'Turban shell', color: 0x7a8a6a, shape: 'spiral', weight: 6, places: ['seongsan'], rare: true },
-  { id: 'abalone', ko: '전복 껍데기', en: 'Abalone shell', color: 0x7ab0b8, shape: 'abalone', weight: 5, places: ['homigot', 'jeongdongjin'], rare: true },
+  { id: 'abalone', ko: '전복 껍데기', en: 'Abalone shell', color: 0x7ab0b8, shape: 'abalone', weight: 5, places: ['homigot', 'jeongdongjin', 'jumunjin'], rare: true },
   { id: 'paua', ko: '파우아', en: 'Pāua', color: 0x3fb5a8, shape: 'abalone', weight: 6, places: ['gisborne'], rare: true },
   { id: 'pearl', ko: '진주', en: 'Pearl', color: 0xf6f2ff, shape: 'pearl', weight: 0.6, rare: true },
 ];

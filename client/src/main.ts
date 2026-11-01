@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, setOutfit } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
@@ -54,6 +54,7 @@ const lanterns = createLanterns(scene, GLOW);
 const life = createBeachLife(scene);
 const traces = createTraces(scene, GLOW);
 const pier = createPier(scene, GLOW);
+const jetties = createJetties(scene, GLOW);
 const prints = createFootprints(scene);
 const stones = createStones(scene, (x, z, last, mine) => {
   prints.ripple(x, z, last ? 1.5 : 0.7);
@@ -61,7 +62,9 @@ const stones = createStones(scene, (x, z, last, mine) => {
   amb.plop((mine ? 1 : 0.7) * clamp(1.2 - d / 25, 0, 1), last);
 });
 /** lying: 몸이 누워 있는지 / eyeView: 누운 채 눈으로 보는 시점인지 (카메라 버튼은 시점만 바꾸고 몸은 그대로) */
-let lying = false, lieSince = 0, eyeView = false;
+let lying = false, lieSince = 0, eyeView = false, photoSpotHinted = false;
+/** 홍보 이미지 찍을 때 이름표·발밑 고리 숨기기 (테스트용) */
+let shotMode = false;
 const castles = createCastles(scene);
 const shells = createShells(scene, GLOW);
 const sky = createSkyLife(scene, GLOW);
@@ -74,7 +77,9 @@ for (const b of benchSeats()) seats.push({ ...b, occ: null });
 // ================= 상태 =================
 // 푸시·캘린더 알림에서 들어오면 ?place=로 그 해변을 바로 연다
 const query = new URLSearchParams(location.search);
-let place: Place = PLACES.find(p => p.id === query.get('place')) ?? PLACES[0];
+// 해변별 주소: hae.abracadelulu.com/gisborne 처럼 경로로 들어오면 그 해변에서 시작 (예전 ?place= 도 지원)
+const pathPlace = location.pathname.split('/').filter(Boolean)[0];
+let place: Place = PLACES.find(p => p.id === pathPlace) ?? PLACES.find(p => p.id === query.get('place')) ?? PLACES[0];
 let replay: { sr: number; start: number; duration: number; from: number; span: number } | null = null;
 let watchStart = 0, seenFlag = false;
 const virtualNow = () => {
@@ -108,6 +113,7 @@ function addRemote(p: PlayerInfo) {
   c.root.rotation.y = p.ry;
   const label = textSprite(localizeNick(p.nick), 0.6); label.position.y = 1.85; c.root.add(label);
   c.blanket.visible = !!p.blanket;
+  if (p.outfit) setOutfit(c, p.outfit);
   scene.add(c.root);
   remotes.set(p.id, { info: p, c, label, tx: p.x, tz: p.z, ry: p.ry, st: p.st });
 }
@@ -134,7 +140,7 @@ function updateRemotes(dt: number) {
     r.c.state = r.st === 2 ? 'sit' : r.st === 3 ? 'lie' : (r.st === 1 || d > 0.05) ? 'walk' : 'idle';
     turnTo(r.c, r.ry, dt);
     animChar(r.c, dt);
-    r.label.visible = camera.position.distanceTo(p) < 18;
+    r.label.visible = !shotMode && camera.position.distanceTo(p) < 18;
   }
 }
 
@@ -166,6 +172,7 @@ net.on('welcome', w => {
   seats.forEach(s => (s.occ = null));
   for (const [idx, id] of Object.entries(w.seats)) if (seats[+idx]) seats[+idx].occ = id;
   if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
+  if (store.outfit) net.emit('outfit', store.outfit);
   if (me.blanket.visible) net.emit('blanket', true); // 다시 접속·채널 이동 때 담요 상태 알려 주기
   traces.set(w.traces);
   sandPosts = w.board ?? []; renderSandLabel(); if (sandOpen) renderSand();
@@ -220,6 +227,7 @@ net.on('clink', (a, b) => {
     track('cheers_clink', { place: place.id });
   } else if (ca.root.position.distanceTo(me.root.position) < 12) ticker(T.clinkOthers(nickOf(a), nickOf(b)));
 });
+net.on('outfit', (id, mask) => { const r = remotes.get(id); if (r) setOutfit(r.c, mask); });
 net.on('blanket', (id, on) => { const r = remotes.get(id); if (r) r.c.blanket.visible = on; });
 net.on('lantern', (id, x, z, text) => {
   const r = remotes.get(id);
@@ -338,7 +346,7 @@ function updateCamera(dt: number) {
     lookTmp.copy(camLook).lerp(eyeLook, k);
     camera.lookAt(lookTmp);
   }
-  meLabel.visible = meRing.visible = eyeK < 0.4;
+  meLabel.visible = meRing.visible = eyeK < 0.4 && !shotMode;
   const k = clamp(cam.dist / 10, 1, 2.2);
   meLabel.scale.set(meLabelBase.x * k, meLabelBase.y * k, 1);
   meLabel.position.y = 1.9 + (k - 1) * 0.12;
@@ -411,6 +419,15 @@ function updateMe(dt: number) {
     if (surf) amb.step(surf);
   } else if (mySeat === null) {
     me.state = lying ? 'lie' : 'idle';
+    // 사진 자리: 동그라미에 서면 맞은편 자리를 바라봄
+    if (!lying && hasPhotoSpots()) {
+      const p0 = me.root.position, i = PHOTO_SPOTS.findIndex(sp => Math.hypot(sp.x - p0.x, sp.z - p0.z) < 0.42);
+      if (i >= 0) {
+        const o = PHOTO_SPOTS[1 - i];
+        turnTo(me, Math.atan2(-(o.x - p0.x), -(o.z - p0.z)), dt);
+        if (!photoSpotHinted) { photoSpotHinted = true; toast(T.photoSpot); track('photo_spot', { place: place.id }); }
+      }
+    }
     if (clinkFace && performance.now() < clinkFace.until) turnTo(me, clinkFace.ang, dt);
   } else turnTo(me, seats[mySeat].ry, dt);
   animChar(me, dt);
@@ -529,6 +546,7 @@ function loop(t: number) {
   prints.update(dt);
   stones.update(dt);
   castles.update(dt, t);
+  jetties.update(t, night);
   if (sky.update(dt, t, alt, camera, lying)) showStarWish();
   const shell = shells.update(dt, t, me.root.position);
   if (shell) gotShell(shell.i, shell.kind);
@@ -558,7 +576,8 @@ PLACES.forEach(p => {
     if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
     seats.forEach(s => (s.occ = null));
     closeSand(); sandPosts = []; renderSandLabel();
-    clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); placeShells(); renderAlarm(); renderCounts(); refreshWeather();
+    clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); applyTerrain(p);
+    history.replaceState(history.state, '', `/${p.id}${location.search}`); placeShells(); renderAlarm(); renderCounts(); refreshWeather();
     spawn();
     if (connected) join();
     expandBanner();
@@ -1206,6 +1225,7 @@ if (!store.hinted) $('hint').classList.add('open');
 else { askInstallSoon(); expandBanner(); }
 $('hintBtn').onclick = () => { $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner(); askInstallSoon(); };
 world.buildLandmark(place);
+applyTerrain(place);
 renderStreak(); renderAlarm(); renderCounts();
 requestAnimationFrame(loop);
 
@@ -1270,4 +1290,25 @@ $('castleBtn').onclick = () => {
   });
 };
 
-Object.assign(window, { __hae: { forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+// ================= 해변별 지형 · 소품 · 실제로 가 보기 =================
+function applyTerrain(p: Place) {
+  setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id);
+  $('routeBtn').hidden = p.id !== 'jumunjin';
+}
+const OUTFIT_BTNS: [string, number][] = [['ofCoat', OUTFIT.coat], ['ofScarf', OUTFIT.scarf], ['ofFlowers', OUTFIT.flowers]];
+function renderOutfit() { OUTFIT_BTNS.forEach(([id, bit]) => $(id).setAttribute('aria-pressed', String(!!((store.outfit ?? 0) & bit)))); }
+setOutfit(me, store.outfit ?? 0);
+OUTFIT_BTNS.forEach(([id, bit]) => {
+  $(id).onclick = () => {
+    store.outfit = (store.outfit ?? 0) ^ bit; save();
+    setOutfit(me, store.outfit); renderOutfit();
+    if (connected) net.emit('outfit', store.outfit);
+    track('outfit', { place: place.id, mask: store.outfit });
+  };
+});
+$('outfitBtn').onclick = () => { renderOutfit(); open('outfitSheet'); };
+($('routeMap') as HTMLAnchorElement).href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('도깨비 촬영지 주문진 방사제');
+$('routeBtn').onclick = () => { open('routeSheet'); track('route_opened', { place: place.id }); };
+$('routeMap').addEventListener('click', () => track('route_map', { place: place.id }));
+
+Object.assign(window, { __hae: { shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

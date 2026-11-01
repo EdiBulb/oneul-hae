@@ -88,6 +88,7 @@
     <div class="actions pe">
       <button class="act" id="sitBtn" data-i18n="sit">방석에 앉기</button>
       <button class="act" id="blanketBtn" hidden>담요 덮기</button>
+      <button class="act route-act" id="routeBtn" hidden data-i18n="routeBtn">📍 실제로 가 보기</button>
       <button class="act sand-act" id="sandBtn" hidden data-i18n="sandOpen">모래 게시판 보기</button>
       <button class="act more" id="actMore" aria-expanded="false" aria-controls="actTray" data-i18n-aria="actAria" aria-label="다른 행동 더 보기">✨ <span data-i18n="actMore">행동</span></button>
       <button class="act primary" id="lanternBtn" data-i18n="lantern">풍등 올리기</button>
@@ -101,6 +102,7 @@
       <button class="tile" id="lieBtn" role="menuitem"><i>🌌</i><span data-i18n="lie">누워서 별 보기</span></button>
       <button class="tile" id="castleBtn" role="menuitem"><i>🏰</i><span data-i18n="castle">모래성 쌓기</span></button>
       <button class="tile" id="dexBtn" role="menuitem"><i>🐚</i><span data-i18n="dex">조개 도감</span></button>
+      <button class="tile" id="outfitBtn" role="menuitem"><i>🧣</i><span data-i18n="props">소품</span></button>
     </div>
   </div>
 </div>
@@ -118,6 +120,28 @@
 
 <div class="flash" id="flash"></div>
 <button class="star-wish pe" id="starWish" hidden data-i18n="starWish">🌠 별똥별! 소원 빌기</button>
+<div class="sheet" id="outfitSheet" role="dialog" aria-labelledby="outfitTitle">
+  <h2 id="outfitTitle" data-i18n="propsTitle">소품 고르기</h2>
+  <p class="lead" data-i18n="propsLead">겹쳐 입을 수 있어요. 다른 사람에게도 보여요.</p>
+  <div class="outfit-grid">
+    <button class="tile" id="ofCoat" aria-pressed="false"><i>🧥</i><span data-i18n="coat">긴 코트</span></button>
+    <button class="tile" id="ofScarf" aria-pressed="false"><i>🧣</i><span data-i18n="redScarf">빨간 목도리</span></button>
+    <button class="tile" id="ofFlowers" aria-pressed="false"><i>💐</i><span data-i18n="flowers">메밀꽃 다발</span></button>
+  </div>
+</div>
+<div class="sheet" id="routeSheet" role="dialog" aria-labelledby="routeTitle">
+  <h2 id="routeTitle" data-i18n="routeTitle">진짜 주문진 방파제에 가 보기</h2>
+  <p class="lead" data-i18n-html="routeLead">강릉 주문진 영진해변의 작은 방사제예요. 드라마 &lsquo;도깨비&rsquo;(2016) 촬영지로 알려져 있어요. 입장료 없이 끝까지 걸어갈 수 있어요.</p>
+  <ol class="route">
+    <li data-i18n-html="route1"><b>서울 → 강릉</b> · 서울역이나 청량리역에서 KTX-이음으로 약 2시간</li>
+    <li data-i18n-html="route2"><b>강릉역 → 방사제</b> · 주문진 방면 시내버스 300·302번, 또는 택시로 약 20~25분</li>
+    <li data-i18n-html="route3"><b>팁</b> · 동해를 바라보는 곳이라 해돋이 시간에 가면 이 해변과 같은 풍경을 볼 수 있어요</li>
+  </ol>
+  <div class="photo-btns">
+    <a class="btn primary" id="routeMap" target="_blank" rel="noopener" data-i18n="routeMap">지도에서 보기</a>
+  </div>
+  <p class="note" data-i18n="routeNote">버스 시간과 정류장은 바뀔 수 있어요. 출발 전에 네이버 지도나 카카오맵에서 확인하세요.</p>
+</div>
 <div class="sheet" id="dexSheet" role="dialog" aria-labelledby="dexTitle">
   <h2 id="dexTitle">조개 도감</h2>
   <p class="lead" id="dexLead"></p>

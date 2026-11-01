@@ -17,6 +17,8 @@ interface Saved {
   installSnooze?: number;
   /** 물수제비 최고 기록 */
   skipBest?: number;
+  /** 소품 비트마스크 (1 코트, 2 빨간 목도리, 4 꽃다발) */
+  outfit?: number;
   /** 오늘 주운 조개: key = 장소|현지날짜, got = 그날 조개 번호 */
   shells?: { key: string; got: number[] };
   /** 조개 도감: 종류 → 주운 개수 */

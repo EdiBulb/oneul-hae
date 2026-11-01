@@ -1,7 +1,7 @@
 // 서버와 클라이언트가 함께 쓰는 실시간 이벤트 타입.
 // 클라이언트는 `import type`으로만 가져가므로 이 파일에는 타입만 둔다.
 
-export type PlaceId = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne';
+export type PlaceId = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin';
 
 /** 캐릭터 겉모습: 색상 팔레트의 인덱스 */
 export interface Look { body: number; hat: number }
@@ -25,6 +25,8 @@ export interface PlayerInfo {
   st: St;
   /** 담요를 두르고 있는지 (켜 두는 상태라 나중에 들어온 사람도 볼 수 있게 서버가 기억) */
   blanket?: boolean;
+  /** 소품 비트마스크: 1 긴 코트, 2 빨간 목도리, 4 꽃다발 */
+  outfit?: number;
 }
 
 export interface JoinPayload {
@@ -92,6 +94,7 @@ export interface ServerToClient {
   /** 두 사람이 커피잔을 부딪쳤다 (a가 먼저 누른 사람) */
   clink: (a: string, b: string) => void;
   blanket: (id: string, on: boolean) => void;
+  outfit: (id: string, mask: number) => void;
   sandPost: (p: SandPost) => void;
   sandRemove: (id: string) => void;
   castle: (c: Castle) => void;
@@ -111,6 +114,7 @@ export interface ClientToServer {
   sit: (idx: number, ack: (ok: boolean) => void) => void;
   stand: () => void;
   blanket: (on: boolean) => void;
+  outfit: (mask: number) => void;
   sandWrite: (text: string, ack: (r: SandWriteResult) => void) => void;
   sandReport: (id: string) => void;
   castle: (x: number, z: number, ack: (r: CastleResult) => void) => void;

@@ -224,3 +224,11 @@
   .dex.unknown b{color:var(--ink-dim)}
   .dex.unknown i{background:none;border:2px dashed rgba(255,255,255,.18);box-shadow:none}
   .dex.rare{border-color:rgba(255,200,110,.45)}
+
+  .outfit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+  .outfit-grid .tile{padding:14px 4px;font-size:13px}
+  .outfit-grid .tile[aria-pressed="true"]{background:rgba(255,192,112,.22);border-color:rgba(255,192,112,.7)}
+  .act.route-act{background:rgba(255,248,239,.9);color:#2a1404;border:none}
+  ol.route{margin:14px 0 4px 18px;display:flex;flex-direction:column;gap:9px;font-size:14px;line-height:1.5}
+  ol.route b{font-weight:700}
+  .photo-btns a.btn{text-align:center;text-decoration:none;display:block}

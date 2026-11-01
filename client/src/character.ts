@@ -142,6 +142,8 @@ export function animChar(c: Char, dt: number) {
   } else {
     y = Math.sin(c.phase) * 0.012;
   }
+  // 꽃다발을 들고 있으면 오른팔을 살짝 앞으로
+  if (c.state !== 'walk' && c.state !== 'lie' && c.armR.getObjectByName('flowers')?.visible) aR = 0.7;
   if (c.emote) {
     c.emoteT += dt;
     const T = EMOTE_T[c.emote] ?? 1.9;
@@ -207,3 +209,46 @@ export function turnTo(c: Char, ang: number, dt: number) {
   d = Math.atan2(Math.sin(d), Math.cos(d));
   c.root.rotation.y += d * (1 - Math.pow(0.0001, dt));
 }
+
+// ---------- 소품 (주문진 사진 자리용) ----------
+// 1: 긴 코트, 2: 빨간 목도리, 4: 메밀꽃 다발. 이름 없는 소품일 뿐 특정 인물·의상을 그대로 따라 하지 않는다.
+export const OUTFIT = { coat: 1, scarf: 2, flowers: 4 } as const;
+export function setOutfit(c: Char, mask: number) {
+  let o = c.inner.getObjectByName('outfit') as THREE.Group | undefined;
+  if (!o) {
+    o = new THREE.Group(); o.name = 'outfit'; c.inner.add(o);
+    const M = (col: number) => new THREE.MeshLambertMaterial({ color: col });
+    // 긴 코트: 몸통보다 살짝 크고 무릎 아래까지
+    const coat = new THREE.Group(); coat.name = 'coat';
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.42, 0.95, 14, 1, true), new THREE.MeshLambertMaterial({ color: 0x2b2a31, side: THREE.DoubleSide }));
+    body.position.y = 0.46; coat.add(body);
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.14, 14, 1, true), new THREE.MeshLambertMaterial({ color: 0x232229, side: THREE.DoubleSide }));
+    collar.position.y = 0.95; coat.add(collar);
+    for (const x of [-0.07, 0.07]) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 4), M(0x1a1a1e)); b.position.set(x, 0.62, -0.33); coat.add(b); }
+    o.add(coat);
+    // 빨간 목도리: 목에 두르고 한 자락은 가슴 앞으로
+    const scarf = new THREE.Group(); scarf.name = 'scarf';
+    const red = M(0xc92a2a);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.075, 8, 18), red); ring.rotation.x = Math.PI / 2; ring.position.y = 0.94; scarf.add(ring);
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.05), red); tail.position.set(0.1, 0.72, -0.3); tail.rotation.z = 0.08; scarf.add(tail);
+    o.add(scarf);
+    // 메밀꽃 다발: 오른손에 (하얀 작은 꽃 + 종이 포장)
+    const fl = new THREE.Group(); fl.name = 'flowers'; fl.position.set(0, -0.44, -0.06);
+    const wrap = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.26, 10, 1, true), new THREE.MeshLambertMaterial({ color: 0xe9dcc4, side: THREE.DoubleSide }));
+    wrap.rotation.x = Math.PI; wrap.position.y = 0.04; fl.add(wrap);
+    const petal = M(0xfbfaf4), stem = M(0x5f8a4a);
+    for (let i = 0; i < 16; i++) {
+      const a = i * 2.4, r = 0.03 + (i % 5) * 0.014;
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), i % 6 === 0 ? stem : petal);
+      f.position.set(Math.cos(a) * r, 0.2 + (i % 3) * 0.035, Math.sin(a) * r); fl.add(f);
+    }
+    c.armR.add(fl);
+    fl.rotation.x = Math.PI * 0.78; // 손끝에서 앞쪽 아래로 꽃이 보이게
+  }
+  (o.getObjectByName('coat')!).visible = !!(mask & OUTFIT.coat);
+  (o.getObjectByName('scarf')!).visible = !!(mask & OUTFIT.scarf);
+  const fl = c.armR.getObjectByName('flowers');
+  if (fl) fl.visible = !!(mask & OUTFIT.flowers);
+  o.userData.mask = mask;
+}
+export const outfitOf = (c: Char) => ((c.inner.getObjectByName('outfit')?.userData.mask as number) ?? 0);
