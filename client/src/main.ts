@@ -765,10 +765,10 @@ const renderPresets = () => {
 };
 presetBtn.onclick = () => { store.showPresets = !store.showPresets; save(); renderPresets(); track('presets_toggled', { on: store.showPresets }); };
 renderPresets();
-// '내 소원 나만 보기': 체크(기본)면 직접 쓴 소원은 나만, 끄면 해변 사람들에게도 보임
+// '내 소원 나만 보기': 기본은 꺼짐(공개). 체크하면 직접 쓴 소원은 나만 봄
 const privateBox = $('privateWish') as HTMLInputElement;
 privateBox.checked = !store.shareWish;
-privateBox.onchange = () => { store.shareWish = !privateBox.checked; save(); track('wish_privacy', { private: privateBox.checked }); };
+privateBox.onchange = () => { store.shareWish = !privateBox.checked; store.privacyChosen = true; save(); track('wish_privacy', { private: privateBox.checked }); };
 function renderSeeWishes() {
   const b = $('seeWishesBtn');
   b.setAttribute('aria-pressed', String(store.seeWishes));

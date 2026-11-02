@@ -382,7 +382,7 @@ const HTML_EN: Record<string, string> = {
   'photoLead': 'You can also long-press the photo to save it.',
   'share': 'Share', 'save': 'Save',
   'wishTitle': 'What would you like to send up?',
-  'wishLead': "Wishes you pick are shown to others on the beach. Wishes you write stay private unless you untick 'Keep my wish private'.",
+  'wishLead': "Wishes you send up are shown to others on the beach. To keep a wish you write to yourself, tick 'Keep my wish private'.",
   'privateWish': 'Keep my wish private',
   'seeWishesText': "See other people's wishes<br><small>When off, you'll see only the lantern light</small>",
   'wishPh': 'e.g. Let me pass my interview this week',

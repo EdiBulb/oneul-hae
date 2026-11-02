@@ -163,13 +163,13 @@
 
 <div class="sheet" id="wishSheet" role="dialog" aria-labelledby="wishTitle">
   <h2 id="wishTitle" data-i18n="wishTitle">어떤 마음을 띄울까요?</h2>
-  <p class="lead" data-i18n="wishLead">고른 소원은 해변의 다른 사람에게도 보여요. 직접 쓴 소원은 &lsquo;내 소원 나만 보기&rsquo;를 끄면 다른 사람에게도 보여요.</p>
+  <p class="lead" data-i18n="wishLead">띄운 소원은 해변의 다른 사람에게도 보여요. 직접 쓴 소원을 나만 보려면 &lsquo;내 소원 나만 보기&rsquo;를 체크하세요.</p>
   <form class="custom" id="wishForm" autocomplete="off">
     <input id="wishInput" maxlength="24" placeholder="예: 이번 주 면접 붙게 해주세요" aria-label="소원 직접 쓰기" data-i18n-ph="wishPh" data-i18n-aria="wishAria">
     <button type="submit" data-i18n="wishGo">띄우기</button>
   </form>
   <div class="wish-row">
-    <label class="share"><input type="checkbox" id="privateWish" checked> <span data-i18n="privateWish">내 소원 나만 보기</span></label>
+    <label class="share"><input type="checkbox" id="privateWish"> <span data-i18n="privateWish">내 소원 나만 보기</span></label>
     <button type="button" class="preset-toggle" id="showPresets" aria-expanded="true"></button>
     <div class="count" id="wishCount">0 / 24</div>
   </div>

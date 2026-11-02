@@ -25,8 +25,10 @@ interface Saved {
   dex?: Record<string, number>;
   /** 오늘 강아지 쓰다듬은 횟수: key = 장소|현지날짜 */
   pets?: { key: string; n: number };
-  /** 직접 쓴 소원을 다른 사람에게도 보여줄지 (기본: 안 보여줌) */
+  /** 직접 쓴 소원을 다른 사람에게도 보여줄지 (기본: 보여줌) */
   shareWish: boolean;
+  /** '내 소원 나만 보기'를 직접 눌러 본 적이 있는지 (없으면 기본값을 따름) */
+  privacyChosen?: boolean;
   /** 내가 모래 게시판에 쓴 글 id (신고 버튼 대신 '내가 남긴 글') */
   mySand: string[];
   /** 내가 신고해서 숨긴 모래 게시판 글 id */
@@ -55,7 +57,9 @@ export const store: Saved = {
   wokeOn: raw.wokeOn,
   installSnooze: raw.installSnooze,
   remindAt: raw.remindAt,
-  shareWish: raw.shareWish ?? false,
+  // 직접 고른 적이 없으면 기본은 공개
+  shareWish: raw.privacyChosen ? raw.shareWish ?? true : true,
+  privacyChosen: raw.privacyChosen,
   showPresets: raw.showPresets ?? true,
   mySand: raw.mySand ?? [],
   hiddenSand: raw.hiddenSand ?? [],
