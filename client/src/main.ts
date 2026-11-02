@@ -756,13 +756,19 @@ WISHES.forEach(w => {
   b.onclick = () => releaseLantern(w);
   $('wishes').appendChild(b);
 });
-const presetBox = $('showPresets') as HTMLInputElement;
-const renderPresets = () => { presetBox.checked = store.showPresets; $('wishSheet').classList.toggle('no-presets', !store.showPresets); };
-presetBox.onchange = () => { store.showPresets = presetBox.checked; save(); renderPresets(); track('presets_toggled', { on: store.showPresets }); };
+// 추천 소원: 접혀 있으면 '펴기', 펼쳐져 있으면 '접기' (누를 때마다 바뀜)
+const presetBtn = $('showPresets');
+const renderPresets = () => {
+  presetBtn.textContent = store.showPresets ? T.presetsClose : T.presetsOpen;
+  presetBtn.setAttribute('aria-expanded', String(store.showPresets));
+  $('wishSheet').classList.toggle('no-presets', !store.showPresets);
+};
+presetBtn.onclick = () => { store.showPresets = !store.showPresets; save(); renderPresets(); track('presets_toggled', { on: store.showPresets }); };
 renderPresets();
-const shareBox = $('shareWish') as HTMLInputElement;
-shareBox.checked = store.shareWish;
-shareBox.onchange = () => { store.shareWish = shareBox.checked; save(); };
+// '내 소원 나만 보기': 체크(기본)면 직접 쓴 소원은 나만, 끄면 해변 사람들에게도 보임
+const privateBox = $('privateWish') as HTMLInputElement;
+privateBox.checked = !store.shareWish;
+privateBox.onchange = () => { store.shareWish = !privateBox.checked; save(); track('wish_privacy', { private: privateBox.checked }); };
 function renderSeeWishes() {
   const b = $('seeWishesBtn');
   b.setAttribute('aria-pressed', String(store.seeWishes));
@@ -795,8 +801,8 @@ const shareLabel = document.querySelector('label.share')!;
 shareLabel.addEventListener('touchstart', e => {
   if (document.activeElement !== wishInput) return;
   e.preventDefault(); // 터치: 포커스 이동과 클릭을 막고 직접 체크
-  shareBox.checked = !shareBox.checked;
-  shareBox.dispatchEvent(new Event('change'));
+  privateBox.checked = !privateBox.checked;
+  privateBox.dispatchEvent(new Event("change"));
 }, { passive: false });
 shareLabel.addEventListener('mousedown', e => { if (document.activeElement === wishInput) e.preventDefault(); }); // 마우스: 포커스 이동만 막음
 wishInput.addEventListener('input', () => { $('wishCount').textContent = `${wishInput.value.length} / 24`; });
