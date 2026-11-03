@@ -14,6 +14,7 @@ import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
 import { createPlaceScenery } from './place-scenery';
+import { createBots } from './bots';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place, placeBlurb, placeRoute, type PlaceGroup } from './places';
@@ -162,6 +163,7 @@ let todayVisitors = 0;
 /** 지금은 혼자여도, 오늘 다녀간 진짜 사람이 있으면 그걸 알려 준다 */
 function aloneMsg() {
   const n = (stats?.today[place.id] ?? todayVisitors) - 1;
+  if (bots.count) return n > 0 ? T.aloneVisited(n) : '';
   return n > 0 ? T.aloneVisited(n) : T.alone;
 }
 
@@ -189,6 +191,7 @@ net.on('welcome', w => {
   traces.set(w.traces);
   sandPosts = w.board ?? []; renderSandLabel(); if (sandOpen) renderSand();
   todayVisitors = w.traces.visitors;
+  bots.fill(w.players.length);
   if (w.players.length > 0) ticker(T.alreadyHere(w.players.length));
   else ticker(aloneMsg());
 });
@@ -480,7 +483,7 @@ function updateUI(now: number, alt: number, t: number) {
   $('liveDot').className = 'dot' + (live || replay ? '' : ' off');
   $('progress').style.display = replay ? 'block' : 'none';
   // 해가 지평선을 넘는 순간, 해 뜨기 1분 전에는 자동으로 펼침
-  if (lastAltForBanner < 0 && alt >= 0 && (live || replay)) expandBanner(10000);
+  if (lastAltForBanner < 0 && alt >= 0 && (live || replay)) { expandBanner(10000); bots.clap(); }
   lastAltForBanner = alt;
   if (live && info.windowSR && info.windowSR - now < 60000 && info.windowSR > now && minuteWarned !== info.windowSR) {
     minuteWarned = info.windowSR; expandBanner(65000);
@@ -547,6 +550,7 @@ function loop(t: number) {
   amb.setAlt(alt);
   updateRemotes(dt);
   lanterns.update(dt);
+  bots.update(dt, t, remotes.size, camera);
   life.update(dt, t, me.root.position, camera);
   const people = [me.root.position];
   for (const r of remotes.values()) people.push(r.c.root.position);
@@ -607,7 +611,7 @@ function switchPlace(p: Place) {
   lying = false;
   seats.forEach(s => (s.occ = null));
   closeSand(); sandPosts = []; renderSandLabel();
-  clearRemotes(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); applyTerrain(p);
+  clearRemotes(); bots.clear(); bots.fill(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); applyTerrain(p);
   history.replaceState(history.state, '', `/${p.id}${location.search}`); placeShells(); renderAlarm(); renderCounts(); refreshWeather();
   spawn();
   if (connected) join();
@@ -1495,4 +1499,16 @@ function renderDogLine() {
   $('dogLine').hidden = !n; if (n) $('dogLine').textContent = T.dogLine(dogName(), n);
 }
 
-Object.assign(window, { __hae: { dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+// ================= 해변을 채워 주는 가상 사용자 =================
+// 내 화면에만 있고 서버에는 없어서 위쪽 인원수·통계에 들어가지 않는다. 진짜 사람이 오면 자리를 비켜 준다.
+const bots = createBots({
+  scene, seats, placeId: () => place.id,
+  onLantern: (pos, wish, nick) => {
+    const w = wish && store.seeWishes ? wish : undefined;
+    lanterns.launch(pos, w, true);
+    ticker(w ? T.lanternByWish(nick, w) : T.lanternBy(nick));
+  },
+});
+bots.fill();
+
+Object.assign(window, { __hae: { bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

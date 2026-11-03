@@ -405,7 +405,7 @@ const HTML_EN: Record<string, string> = {
   'myName': 'My name',
   'inviteBtn': 'Invite a friend',
   'installMenuBtn': 'Install as an app on your home screen',
-  'note': 'Sun positions and sunrise times are real astronomical calculations. The people and numbers on the beach are real people connected right now. Translucent silhouettes and distant lanterns are traces of people who actually visited today (no names or wishes are kept). Wishes people choose to share are shown only to those on the beach at that moment and are never stored. Seagulls, dogs and the fisher are just scenery and aren\'t counted. The alarm only rings while this page is open.',
+  'note': 'Sun positions and sunrise times are real astronomical calculations. The number at the top is the real count of people connected right now. Translucent silhouettes and distant lanterns are traces of people who actually visited today (no names or wishes are kept). Wishes people choose to share are shown only to those on the beach at that moment and are never stored. Seagulls, dogs and the fisher are just scenery and aren\'t counted. The alarm only rings while this page is open.',
   'installLead': 'Keep it on your home screen and open it in one tap every morning.',
   'iosHow': 'On iPhone:',
   'ios1': 'Tap the <b>Share button</b> (square with arrow) at the bottom of Safari',
