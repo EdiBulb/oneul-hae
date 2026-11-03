@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { animChar, disposeChar, makeChar, textSprite, type Char } from './character';
-import { ADJ, BODY_COLORS, HAT_COLORS, NOUN, WISHES, localizeNick, pick } from './places';
+import { ADJ, BODY_COLORS, HAT_COLORS, NOUN, localizeNick, pick } from './places';
 import { floorY } from './beach-extras';
 import type { Seat } from './world';
 
 // 해변을 채워 주는 가상 사용자.
 // - 내 화면에만 있고 서버에는 없다 → 위쪽 인원수·통계에는 절대 들어가지 않는다
 // - 방석에 앉아 있다가 가끔 기지개·손 흔들기, 풍등도 올린다
-// - 진짜 사람이 늘어나면 그만큼 하나씩 자리를 비운다
+// - 진짜 사람이 와도 그대로 앉아 있다 (말없이 있는 사람처럼)
 
 interface Bot { c: Char; label: THREE.Sprite; nick: string; seat: number; tag: string; nextLantern: number; nextEmote: number }
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -18,7 +18,7 @@ export function createBots(opts: {
   seats: Seat[];
   placeId: () => string;
   /** 풍등을 올렸을 때 (위치, 소원 문구, 닉네임) */
-  onLantern: (pos: THREE.Vector3, wish: string | undefined, nick: string) => void;
+  onLantern: (pos: THREE.Vector3, nick: string) => void;
 }) {
   const { scene, seats } = opts;
   let bots: Bot[] = [];
@@ -63,16 +63,14 @@ export function createBots(opts: {
 
   function clear() { [...bots].forEach(remove); }
   /** 처음 들어왔을 때 이미 해변에 사람이 있는 것처럼 바로 채움 */
-  function fill(realOthers = 0) {
+  function fill() {
     // 자리 정보가 새로 고쳐졌으면(재접속) 원래 앉아 있던 방석을 다시 차지
     for (const b of bots) if (!seats[b.seat]?.occ) seats[b.seat].occ = b.tag;
-    const want = Math.max(0, MAX - realOthers); while (bots.length < want && freeSeat() !== null) add(); }
+    while (bots.length < MAX && freeSeat() !== null) add();
+  }
 
-  /** realOthers: 지금 이 해변에 있는 나 말고 진짜 사람 수 */
-  function update(dt: number, t: number, realOthers: number, cam: THREE.Camera) {
-    const want = Math.max(0, MAX - realOthers);
-    if (bots.length < want && Math.random() < dt * 0.5) add();      // 천천히 하나씩 들어옴
-    if (bots.length > want) remove(bots[bots.length - 1]);          // 진짜 사람이 오면 자리를 비켜 줌
+  function update(dt: number, t: number, cam: THREE.Camera) {
+    if (bots.length < MAX && Math.random() < dt * 0.5) add(); // 빈 방석이 생기면 천천히 다시 채움
     for (const b of bots) {
       // 진짜 사람이 그 방석에 앉으면 다른 빈 방석으로 옮김
       if (seats[b.seat]?.occ !== b.tag) {
@@ -86,7 +84,7 @@ export function createBots(opts: {
       }
       if (t > b.nextLantern) {
         b.nextLantern = t + rand(90000, 240000);
-        opts.onLantern(b.c.root.position.clone(), Math.random() < 0.6 ? pick(WISHES) : undefined, b.nick);
+        opts.onLantern(b.c.root.position.clone(), b.nick); // 글자 없는 풍등
       }
       animChar(b.c, dt);
       b.label.visible = cam.position.distanceTo(b.c.root.position) < 18;

@@ -191,7 +191,7 @@ net.on('welcome', w => {
   traces.set(w.traces);
   sandPosts = w.board ?? []; renderSandLabel(); if (sandOpen) renderSand();
   todayVisitors = w.traces.visitors;
-  bots.fill(w.players.length);
+  bots.fill();
   if (w.players.length > 0) ticker(T.alreadyHere(w.players.length));
   else ticker(aloneMsg());
 });
@@ -550,7 +550,7 @@ function loop(t: number) {
   amb.setAlt(alt);
   updateRemotes(dt);
   lanterns.update(dt);
-  bots.update(dt, t, remotes.size, camera);
+  bots.update(dt, t, camera);
   life.update(dt, t, me.root.position, camera);
   const people = [me.root.position];
   for (const r of remotes.values()) people.push(r.c.root.position);
@@ -1500,14 +1500,10 @@ function renderDogLine() {
 }
 
 // ================= 해변을 채워 주는 가상 사용자 =================
-// 내 화면에만 있고 서버에는 없어서 위쪽 인원수·통계에 들어가지 않는다. 진짜 사람이 오면 자리를 비켜 준다.
+// 내 화면에만 있고 서버에는 없어서 위쪽 인원수·통계에 들어가지 않는다. 진짜 사람이 와도 그대로 있다.
 const bots = createBots({
   scene, seats, placeId: () => place.id,
-  onLantern: (pos, wish, nick) => {
-    const w = wish && store.seeWishes ? wish : undefined;
-    lanterns.launch(pos, w, true);
-    ticker(w ? T.lanternByWish(nick, w) : T.lanternBy(nick));
-  },
+  onLantern: (pos, nick) => { lanterns.launch(pos, undefined, true); ticker(T.lanternBy(nick)); },
 });
 bots.fill();
 
