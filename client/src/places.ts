@@ -23,6 +23,9 @@ export const PLACES: Place[] = [
   { id: 'jumunjin', name: '주문진 방파제', region: '강릉', nameEn: 'Jumunjin Breakwater', regionEn: 'Gangneung', lat: 37.885, lng: 128.831, tz: 'Asia/Seoul', group: 'kcontent' },
   { id: 'hyangho', name: '향호 버스정류장', region: '강릉', nameEn: 'Hyangho Bus Stop', regionEn: 'Gangneung', lat: 37.92, lng: 128.80, tz: 'Asia/Seoul', group: 'kcontent' },
   { id: 'gyeongbokgung', name: '경복궁', region: '서울 종로', nameEn: 'Gyeongbokgung Palace', regionEn: 'Jongno, Seoul', lat: 37.5796, lng: 126.977, tz: 'Asia/Seoul', group: 'seoul' },
+  { id: 'gwangjang', name: '광장시장', region: '서울 종로', nameEn: 'Gwangjang Market', regionEn: 'Jongno, Seoul', lat: 37.5701, lng: 126.9996, tz: 'Asia/Seoul', group: 'seoul' },
+  { id: 'myeongdong', name: '명동', region: '서울 중구', nameEn: 'Myeongdong', regionEn: 'Jung-gu, Seoul', lat: 37.5636, lng: 126.9850, tz: 'Asia/Seoul', group: 'seoul' },
+  { id: 'hongdae', name: '홍대', region: '서울 마포', nameEn: 'Hongdae', regionEn: 'Mapo, Seoul', lat: 37.5540, lng: 126.9222, tz: 'Asia/Seoul', group: 'seoul' },
   { id: 'hangang', name: '한강공원', region: '서울 여의도', nameEn: 'Han River Park', regionEn: 'Yeouido, Seoul', lat: 37.5284, lng: 126.934, tz: 'Asia/Seoul', group: 'seoul' },
 ];
 
@@ -107,6 +110,45 @@ const INFO: Partial<Record<PlaceId, PlaceInfo>> = {
         ['<b>팁</b> · 화요일은 쉬는 날이에요. 교대식 시간은 방문 전에 확인하세요', '<b>Tip</b> · Closed on Tuesdays. Check the guard ceremony times before you go'],
       ],
       map: '경복궁',
+    },
+  },
+  gwangjang: {
+    blurb: ['시장 골목에서 빈대떡 먹기', 'Eat bindaetteok in a market alley'],
+    route: {
+      title: ['진짜 광장시장에 가 보기', 'Visit the real Gwangjang Market'],
+      lead: ['100년이 넘은 서울의 전통시장이에요. 지붕 덮인 먹자골목에서 빈대떡, 마약김밥, 육회를 노점 의자에 앉아 바로 먹을 수 있어요.', "One of Seoul's oldest traditional markets, over 100 years old. In the covered food alley you sit on a stool at a stall and eat bindaetteok, mini gimbap and yukhoe right there."],
+      steps: [
+        ['<b>지하철</b> · 1호선 종로5가역 7·8번 출구, 또는 2·5호선 을지로4가역에서 걸어서 5분', '<b>Subway</b> · Jongno 5-ga Station (Line 1), exit 7 or 8, or a 5-min walk from Euljiro 4-ga (Lines 2 & 5)'],
+        ['<b>먹기</b> · 빈대떡은 즉석에서 갈아 부쳐 줘요. 현금과 카드 모두 받는 곳이 많아요', '<b>Eat</b> · Bindaetteok is ground and fried to order. Most stalls take both cash and card'],
+        ['<b>팁</b> · 저녁이 가장 붐벼요. 가게마다 쉬는 날이 달라요', '<b>Tip</b> · Busiest in the evening. Closing days vary by stall'],
+      ],
+      map: '광장시장',
+    },
+  },
+  myeongdong: {
+    blurb: ['쇼핑 거리에서 길거리 떡볶이', 'Street-food tteokbokki on the shopping street'],
+    route: {
+      title: ['진짜 명동에 가 보기', 'Visit the real Myeongdong'],
+      lead: ['화장품 가게와 옷 가게가 빽빽한 서울의 대표 쇼핑 거리예요. 오후부터 길 가운데에 노점이 줄지어 서서 떡볶이, 계란빵, 호떡을 팔아요.', "Seoul's best-known shopping street, packed with cosmetics and fashion shops. From the afternoon, food carts line the middle of the street selling tteokbokki, egg bread and hotteok."],
+      steps: [
+        ['<b>지하철</b> · 4호선 명동역 6번 출구, 또는 2호선 을지로입구역 5·6번 출구', '<b>Subway</b> · Myeongdong Station (Line 4) exit 6, or Euljiro 1-ga Station (Line 2) exits 5 & 6'],
+        ['<b>노점</b> · 보통 오후 4시쯤부터 밤까지 열어요', '<b>Food carts</b> · Usually open from around 4 pm into the night'],
+        ['<b>팁</b> · 남산서울타워까지 걸어서 또는 케이블카로 갈 수 있어요', '<b>Tip</b> · N Seoul Tower on Namsan is a walk or a cable-car ride away'],
+      ],
+      map: '명동거리',
+    },
+  },
+  hongdae: {
+    blurb: ['버스킹 무대 앞에서 같이 춤추기', 'Dance along at a street busking stage'],
+    route: {
+      title: ['진짜 홍대 거리에 가 보기', 'Visit the real Hongdae'],
+      lead: ['홍익대학교 앞 젊음의 거리예요. 저녁마다 걷고싶은거리 버스킹 존에서 노래하고 춤추는 공연이 열리고, 벽화와 작은 가게, 카페가 많아요.', 'The lively streets around Hongik University. Every evening musicians and dancers perform in the busking zone on the main street, surrounded by murals, small shops and cafes.'],
+      steps: [
+        ['<b>지하철</b> · 2호선·공항철도 홍대입구역 9번 출구에서 걸어서 5분', '<b>Subway</b> · Hongik Univ. Station (Line 2 & Airport Railroad), exit 9, then a 5-min walk'],
+        ['<b>버스킹</b> · 주말 저녁에 특히 많아요. 공연자에게 팁을 줘도 좋아요', '<b>Busking</b> · Busiest on weekend evenings. Tipping performers is welcome'],
+        ['<b>팁</b> · 인천공항에서 공항철도로 바로 올 수 있어요', '<b>Tip</b> · The Airport Railroad runs straight here from Incheon Airport'],
+      ],
+      map: '홍대 걷고싶은거리',
     },
   },
   hangang: {

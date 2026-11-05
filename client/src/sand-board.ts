@@ -9,7 +9,9 @@ import { textSprite } from './character';
 export const SAND = { x: -14, z: 9, w: 2.8, d: 1.9, ry: 0.35 };
 
 /** 판 안쪽으로는 걸어 들어가지 못하게 (판 좌표계 기준 직사각형 + 여유) */
+let shown = true;
 export function insideSandBoard(x: number, z: number) {
+  if (!shown) return false;
   const dx = x - SAND.x, dz = z - SAND.z, c = Math.cos(SAND.ry), s = Math.sin(SAND.ry);
   const lx = dx * c - dz * s, lz = dx * s + dz * c;
   return Math.abs(lx) < SAND.w / 2 + 0.25 && Math.abs(lz) < SAND.d / 2 + 0.25;
@@ -79,7 +81,9 @@ export function createSandBoard(scene: THREE.Scene) {
 
   return {
     center, viewPos, setLabel,
-    update(cam: THREE.Camera) { if (label) label.visible = cam.position.distanceTo(center) < 24; },
-    distance: (p: THREE.Vector3) => Math.hypot(p.x - SAND.x, p.z - SAND.z),
+    update(cam: THREE.Camera) { if (label) label.visible = shown && cam.position.distanceTo(center) < 24; },
+    distance: (p: THREE.Vector3) => (shown ? Math.hypot(p.x - SAND.x, p.z - SAND.z) : Infinity),
+    /** 시장 골목·명동 큰길처럼 자리가 건물 안이 되는 곳에서는 숨김 */
+    setShown(v: boolean) { shown = v; g.visible = v; },
   };
 }

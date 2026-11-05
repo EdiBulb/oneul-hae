@@ -11,7 +11,7 @@ const PAGES = {
   jumunjin: {
     lang: 'en',
     title: "Jumunjin Breakwater, Korea · Today's Sun",
-    desc: "Stand on the little breakwater known from the K-drama 'Goblin'. A live 3D Korean seaside you can visit from anywhere: real sunrise, long coats, red scarves and photos together.",
+    desc: "Stand on the little breakwater known from the K-drama 'Goblin'. A live 3D Korean seaside you can visit from anywhere: real sunrise, grey sweatshirts, red scarves and photos together.",
     image: 'og-jumunjin.png',
     alt: 'Two characters, one holding a buckwheat bouquet and one in a red scarf, facing each other on a breakwater at sunrise',
   },
@@ -28,6 +28,27 @@ const PAGES = {
     desc: "Ride the Seoul subway, step out at Gyeongbokgung, rent a hanbok and take photos in front of the palace gate with people from around the world. No app needed.",
     image: 'og-gyeongbokgung.png',
     alt: 'Characters in colorful hanbok in front of a Korean palace gate with guards in red uniforms',
+  },
+  gwangjang: {
+    lang: 'en',
+    title: "Gwangjang Market, Seoul · Today's Sun",
+    desc: 'Take the Seoul subway to Jongno 5-ga, walk into a covered market alley and eat sizzling bindaetteok on a stall stool with people from around the world. No app needed.',
+    image: 'og-gwangjang.png',
+    alt: 'Characters sitting on red stools at a mung bean pancake stall in a covered Korean market alley',
+  },
+  myeongdong: {
+    lang: 'en',
+    title: "Myeongdong Street Food, Seoul · Today's Sun",
+    desc: "Walk Seoul's famous shopping street lined with K-beauty signs and grab tteokbokki from a street-food cart. A live 3D Seoul you can visit from anywhere.",
+    image: 'og-myeongdong.png',
+    alt: 'A busy shopping street with colorful shop signs and street-food carts in the middle',
+  },
+  hongdae: {
+    lang: 'en',
+    title: "Hongdae Busking, Seoul · Today's Sun",
+    desc: 'Get off at Hongik Univ. Station and dance along to a street busker in front of a graffiti wall with people from around the world. No app needed.',
+    image: 'og-hongdae.png',
+    alt: 'A street musician playing guitar on a small stage in front of a colorful graffiti wall, characters dancing',
   },
   hangang: {
     lang: 'en',

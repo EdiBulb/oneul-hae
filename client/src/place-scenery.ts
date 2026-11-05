@@ -3,6 +3,7 @@ import type { PlaceId } from '../../server/src/protocol';
 import { BUS_STOP, PALACE, PORTAL, RAMEN_MACHINE, STORE } from './beach-extras';
 import { textSprite } from './character';
 import { groundY } from './world';
+import { createSeoulScenery } from './seoul-scenery';
 
 // 장소마다 다른 풍경
 // - 향호: 모래사장 위 작은 버스정류장(보라색 벤치), 뒤쪽 길로 가끔 지나가는 시골 버스
@@ -285,18 +286,20 @@ function portal(scene: THREE.Scene, GLOW: THREE.Texture) {
 }
 
 export function createPlaceScenery(scene: THREE.Scene, GLOW: THREE.Texture) {
-  const bus = busStop(scene), han = hangang(scene, GLOW), pal = palace(scene, GLOW), gate = portal(scene, GLOW);
+  const bus = busStop(scene), han = hangang(scene, GLOW), pal = palace(scene, GLOW), gate = portal(scene, GLOW), seoul = createSeoulScenery(scene, GLOW);
   let id: PlaceId = 'jeongdongjin';
   return {
     setPlace(p: PlaceId, station: boolean, stationName: string) {
       id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang'; pal.group.visible = p === 'gyeongbokgung';
-      gate.setPlace(station, stationName);
+      gate.setPlace(station, stationName); seoul.setPlace(p);
     },
     cook: () => han.cook(),
+    get busking() { return seoul.busking; },
     update(dt: number, t: number, night: number) {
       if (id === 'hyangho') bus.update(dt);
       if (id === 'hangang') han.update(dt, t, night);
       if (id === 'gyeongbokgung') pal.update(dt, t);
+      seoul.update(dt, t, night);
       gate.update(dt, t);
     },
   };

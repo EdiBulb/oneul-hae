@@ -38,6 +38,7 @@ function noiseBuffer(ctx: AudioContext, kind: 'brown' | 'pink', seconds = 6) {
 export function createAmbience() {
   let ctx: AudioContext | null = null;
   let pinkBuf!: AudioBuffer, fxBus!: GainNode, fireRumble!: GainNode, fireLevel = 0;
+  let seaBus!: GainNode, buskBus!: GainNode, buskLevel = 0, buskTimer = 0, buskStep = 0, seaOn = true;
   let master!: GainNode, windGain!: GainNode, windFilter!: BiquadFilterNode, rainGain!: GainNode, birdBus!: GainNode;
   let on = true, alt = -20;
   let weather: Weather = { windKmh: 10, precipMm: 0 };
@@ -58,14 +59,16 @@ export function createAmbience() {
     limiter.connect(c.destination);
     master = c.createGain(); master.gain.value = 0; master.connect(limiter);
     const brown = noiseBuffer(c, 'brown'), pink = noiseBuffer(c, 'pink');
+    seaBus = c.createGain(); seaBus.gain.value = seaOn ? 1 : 0; seaBus.connect(master);
+    buskBus = c.createGain(); buskBus.gain.value = 0; buskBus.connect(master);
 
     // 파도: 두 개의 느린 LFO가 겹쳐서 불규칙한 너울
     const waveLp = c.createBiquadFilter(); waveLp.type = 'lowpass'; waveLp.frequency.value = 480; waveLp.Q.value = 0.4;
     const waveGain = c.createGain(); waveGain.gain.value = 0.42;
-    loop(brown).connect(waveLp).connect(waveGain).connect(master);
+    loop(brown).connect(waveLp).connect(waveGain).connect(seaBus);
     const foamHp = c.createBiquadFilter(); foamHp.type = 'highpass'; foamHp.frequency.value = 2600;
     const foamGain = c.createGain(); foamGain.gain.value = 0.025;
-    loop(pink).connect(foamHp).connect(foamGain).connect(master);
+    loop(pink).connect(foamHp).connect(foamGain).connect(seaBus);
     for (const [f, depth, foam] of [[0.085, 0.3, 0.02], [0.137, 0.14, 0.012]] as const) {
       const lfo = c.createOscillator(); lfo.frequency.value = f;
       const g1 = c.createGain(); g1.gain.value = depth; lfo.connect(g1).connect(waveGain.gain);
@@ -190,7 +193,42 @@ export function createAmbience() {
     master.gain.setTargetAtTime(to, ctx.currentTime, sec / 3);
   }
 
+  // 버스킹: 기타 아르페지오 + 가끔 멜로디 (C–G–Am–F 반복)
+  const CHORDS = [[130.8, 196, 261.6, 329.6], [98, 196, 246.9, 293.7], [110, 220, 261.6, 329.6], [87.3, 174.6, 220, 261.6]];
+  const MELODY = [523.3, 587.3, 659.3, 587.3, 523.3, 440, 493.9, 523.3, 659.3, 784, 659.3, 587.3, 523.3, 587.3, 523.3, 440];
+  function pluck(t: number, f: number, vol: number, dur = 0.9) {
+    const c = ctx!;
+    const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(f * 6, t); lp.frequency.exponentialRampToValueAtTime(f * 1.5, t + dur);
+    const g = c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    o.connect(lp).connect(g).connect(buskBus); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function buskTick() {
+    buskTimer = 0;
+    if (!ctx || buskLevel <= 0.01) { buskStep = 0; return; }
+    const beat = 0.25, t = ctx.currentTime + 0.05;
+    // 한 마디(8분음표 8개)를 미리 예약
+    for (let i = 0; i < 8; i++) {
+      const ch = CHORDS[Math.floor(buskStep / 8) % 4], at = t + i * beat;
+      pluck(at, ch[i === 0 ? 0 : 1 + ((i * 2) % 3)], i === 0 ? 0.3 : 0.16);
+      if (i % 2 === 0) pluck(at, MELODY[(buskStep / 2 + i / 2) % MELODY.length | 0], 0.12, 0.45);
+      buskStep++;
+    }
+    buskTimer = window.setTimeout(buskTick, beat * 8 * 1000 - 30);
+  }
   return {
+    /** 홍대 버스킹 소리 크기 (0이면 멈춤) */
+    setBusk(level: number) {
+      buskLevel = clamp(level, 0, 1);
+      if (!ctx || !buskBus) return;
+      buskBus.gain.setTargetAtTime(buskLevel * 0.9, ctx.currentTime, 0.4);
+      if (buskLevel > 0.01 && !buskTimer && ctx.state === 'running') buskTick();
+    },
+    /** 바다 소리 (서울 시내에서는 끔) */
+    setSea(v: boolean) {
+      seaOn = v;
+      if (ctx && seaBus) seaBus.gain.setTargetAtTime(v ? 1 : 0, ctx.currentTime, 0.6);
+    },
     /** 반드시 사용자의 터치(클릭) 안에서 불러야 소리가 난다 */
     unlock() {
       if (!on) return;

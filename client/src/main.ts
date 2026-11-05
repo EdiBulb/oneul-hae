@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, setOutfit, outfitOf, showLeftFlowers } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, setOutfit, outfitOf, showLeftFlowers } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL, BINDAE_STALL, TTEOK_CART, STAGE } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
@@ -58,9 +58,9 @@ interface Station { id: string; ko: string; en: string; x: number; y: number; li
 const LINES: Record<string, string> = { l1: '#1f3f8f', l2: '#3aa83a', l3: '#f07a1d', l4: '#2f9ee0', l5: '#8a3fc0', beach: '#e9b23c' };
 const STATIONS: Station[] = [
   { id: 'gyeongbokgung', ko: '경복궁', en: 'Gyeongbokgung', x: 150, y: 52, line: 'l3', place: 'gyeongbokgung' },
-  { id: 'jongno5', ko: '종로5가', en: 'Jongno 5-ga', x: 240, y: 104, line: 'l1' },
-  { id: 'myeongdong', ko: '명동', en: 'Myeongdong', x: 196, y: 158, line: 'l4' },
-  { id: 'hongik', ko: '홍대입구', en: 'Hongik Univ.', x: 58, y: 132, line: 'l2' },
+  { id: 'jongno5', ko: '종로5가', en: 'Jongno 5-ga', x: 240, y: 104, line: 'l1', place: 'gwangjang' },
+  { id: 'myeongdong', ko: '명동', en: 'Myeongdong', x: 196, y: 158, line: 'l4', place: 'myeongdong' },
+  { id: 'hongik', ko: '홍대입구', en: 'Hongik Univ.', x: 58, y: 132, line: 'l2', place: 'hongdae' },
   { id: 'yeouinaru', ko: '여의나루', en: 'Yeouinaru', x: 104, y: 226, line: 'l5', place: 'hangang' },
   { id: 'beach', ko: '오늘의 해 해변', en: "Today's Sun beach", x: 300, y: 246, line: 'beach' },
 ];
@@ -73,6 +73,7 @@ const life = createBeachLife(scene);
 const DOG_NAMES: Record<string, [string, string]> = {
   jeongdongjin: ['해피', 'Happy'], seongsan: ['감귤', 'Gamgyul'], homigot: ['호두', 'Hodu'], gisborne: ['키위', 'Kiwi'],
   jumunjin: ['메밀', 'Memil'], hyangho: ['보리', 'Bori'], hangang: ['라면', 'Ramyeon'],
+  gyeongbokgung: ['대감', 'Daegam'], gwangjang: ['부침이', 'Buchimi'], myeongdong: ['떡이', 'Tteoki'], hongdae: ['비트', 'Beat'],
 };
 let lastDogMode = 'wander';
 const dogName = () => (DOG_NAMES[place?.id] ?? ['댕댕이', 'Pup'])[lang === 'ko' ? 0 : 1];
@@ -471,7 +472,7 @@ function updateMe(dt: number) {
   updatePetBtn();
   updatePortal();
   updateHanbokBtn();
-  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : T.sitDown) : T.findSeat;
+  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : seats[near].kind === 'stool' ? T.sitStool : T.sitDown) : T.findSeat;
 }
 
 // ================= 상단 문구 =================
@@ -584,6 +585,8 @@ function loop(t: number) {
   updateHandoff(dt);
   scenery.update(dt, t, night);
   updateRamen(t);
+  updateSnack(t);
+  updateBusking(t);
   updateSparkles(dt);
   if (sky.update(dt, t, alt, camera, lying)) showStarWish();
   const shell = shells.update(dt, t, me.root.position);
@@ -602,7 +605,7 @@ function loop(t: number) {
 // ================= 장소 고르기 =================
 // 상단에는 지금 장소 하나만 두고, 누르면 묶음별 목록이 열린다 (장소가 늘어도 화면이 지저분해지지 않게)
 const GROUPS: [PlaceGroup, () => string][] = [['sunrise', () => T.groupSunrise], ['kcontent', () => T.groupKcontent], ['seoul', () => T.groupSeoul]];
-const ICON: Record<string, string> = { jeongdongjin: '🚉', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜', gyeongbokgung: '👘' };
+const ICON: Record<string, string> = { jeongdongjin: '🚉', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜', gyeongbokgung: '👘', gwangjang: '🥞', myeongdong: '🍢', hongdae: '🎸' };
 function renderPlaceList() {
   $('placeList').innerHTML = GROUPS.map(([g, label]) => {
     const rows = PLACES.filter(p => p.group === g).map(p => {
@@ -1379,10 +1382,12 @@ $('castleBtn').onclick = () => {
 // ================= 해변별 지형 · 소품 · 실제로 가 보기 =================
 function applyTerrain(p: Place) {
   setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id); bonfire.setPlace(p.id); scenery.setPlace(p.id, has.station(p.id), stationName(p)); world.setGround(p.id);
-  life.setFisher(has.water(p.id));
+  life.setFisher(has.water(p.id)); amb.setSea(has.water(p.id));
+  sandBoard.setShown(p.id !== 'gwangjang' && p.id !== 'myeongdong');
   $('routeBtn').hidden = !placeRoute(p);
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
   if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
+  if (outfitOf(me) & (OUTFIT.bindae | OUTFIT.tteok)) setSnack(0);
 }
 const OUTFIT_BTNS: [string, number][] = [['ofSweat', OUTFIT.sweat], ['ofScarf', OUTFIT.scarf], ['ofFlowers', OUTFIT.flowers]];
 function renderOutfit() { OUTFIT_BTNS.forEach(([id, bit]) => $(id).setAttribute('aria-pressed', String(!!((store.outfit ?? 0) & bit)))); }
@@ -1390,7 +1395,7 @@ setOutfit(me, store.outfit ?? 0);
 OUTFIT_BTNS.forEach(([id, bit]) => {
   $(id).onclick = () => {
     store.outfit = (store.outfit ?? 0) ^ bit; save();
-    setOutfit(me, store.outfit | (outfitOf(me) & OUTFIT.ramen)); renderOutfit();
+    setOutfit(me, store.outfit | (outfitOf(me) & HELD)); renderOutfit();
     if (connected) net.emit('outfit', outfitOf(me));
     track('outfit', { place: place.id, mask: store.outfit });
   };
@@ -1447,8 +1452,8 @@ function updateHandoff(dt: number) {
   if (handoff.t > 2.0) {
     showLeftFlowers(handoff.b, false);
     setOutfit(handoff.b, outfitOf(handoff.b) | OUTFIT.flowers);
-    if (handoff.aId === myId) { store.outfit = outfitOf(me) & ~OUTFIT.ramen; save(); toast(T.gave); }
-    if (handoff.bId === myId) { store.outfit = outfitOf(me) & ~OUTFIT.ramen; save(); toast(T.got); }
+    if (handoff.aId === myId) { store.outfit = outfitOf(me) & ~HELD; save(); toast(T.gave); }
+    if (handoff.bId === myId) { store.outfit = outfitOf(me) & ~HELD; save(); toast(T.got); }
     handoff = null;
   }
 }
@@ -1499,6 +1504,58 @@ $('ramenBtn').onclick = () => {
   turnTo(me, Math.atan2(-(RAMEN_MACHINE.x - me.root.position.x), -(RAMEN_MACHINE.z - me.root.position.z)), 1);
   track('ramen_cook', { place: place.id });
   setTimeout(() => { ramenCooking = false; if (place.id !== 'hangang') return; setRamen(true); nextBite = 0; toast(T.ramenDone); }, 4000);
+};
+
+// ================= 광장시장 빈대떡 · 명동 떡볶이 =================
+// 가게 앞에서 사면 손에 들고, 걷지 않고 가만히 있으면 몇 초마다 한 입 (앉아도 서도 됨)
+const SNACKS = [
+  { place: 'gwangjang', bit: OUTFIT.bindae, at: BINDAE_STALL, r: 2.0, wait: 3500, btn: () => T.bindaeBtn, cooking: () => T.bindaeCooking, done: () => T.bindaeDone, ate: () => T.bindaeAte },
+  { place: 'myeongdong', bit: OUTFIT.tteok, at: TTEOK_CART, r: 2.1, wait: 2200, btn: () => T.tteokBtn, cooking: () => T.tteokCooking, done: () => T.tteokDone, ate: () => T.tteokAte },
+];
+let snackBuying = false, snackBites = 0, nextSnackBite = 0;
+const snackHere = () => SNACKS.find(s => s.place === place.id);
+function setSnack(bit: number) {
+  const mask = (outfitOf(me) & ~(OUTFIT.bindae | OUTFIT.tteok)) | bit;
+  setOutfit(me, mask);
+  if (connected) net.emit('outfit', mask);
+  snackBites = 0;
+}
+function updateSnack(t: number) {
+  const s = snackHere(), b = $('snackBtn');
+  const holding = !!(outfitOf(me) & (OUTFIT.bindae | OUTFIT.tteok));
+  const near = !!s && !snackBuying && !holding && Math.hypot(me.root.position.x - s.at.x, me.root.position.z - s.at.z) < s.r;
+  if (b.hidden === near) b.hidden = !near;
+  if (near && b.textContent !== s!.btn()) b.textContent = s!.btn();
+  if (holding && s && me.state !== 'walk' && !me.emote && t > nextSnackBite) {
+    nextSnackBite = t + 3200;
+    me.emote = 'eat'; me.emoteT = 0; if (connected) net.emit('emote', 'eat');
+    if (++snackBites >= 6) { setTimeout(() => { setSnack(0); toast(s.ate()); track('snack_eaten', { place: place.id }); }, 1600); nextSnackBite = t + 1e9; }
+  }
+}
+$('snackBtn').onclick = () => {
+  const s = snackHere(); if (!s) return;
+  snackBuying = true; $('snackBtn').hidden = true;
+  toast(s.cooking());
+  turnTo(me, Math.atan2(-(s.at.x - me.root.position.x), -(s.at.z - me.root.position.z)), 1);
+  track('snack_buy', { place: place.id });
+  setTimeout(() => { snackBuying = false; if (place.id !== s.place) return; setSnack(s.bit); nextSnackBite = performance.now() + 1500; toast(s.done()); }, s.wait);
+};
+
+// ================= 홍대 버스킹 =================
+// 버스커가 연주하는 동안 무대 앞에 가면 '같이 춤추기'. 노래는 가까울수록 크게.
+let wasBusking = false;
+function updateBusking(t: number) {
+  const playing = scenery.busking;
+  const d = Math.hypot(me.root.position.x - STAGE.x, me.root.position.z - STAGE.z);
+  amb.setBusk(playing ? clamp(1.15 - d / 16, 0, 1) : 0);
+  if (playing !== wasBusking) { wasBusking = playing; if (place.id === 'hongdae' && d < 16) ticker(playing ? T.buskStart : T.buskBreak); }
+  const b = $('danceBtn'), show = playing && d < 9 && mySeat === null && !lying;
+  if (b.hidden === show) b.hidden = !show;
+  void t;
+}
+$('danceBtn').onclick = () => {
+  me.emote = 'dance'; me.emoteT = 0; if (connected) net.emit('emote', 'dance');
+  track('dance', { place: place.id });
 };
 
 // ================= 해변 강아지 =================
@@ -1605,7 +1662,7 @@ function updateHanbokBtn() {
 $('hanbokBtn').onclick = () => {
   const on = !(outfitOf(me) & OUTFIT.hanbok);
   store.outfit = ((store.outfit ?? 0) & ~OUTFIT.hanbok) | (on ? OUTFIT.hanbok : 0); save();
-  setOutfit(me, store.outfit | (outfitOf(me) & OUTFIT.ramen));
+  setOutfit(me, store.outfit | (outfitOf(me) & HELD));
   if (connected) net.emit('outfit', outfitOf(me));
   if (on) { toast(T.hanbokWorn); life.heartBurst(0); }
   track('hanbok', { on });

@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 export type CharState = 'idle' | 'walk' | 'sit' | 'lie';
 /** clink = 다른 사람과 커피잔을 부딪치는 동작 (서버가 짝을 지어 줄 때만) */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet' | 'dance';
 
 export interface Char {
   root: THREE.Group;
@@ -126,7 +126,7 @@ export function disposeChar(c: Char) {
 }
 
 /** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
-const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0 };
+const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0 };
 export function animChar(c: Char, dt: number) {
   c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
   let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
@@ -146,7 +146,8 @@ export function animChar(c: Char, dt: number) {
   // 꽃다발을 들고 있으면 오른팔을 살짝 앞으로
   // 꽃다발을 들고 있으면 오른팔을 앞으로 (꽃은 아래 animChar 끝에서 똑바로 세움)
   if (c.state !== 'walk' && c.state !== 'lie' && c.armR.getObjectByName('flowers')?.visible) aR = 1.0;
-  if (c.state !== 'lie' && c.armR.getObjectByName('ramen')?.visible) aR = c.state === 'walk' ? 0.8 : 1.15;
+  if (c.state !== 'lie' && FOODS.some(n => c.armR.getObjectByName(n)?.visible)) aR = c.state === 'walk' ? 0.8 : 1.15;
+  let rz = 0;
   if (c.emote) {
     c.emoteT += dt;
     const T = EMOTE_T[c.emote] ?? 1.9;
@@ -181,6 +182,14 @@ export function animChar(c: Char, dt: number) {
       const kk = clamp(k * 2.2, 0, 1), pat = Math.abs(Math.sin(c.emoteT * 9)) * 0.35;
       y -= 0.32 * kk; lL = lR = 1.3 * kk; aL = aR = (1.0 + pat) * kk;
     }
+    if (c.emote === 'dance') {
+      // 신나게: 양팔을 번갈아 위로, 무릎 까딱, 몸을 좌우로 흔들기
+      const kk = clamp(k * 3, 0, 1), b = c.emoteT * 7.5;
+      aL = (1.6 + Math.sin(b) * 1.1) * kk; aR = (1.6 - Math.sin(b) * 1.1) * kk;
+      aLz = -0.5 * kk; aRz = 0.5 * kk;
+      y += Math.abs(Math.sin(b)) * 0.1 * kk; rz = Math.sin(b / 2) * 0.18 * kk;
+      lL = Math.max(0, Math.sin(b)) * 0.4 * kk; lR = Math.max(0, -Math.sin(b)) * 0.4 * kk;
+    }
     if (c.emote === 'eat') { const up = Math.sin(Math.PI * u); aR = 1.15 + 0.85 * up; aRz = 0.3 * up; }
     if (c.emote === 'give') { aR = 1.0 + 0.5 * clamp(k * 2, 0, 1); aRz = -0.15 * clamp(k * 2, 0, 1); }
     if (c.emote === 'take') { aL = 1.5 * clamp(k * 2, 0, 1); aLz = 0.15 * clamp(k * 2, 0, 1); }
@@ -205,11 +214,12 @@ export function animChar(c: Char, dt: number) {
   c.armR.rotation.z += (aRz - c.armR.rotation.z) * e;
   c.armL.rotation.z += (aLz - c.armL.rotation.z) * e;
   c.inner.rotation.x += (rx - c.inner.rotation.x) * e;
+  c.inner.rotation.z += (rz - c.inner.rotation.z) * e;
   c.legL.rotation.x += (lL - c.legL.rotation.x) * e;
   c.legR.rotation.x += (lR - c.legR.rotation.x) * e;
   c.inner.position.y += (y - c.inner.position.y) * e;
   // 꽃다발은 팔이 어떻게 움직여도 꽃이 위로 오게
-  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL'], [c.armR, 'ramen']] as const) {
+  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL'], [c.armR, 'ramen'], [c.armR, 'bindae'], [c.armR, 'tteok']] as const) {
     const f = arm.getObjectByName(name);
     if (f?.visible) { f.rotation.x = -arm.rotation.x; f.rotation.z = -arm.rotation.z; }
   }
@@ -231,7 +241,10 @@ export function turnTo(c: Char, ang: number, dt: number) {
 // ---------- 소품 (주문진 사진 자리용) ----------
 // 1: 회색 맨투맨 + 검은 슬랙스, 2: 빨간 목도리, 4: 메밀꽃 다발.
 // 이름 없는 평범한 옷과 소품만 쓰고, 특정 인물의 얼굴·이름은 쓰지 않는다.
-export const OUTFIT = { sweat: 1, scarf: 2, flowers: 4, ramen: 8, hanbok: 16 } as const;
+export const OUTFIT = { sweat: 1, scarf: 2, flowers: 4, ramen: 8, hanbok: 16, bindae: 32, tteok: 64 } as const;
+/** 손에 드는 먹을거리 (그 장소를 떠나면 내려놓음) */
+export const HELD = OUTFIT.ramen | OUTFIT.bindae | OUTFIT.tteok;
+const FOODS = ['ramen', 'bindae', 'tteok'];
 
 /** 메밀꽃 다발: 붉은 줄기 끝에 작고 하얀 꽃송이가 몽글몽글, 크라프트지로 감쌈. 꽃이 위로 오게 세운다 */
 function makeBuckwheat() {
@@ -292,6 +305,18 @@ export function setOutfit(c: Char, mask: number) {
     for (const dx of [-0.012, 0.012]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, 0.26, 4), new THREE.MeshLambertMaterial({ color: 0xc9a46a })); ch.position.set(0.05 + dx, 0.12, 0); ch.rotation.z = -0.5; bowl.add(ch); }
     const bsteam = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }));
     bsteam.name = 'bsteam'; bsteam.position.y = 0.14; bowl.add(bsteam);
+    // 빈대떡: 하얀 접시 위 노릇한 전 + 나무젓가락
+    const plate = new THREE.Group(); plate.name = 'bindae'; plate.position.set(0, -0.46, -0.08); plate.visible = false; c.armR.add(plate);
+    plate.add(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.025, 16), new THREE.MeshLambertMaterial({ color: 0xf5f3ee })));
+    const cake = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.03, 14), new THREE.MeshLambertMaterial({ color: 0xd49a3c })); cake.position.y = 0.03; plate.add(cake);
+    for (let k = 0; k < 4; k++) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.03), new THREE.MeshLambertMaterial({ color: k % 2 ? 0x6aa35a : 0xa8432c })); d.position.set(Math.cos(k * 1.6) * 0.06, 0.05, Math.sin(k * 1.6) * 0.06); plate.add(d); }
+    for (const dx of [-0.012, 0.012]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, 0.24, 4), new THREE.MeshLambertMaterial({ color: 0xc9a46a })); ch.position.set(0.1 + dx, 0.06, 0); ch.rotation.z = -1.2; plate.add(ch); }
+    // 떡볶이: 종이컵에 빨간 떡 + 꼬치
+    const cup = new THREE.Group(); cup.name = 'tteok'; cup.position.set(0, -0.46, -0.06); cup.visible = false; c.armR.add(cup);
+    cup.add(new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.06, 0.13, 12), new THREE.MeshLambertMaterial({ color: 0xffffff })));
+    const sauce = new THREE.Mesh(new THREE.CircleGeometry(0.08, 12), new THREE.MeshLambertMaterial({ color: 0xd8341f })); sauce.rotation.x = -Math.PI / 2; sauce.position.y = 0.066; cup.add(sauce);
+    for (let k = 0; k < 4; k++) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.07, 6), new THREE.MeshLambertMaterial({ color: 0xe0582c })); r.rotation.z = Math.PI / 2 + k; r.position.set((k % 2 - 0.5) * 0.06, 0.08, (k < 2 ? -1 : 1) * 0.025); cup.add(r); }
+    const pick = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 4), new THREE.MeshLambertMaterial({ color: 0xe9d3a8 })); pick.position.set(0.03, 0.15, 0); pick.rotation.z = -0.3; cup.add(pick);
     // 한복: 짧은 저고리 + 고름 + 넓게 퍼지는 긴 치마 (색은 사람마다 다르게)
     const hb = new THREE.Group(); hb.name = 'hanbok'; hb.visible = false; o.add(hb);
     const HB = [[0xf6c1cc, 0x3d5aa8], [0xfbe3a1, 0xc8324a], [0xbfe3cf, 0x8a4fb0], [0xcfe0ff, 0xe36a8c], [0xffffff, 0x2f7d6d]];
@@ -318,6 +343,8 @@ export function setOutfit(c: Char, mask: number) {
   o.getObjectByName('hanbok')!.visible = !!(mask & OUTFIT.hanbok);
   c.armR.getObjectByName('flowers')!.visible = !!(mask & OUTFIT.flowers);
   c.armR.getObjectByName('ramen')!.visible = !!(mask & OUTFIT.ramen);
+  c.armR.getObjectByName('bindae')!.visible = !!(mask & OUTFIT.bindae);
+  c.armR.getObjectByName('tteok')!.visible = !!(mask & OUTFIT.tteok);
   o.userData.mask = mask;
 }
 export const outfitOf = (c: Char) => ((c.inner.getObjectByName('outfit')?.userData.mask as number) ?? 0);
