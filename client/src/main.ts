@@ -8,12 +8,12 @@ import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
-import { createPlaceScenery } from './place-scenery';
+import { createPlaceScenery, HANBOK_SHOP } from './place-scenery';
 import { createBots } from './bots';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
@@ -53,6 +53,21 @@ const GLOW = glowTexture();
 const world = createWorld(scene, renderer, GLOW);
 const lanterns = createLanterns(scene, GLOW);
 // 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
+// 서울 지하철 노선도의 역 (장소가 있는 역만 열림)
+interface Station { id: string; ko: string; en: string; x: number; y: number; line: string; place?: string }
+const LINES: Record<string, string> = { l1: '#1f3f8f', l2: '#3aa83a', l3: '#f07a1d', l4: '#2f9ee0', l5: '#8a3fc0', beach: '#e9b23c' };
+const STATIONS: Station[] = [
+  { id: 'gyeongbokgung', ko: '경복궁', en: 'Gyeongbokgung', x: 150, y: 52, line: 'l3', place: 'gyeongbokgung' },
+  { id: 'jongno5', ko: '종로5가', en: 'Jongno 5-ga', x: 240, y: 104, line: 'l1' },
+  { id: 'myeongdong', ko: '명동', en: 'Myeongdong', x: 196, y: 158, line: 'l4' },
+  { id: 'hongik', ko: '홍대입구', en: 'Hongik Univ.', x: 58, y: 132, line: 'l2' },
+  { id: 'yeouinaru', ko: '여의나루', en: 'Yeouinaru', x: 104, y: 226, line: 'l5', place: 'hangang' },
+  { id: 'beach', ko: '오늘의 해 해변', en: "Today's Sun beach", x: 300, y: 246, line: 'beach' },
+];
+const stationName = (p: Place) => {
+  const st = STATIONS.find(s => s.place === p.id);
+  return st ? (lang === 'ko' ? st.ko : st.en) : placeName(p);
+};
 const life = createBeachLife(scene);
 // 해변 강아지 이름 (해변마다 한 마리)
 const DOG_NAMES: Record<string, [string, string]> = {
@@ -395,7 +410,7 @@ cvs.addEventListener('wheel', e => { e.preventDefault(); setView(cam.tDist * (1 
 function nearestFreeSeat(): number | null {
   let best: number | null = null, bd = 2.6;
   seats.forEach((s, i) => {
-    if (s.occ || (s.places && !s.places.includes(place.id))) return;
+    if (s.occ || (s.places && !s.places.includes(place.id)) || (!s.kind && !has.mats(place.id))) return;
     const d = Math.hypot(s.x - me.root.position.x, s.z - me.root.position.z);
     if (d < bd) { bd = d; best = i; }
   });
@@ -454,6 +469,8 @@ function updateMe(dt: number) {
   bl.textContent = me.blanket.visible ? T.blanketOff : T.blanketOn;
   updateGiveBtn();
   updatePetBtn();
+  updatePortal();
+  updateHanbokBtn();
   $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : T.sitDown) : T.findSeat;
 }
 
@@ -585,7 +602,7 @@ function loop(t: number) {
 // ================= 장소 고르기 =================
 // 상단에는 지금 장소 하나만 두고, 누르면 묶음별 목록이 열린다 (장소가 늘어도 화면이 지저분해지지 않게)
 const GROUPS: [PlaceGroup, () => string][] = [['sunrise', () => T.groupSunrise], ['kcontent', () => T.groupKcontent], ['seoul', () => T.groupSeoul]];
-const ICON: Record<string, string> = { jeongdongjin: '🚉', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜' };
+const ICON: Record<string, string> = { jeongdongjin: '🚉', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜', gyeongbokgung: '👘' };
 function renderPlaceList() {
   $('placeList').innerHTML = GROUPS.map(([g, label]) => {
     const rows = PLACES.filter(p => p.group === g).map(p => {
@@ -603,7 +620,7 @@ $('placeList').addEventListener('click', e => {
   close();
   switchPlace(p);
 });
-function switchPlace(p: Place) {
+function switchPlace(p: Place, arrive: 'random' | 'portal' = 'random') {
   if (place === p) return;
   place = p; replay = null; seenFlag = false; watchStart = 0;
   track('channel_changed', { place: p.id });
@@ -611,12 +628,17 @@ function switchPlace(p: Place) {
   lying = false;
   seats.forEach(s => (s.occ = null));
   closeSand(); sandPosts = []; renderSandLabel();
-  clearRemotes(); bots.clear(); bots.fill(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); applyTerrain(p);
+  clearRemotes(); bots.clear(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); applyTerrain(p); bots.fill();
   history.replaceState(history.state, '', `/${p.id}${location.search}`); placeShells(); renderAlarm(); renderCounts(); refreshWeather();
-  spawn();
+  if (arrive === 'portal') {
+    // 역 출구(또는 서울로 가는 문) 바로 앞에서 나옴
+    me.root.position.set(PORTAL.x, floorY(PORTAL.x, PORTAL.z + 1.6), PORTAL.z + 1.6); me.root.rotation.y = Math.PI;
+    portalCooldown = true;
+  } else spawn();
   if (connected) join();
   expandBanner();
-  toast(T.arrived(placeName(p), p.id === 'gisborne'));
+  if (arrive === 'portal') toast(has.station(p.id) ? T.arrivedStation(stationName(p)) : T.backToBeach);
+  else toast(T.arrived(placeName(p), p.id === 'gisborne'));
   applyDogName(); life.setDog(null);
 }
 
@@ -656,6 +678,7 @@ addEventListener('pointerdown', e => {
 $('clapBtn').onclick = () => { doEmote('clap'); amb.clap(1); };
 
 $('skipBtn').onclick = () => {
+  if (!has.water(place.id)) { toast(T.noWater); return; }
   const p = me.root.position;
   if (!(p.z < 1.5 || onPier(p.x, p.z))) { toast(T.skipFar); return; }
   lying = false;
@@ -1355,7 +1378,8 @@ $('castleBtn').onclick = () => {
 
 // ================= 해변별 지형 · 소품 · 실제로 가 보기 =================
 function applyTerrain(p: Place) {
-  setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id); bonfire.setPlace(p.id); scenery.setPlace(p.id); world.setGround(p.id);
+  setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id); bonfire.setPlace(p.id); scenery.setPlace(p.id, has.station(p.id), stationName(p)); world.setGround(p.id);
+  life.setFisher(has.water(p.id));
   $('routeBtn').hidden = !placeRoute(p);
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
   if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
@@ -1502,9 +1526,89 @@ function renderDogLine() {
 // ================= 해변을 채워 주는 가상 사용자 =================
 // 내 화면에만 있고 서버에는 없어서 위쪽 인원수·통계에 들어가지 않는다. 진짜 사람이 와도 그대로 있다.
 const bots = createBots({
-  scene, seats, placeId: () => place.id,
+  scene, seats, placeId: () => place.id, matsHere: () => has.mats(place.id),
   onLantern: (pos, nick) => { lanterns.launch(pos, undefined, true); ticker(T.lanternBy(nick)); },
 });
 bots.fill();
 
-Object.assign(window, { __hae: { bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+// ================= 서울 지하철 여행 =================
+// 해변의 '서울로 가는 문'이나 서울의 역 출구에 다가가면 노선도가 열리고, 역을 누르면 열차를 타고 가서 그 역 출구로 나온다.
+let lastBeach: Place = PLACES.find(p => !has.station(p.id) && p.group === 'sunrise') ?? PLACES[0];
+let portalCooldown = false, riding = false;
+function renderMetro() {
+  const here = STATIONS.find(s => s.place === place.id)?.id ?? 'beach';
+  const path = (pts: [number, number][], color: string, dash = '') =>
+    `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" ${dash}/>`;
+  const lines = [
+    path([[20, 104], [240, 104], [320, 104]], LINES.l1),
+    path([[30, 132], [58, 132], [110, 170], [196, 186], [270, 170], [300, 132]], LINES.l2),
+    path([[150, 20], [150, 52], [170, 104], [210, 200], [230, 270]], LINES.l3),
+    path([[196, 60], [196, 158], [180, 250]], LINES.l4),
+    path([[20, 226], [104, 226], [170, 214], [240, 104]], LINES.l5),
+    path([[104, 226], [200, 260], [300, 246]], LINES.beach, 'stroke-dasharray="2 12"'),
+  ].join('');
+  const sts = STATIONS.map(st => {
+    const open = !!st.place || st.id === 'beach';
+    const label = lang === 'ko' ? st.ko : st.en;
+    const tx = st.x > 250 ? -8 : 10, anchor = st.x > 250 ? 'end' : 'start';
+    return `<g class="st${open ? '' : ' off'}${st.id === here ? ' here' : ''}" data-id="${st.id}" role="button" aria-label="${label}">
+      <circle cx="${st.x}" cy="${st.y}" r="22" fill="transparent"/>
+      <circle cx="${st.x}" cy="${st.y}" r="9" fill="#fff" stroke="${open ? LINES[st.line] : '#b9b9b9'}" stroke-width="4"/>
+      <text x="${st.x + tx}" y="${st.y - 12}" text-anchor="${anchor}">${st.id === 'beach' ? '🌅 ' : ''}${label}</text></g>`;
+  }).join('');
+  $('metroMap').innerHTML = `<svg viewBox="0 0 340 290" xmlns="http://www.w3.org/2000/svg">${lines}${sts}</svg>`;
+}
+$('metroMap').addEventListener('click', e => {
+  const g = (e.target as Element).closest('.st') as SVGGElement | null;
+  const st = g && STATIONS.find(s => s.id === g.dataset.id);
+  if (!st) return;
+  const target = st.id === 'beach' ? lastBeach : PLACES.find(p => p.id === st.place);
+  if (!target) { toast(T.stationSoon); return; }
+  if (target === place) { close(); return; }
+  close();
+  ride(target, st);
+});
+function openMetro() { renderMetro(); open('metroSheet'); track('metro_opened', { place: place.id }); }
+/** 열차 타고 가기: 창밖 불빛이 지나가고 안내 방송 → 역 출구로 나옴 */
+function ride(target: Place, st: Station) {
+  if (riding) return;
+  riding = true;
+  if (!has.station(place.id)) lastBeach = place;
+  const name = lang === 'ko' ? st.ko : st.en;
+  $('rideNext').textContent = st.id === 'beach' ? T.backToBeach : T.nextStop(lang === 'ko' ? st.ko : st.en);
+  $('rideNextEn').textContent = st.id === 'beach' ? '' : lang === 'ko' ? `This stop is ${st.en}` : '';
+  const ov = $('metroRide'); ov.classList.remove('arrive'); ov.hidden = false;
+  chime();
+  try {
+    if (st.id !== 'beach' && 'speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(lang === 'ko' ? `이번 역은 ${st.ko}, ${st.ko}역입니다.` : `This stop is ${st.en}.`);
+      u.lang = lang === 'ko' ? 'ko-KR' : 'en-US'; u.rate = 0.95; speechSynthesis.speak(u);
+    }
+  } catch { /* 안내 방송은 없어도 됨 */ }
+  track('metro_ride', { from: place.id, to: target.id });
+  setTimeout(() => ov.classList.add('arrive'), 2200);
+  setTimeout(() => { switchPlace(target, 'portal'); void name; }, 3000);
+  setTimeout(() => { ov.hidden = true; riding = false; }, 3400);
+}
+function updatePortal() {
+  const d = Math.hypot(me.root.position.x - PORTAL.x, me.root.position.z - PORTAL.z);
+  if (portalCooldown) { if (d > 2.6) portalCooldown = false; return; }
+  if (d < 1.3 && !riding && !openSheet) { portalCooldown = true; openMetro(); }
+}
+// 한복 대여소
+function updateHanbokBtn() {
+  const b = $('hanbokBtn');
+  const near = place.id === 'gyeongbokgung' && Math.hypot(me.root.position.x - HANBOK_SHOP.x, me.root.position.z - HANBOK_SHOP.z) < 2.8;
+  if (b.hidden === near) b.hidden = !near;
+  if (near) { const t = (outfitOf(me) & OUTFIT.hanbok) ? T.hanbokOff : T.hanbokOn; if (b.textContent !== t) b.textContent = t; }
+}
+$('hanbokBtn').onclick = () => {
+  const on = !(outfitOf(me) & OUTFIT.hanbok);
+  store.outfit = ((store.outfit ?? 0) & ~OUTFIT.hanbok) | (on ? OUTFIT.hanbok : 0); save();
+  setOutfit(me, store.outfit | (outfitOf(me) & OUTFIT.ramen));
+  if (connected) net.emit('outfit', outfitOf(me));
+  if (on) { toast(T.hanbokWorn); life.heartBurst(0); }
+  track('hanbok', { on });
+};
+
+Object.assign(window, { __hae: { metro: () => openMetro(), bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

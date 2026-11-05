@@ -90,6 +90,7 @@
       <button class="act" id="blanketBtn" hidden>담요 덮기</button>
       <button class="act primary give-act" id="giveBtn" hidden data-i18n="giveBtn">💐 꽃 건네주기</button>
       <button class="act primary" id="petBtn" hidden>🐶</button>
+      <button class="act primary" id="hanbokBtn" hidden></button>
       <button class="act primary" id="ramenBtn" hidden data-i18n="ramenBtn">🍜 라면 끓이기</button>
       <button class="act route-act" id="routeBtn" hidden data-i18n="routeBtn">📍 실제로 가 보기</button>
       <button class="act sand-act" id="sandBtn" hidden data-i18n="sandOpen">모래 게시판 보기</button>
@@ -140,6 +141,15 @@
     <a class="btn primary" id="routeMap" target="_blank" rel="noopener" data-i18n="routeMap">지도에서 보기</a>
   </div>
   <p class="note" data-i18n="routeNote">버스 시간과 정류장은 바뀔 수 있어요. 출발 전에 네이버 지도나 카카오맵에서 확인하세요.</p>
+</div>
+<div class="sheet metro-sheet" id="metroSheet" role="dialog" aria-labelledby="metroTitle">
+  <h2 id="metroTitle" data-i18n="metroTitle">🚇 서울 지하철 노선도</h2>
+  <p class="lead" data-i18n="metroLead">역을 누르면 그곳으로 가요. 회색 역은 곧 열려요.</p>
+  <div class="metro-map" id="metroMap"></div>
+</div>
+<div class="metro-ride" id="metroRide" hidden>
+  <div class="ride-window"><div class="ride-lights"></div><div class="ride-lights l2"></div></div>
+  <div class="ride-text"><b id="rideNext"></b><span id="rideNextEn"></span></div>
 </div>
 <div class="sheet" id="placeSheet" role="dialog" aria-labelledby="placeTitle">
   <h2 id="placeTitle" data-i18n="placeTitle">어디로 갈까요?</h2>

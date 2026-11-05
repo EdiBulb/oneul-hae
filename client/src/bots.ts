@@ -17,6 +17,8 @@ export function createBots(opts: {
   scene: THREE.Scene;
   seats: Seat[];
   placeId: () => string;
+  /** 방석이 없는 곳(경복궁 광장 등)에서는 서서 구경 */
+  matsHere: () => boolean;
   /** 풍등을 올렸을 때 (위치, 소원 문구, 닉네임) */
   onLantern: (pos: THREE.Vector3, nick: string) => void;
 }) {
@@ -42,7 +44,8 @@ export function createBots(opts: {
   }
 
   function add() {
-    const idx = freeSeat();
+    const standing = !opts.matsHere();
+    const idx = standing ? -1 : freeSeat();
     if (idx === null) return;
     const c = makeChar(pick(BODY_COLORS), pick(HAT_COLORS));
     const nick = localizeNick(`${pick(ADJ)} ${pick(NOUN)}`);
@@ -50,13 +53,18 @@ export function createBots(opts: {
     scene.add(c.root);
     const now = performance.now();
     const b: Bot = { c, label, nick, seat: idx, tag: `bot:${seq++}`, nextLantern: now + rand(25000, 150000), nextEmote: now + rand(8000, 60000) };
-    sitAt(b, idx);
+    if (standing) {
+      const x = rand(-10, 10), z = rand(-6, 9);
+      c.root.position.set(x, floorY(x, z), z);
+      c.root.rotation.y = rand(-0.5, 0.5); // 대충 궁궐 쪽을 보며 구경
+      c.state = 'idle';
+    } else sitAt(b, idx);
     for (let i = 0; i < 30; i++) animChar(c, 0.05);
     bots.push(b);
   }
 
   function remove(b: Bot) {
-    if (seats[b.seat]?.occ === b.tag) seats[b.seat].occ = null;
+    if (b.seat >= 0 && seats[b.seat]?.occ === b.tag) seats[b.seat].occ = null;
     scene.remove(b.c.root); disposeChar(b.c);
     bots = bots.filter(x => x !== b);
   }
@@ -65,15 +73,15 @@ export function createBots(opts: {
   /** 처음 들어왔을 때 이미 해변에 사람이 있는 것처럼 바로 채움 */
   function fill() {
     // 자리 정보가 새로 고쳐졌으면(재접속) 원래 앉아 있던 방석을 다시 차지
-    for (const b of bots) if (!seats[b.seat]?.occ) seats[b.seat].occ = b.tag;
-    while (bots.length < MAX && freeSeat() !== null) add();
+    for (const b of bots) if (b.seat >= 0 && !seats[b.seat]?.occ) seats[b.seat].occ = b.tag;
+    while (bots.length < MAX && (!opts.matsHere() || freeSeat() !== null)) add();
   }
 
   function update(dt: number, t: number, cam: THREE.Camera) {
     if (bots.length < MAX && Math.random() < dt * 0.5) add(); // 빈 방석이 생기면 천천히 다시 채움
     for (const b of bots) {
       // 진짜 사람이 그 방석에 앉으면 다른 빈 방석으로 옮김
-      if (seats[b.seat]?.occ !== b.tag) {
+      if (b.seat >= 0 && seats[b.seat]?.occ !== b.tag) {
         const idx = freeSeat();
         if (idx === null) { remove(b); continue; }
         sitAt(b, idx);

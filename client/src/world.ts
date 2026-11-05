@@ -85,7 +85,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     skyLow: { value: new THREE.Color() }, fogCol: { value: new THREE.Color() }, sunUp: { value: 0 }, time: { value: 0 },
   };
   const seaGeo = new THREE.PlaneGeometry(6000, 6000, 1, 1); seaGeo.rotateX(-Math.PI / 2);
-  scene.add(new THREE.Mesh(seaGeo, new THREE.ShaderMaterial({
+  const sea = new THREE.Mesh(seaGeo, new THREE.ShaderMaterial({
     uniforms: seaU,
     vertexShader: /* glsl */`varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: /* glsl */`
@@ -105,7 +105,8 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
         c = mix(c, fogCol, smoothstep(60.0, 900.0, length(vW - cameraPosition)));
         gl_FragColor = vec4(c, 1.0);
       }`,
-  })));
+  }));
+  scene.add(sea);
 
   // ---------- 모래사장 ----------
   const sandGeo = new THREE.PlaneGeometry(400, 90, 60, 18); sandGeo.rotateX(-Math.PI / 2); sandGeo.translate(0, 0, 42);
@@ -121,7 +122,10 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   wet.rotation.x = -Math.PI / 2; wet.position.set(0, 0.012, -2.4); scene.add(wet);
   /** 땅 색 바꾸기: 한강은 잔디와 콘크리트 강변 */
   function setGround(id: string) {
-    sandMat.color.setHex(id === 'hangang' ? 0x6f8b56 : 0xcdb28a);
+    // 경복궁: 바다 대신 돌 광장, 해변 방석은 치움
+    const plaza = id === 'gyeongbokgung';
+    sea.visible = !plaza; wet.visible = !plaza; matGroup.visible = !plaza;
+    sandMat.color.setHex(plaza ? 0xc9c2b4 : id === 'hangang' ? 0x6f8b56 : 0xcdb28a);
     (wet.material as THREE.MeshLambertMaterial).color.setHex(id === 'hangang' ? 0x9a9a94 : 0x8f7a5e);
     (wet.material as THREE.MeshLambertMaterial).opacity = id === 'hangang' ? 1 : 0.7;
   }
@@ -135,11 +139,12 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   const seats: Seat[] = [];
   const matColors = [0xc9786a, 0xd8a35b, 0x7f9a7a, 0x8d86b8, 0xb98a9e];
   const matGeo = new THREE.BoxGeometry(1.25, 0.07, 1.0);
+  const matGroup = new THREE.Group(); scene.add(matGroup);
   for (const [z, n] of [[2.6, 7], [5.2, 8], [7.8, 7]] as const) {
     for (let i = 0; i < n; i++) {
       const x = (i - (n - 1) / 2) * 2.3;
       const m = new THREE.Mesh(matGeo, new THREE.MeshLambertMaterial({ color: matColors[(i + Math.round(z)) % matColors.length] }));
-      m.position.set(x, groundY(z) + 0.035, z); scene.add(m);
+      m.position.set(x, groundY(z) + 0.035, z); matGroup.add(m);
       seats.push({ x, z, occ: null, ry: 0 });
     }
   }

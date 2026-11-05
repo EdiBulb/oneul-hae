@@ -1,7 +1,7 @@
 // 서버와 클라이언트가 함께 쓰는 실시간 이벤트 타입.
 // 클라이언트는 `import type`으로만 가져가므로 이 파일에는 타입만 둔다.
 
-export type PlaceId = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin' | 'hyangho' | 'hangang';
+export type PlaceId = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin' | 'hyangho' | 'hangang' | 'gyeongbokgung';
 
 /** 캐릭터 겉모습: 색상 팔레트의 인덱스 */
 export interface Look { body: number; hat: number }
@@ -25,7 +25,7 @@ export interface PlayerInfo {
   st: St;
   /** 담요를 두르고 있는지 (켜 두는 상태라 나중에 들어온 사람도 볼 수 있게 서버가 기억) */
   blanket?: boolean;
-  /** 소품 비트마스크: 1 회색 맨투맨·검은 슬랙스, 2 빨간 목도리, 4 꽃다발 */
+  /** 소품 비트마스크: 1 회색 맨투맨·검은 슬랙스, 2 빨간 목도리, 4 꽃다발, 8 라면, 16 한복 */
   outfit?: number;
 }
 

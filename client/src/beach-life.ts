@@ -201,6 +201,8 @@ export function createBeachLife(scene: THREE.Scene) {
     setDog(d: DogState | null) { if (d && !net) { dog.position.x = d.x; dog.position.z = d.z; } net = d; },
     setName(name: string) { dog.remove(dogName); dogName = textSprite(name, 0.5); dogName.position.y = 1.15; dog.add(dogName); },
     heartBurst,
+    /** 낚시하는 주민은 물가가 있는 곳에만 */
+    setFisher(on: boolean) { fisher.root.visible = on; },
     get dogPos() { return dog.position; },
   };
 }

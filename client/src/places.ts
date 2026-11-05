@@ -22,6 +22,7 @@ export const PLACES: Place[] = [
   { id: 'gisborne', name: '기스본', region: '뉴질랜드', nameEn: 'Gisborne', regionEn: 'New Zealand', lat: -38.6623, lng: 178.0176, tz: 'Pacific/Auckland', group: 'sunrise' },
   { id: 'jumunjin', name: '주문진 방파제', region: '강릉', nameEn: 'Jumunjin Breakwater', regionEn: 'Gangneung', lat: 37.885, lng: 128.831, tz: 'Asia/Seoul', group: 'kcontent' },
   { id: 'hyangho', name: '향호 버스정류장', region: '강릉', nameEn: 'Hyangho Bus Stop', regionEn: 'Gangneung', lat: 37.92, lng: 128.80, tz: 'Asia/Seoul', group: 'kcontent' },
+  { id: 'gyeongbokgung', name: '경복궁', region: '서울 종로', nameEn: 'Gyeongbokgung Palace', regionEn: 'Jongno, Seoul', lat: 37.5796, lng: 126.977, tz: 'Asia/Seoul', group: 'seoul' },
   { id: 'hangang', name: '한강공원', region: '서울 여의도', nameEn: 'Han River Park', regionEn: 'Yeouido, Seoul', lat: 37.5284, lng: 126.934, tz: 'Asia/Seoul', group: 'seoul' },
 ];
 
@@ -93,6 +94,19 @@ const INFO: Partial<Record<PlaceId, PlaceInfo>> = {
         ['<b>팁</b> · 주문진 방파제와 하루에 같이 돌아보기 좋아요', '<b>Tip</b> · Easy to combine with the Jumunjin Breakwater in one day'],
       ],
       map: '향호해변 BTS 버스정류장',
+    },
+  },
+  gyeongbokgung: {
+    blurb: ['한복 입고 궁궐 앞에서 사진 찍기', 'Wear hanbok and take photos at the palace'],
+    route: {
+      title: ['진짜 경복궁에 가 보기', 'Visit the real Gyeongbokgung'],
+      lead: ['조선의 으뜸 궁궐이에요. 근처 한복 대여점에서 한복을 빌려 입고 들어가면 입장료가 무료예요. 정문 앞에서는 수문장 교대식도 볼 수 있어요.', "Joseon's main royal palace. Rent a hanbok at a shop nearby and entry is free while you wear it. You can also watch the gate guard ceremony at the main gate."],
+      steps: [
+        ['<b>지하철</b> · 3호선 경복궁역에서 내려 궁 쪽 출구로 나오면 바로 앞이에요', '<b>Subway</b> · Gyeongbokgung Station (Line 3); take the palace-side exit and it\'s right there'],
+        ['<b>한복</b> · 역 주변과 서촌에 한복 대여점이 많아요. 한복을 입으면 궁궐 입장이 무료예요', '<b>Hanbok</b> · Plenty of rental shops around the station and Seochon. Palace entry is free in hanbok'],
+        ['<b>팁</b> · 화요일은 쉬는 날이에요. 교대식 시간은 방문 전에 확인하세요', '<b>Tip</b> · Closed on Tuesdays. Check the guard ceremony times before you go'],
+      ],
+      map: '경복궁',
     },
   },
   hangang: {

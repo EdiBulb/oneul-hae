@@ -22,6 +22,13 @@ const PAGES = {
     image: 'og-hyangho.png',
     alt: 'A small blue-roofed bus stop with a purple bench on a sandy beach, the sea behind it',
   },
+  gyeongbokgung: {
+    lang: 'en',
+    title: "Gyeongbokgung Palace, Seoul · Today's Sun",
+    desc: "Ride the Seoul subway, step out at Gyeongbokgung, rent a hanbok and take photos in front of the palace gate with people from around the world. No app needed.",
+    image: 'og-gyeongbokgung.png',
+    alt: 'Characters in colorful hanbok in front of a Korean palace gate with guards in red uniforms',
+  },
   hangang: {
     lang: 'en',
     title: "Han River Ramyeon, Seoul · Today's Sun",

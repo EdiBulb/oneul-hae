@@ -231,7 +231,7 @@ export function turnTo(c: Char, ang: number, dt: number) {
 // ---------- 소품 (주문진 사진 자리용) ----------
 // 1: 회색 맨투맨 + 검은 슬랙스, 2: 빨간 목도리, 4: 메밀꽃 다발.
 // 이름 없는 평범한 옷과 소품만 쓰고, 특정 인물의 얼굴·이름은 쓰지 않는다.
-export const OUTFIT = { sweat: 1, scarf: 2, flowers: 4, ramen: 8 } as const;
+export const OUTFIT = { sweat: 1, scarf: 2, flowers: 4, ramen: 8, hanbok: 16 } as const;
 
 /** 메밀꽃 다발: 붉은 줄기 끝에 작고 하얀 꽃송이가 몽글몽글, 크라프트지로 감쌈. 꽃이 위로 오게 세운다 */
 function makeBuckwheat() {
@@ -292,6 +292,14 @@ export function setOutfit(c: Char, mask: number) {
     for (const dx of [-0.012, 0.012]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, 0.26, 4), new THREE.MeshLambertMaterial({ color: 0xc9a46a })); ch.position.set(0.05 + dx, 0.12, 0); ch.rotation.z = -0.5; bowl.add(ch); }
     const bsteam = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }));
     bsteam.name = 'bsteam'; bsteam.position.y = 0.14; bowl.add(bsteam);
+    // 한복: 짧은 저고리 + 고름 + 넓게 퍼지는 긴 치마 (색은 사람마다 다르게)
+    const hb = new THREE.Group(); hb.name = 'hanbok'; hb.visible = false; o.add(hb);
+    const HB = [[0xf6c1cc, 0x3d5aa8], [0xfbe3a1, 0xc8324a], [0xbfe3cf, 0x8a4fb0], [0xcfe0ff, 0xe36a8c], [0xffffff, 0x2f7d6d]];
+    const [top, skirt] = HB[Math.floor(Math.random() * HB.length)];
+    const jeogori = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.37, 0.36, 14), new THREE.MeshLambertMaterial({ color: top })); jeogori.position.y = 0.8; hb.add(jeogori);
+    const collar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.3, 0.03), new THREE.MeshLambertMaterial({ color: 0xffffff })); collar.position.set(0.06, 0.86, -0.34); collar.rotation.z = -0.5; hb.add(collar);
+    const goreum = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.34, 0.02), new THREE.MeshLambertMaterial({ color: skirt })); goreum.position.set(0.1, 0.62, -0.36); goreum.rotation.z = 0.12; hb.add(goreum);
+    const chima = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.62, 0.66, 18, 1, true), new THREE.MeshLambertMaterial({ color: skirt, side: THREE.DoubleSide })); chima.position.y = 0.33; hb.add(chima);
     // 원래 옷 색 기억 (맨투맨을 벗으면 되돌림)
     const firstMesh = (g: THREE.Object3D) => g.children.find(ch => (ch as THREE.Mesh).isMesh) as THREE.Mesh;
     const body = c.inner.children.find(ch => (ch as THREE.Mesh).isMesh) as THREE.Mesh;
@@ -307,6 +315,7 @@ export function setOutfit(c: Char, mask: number) {
   for (const { m, c: orig } of parts.legs) { if (!m.userData.own) { m.material = (m.material as THREE.Material).clone(); m.userData.own = true; } (m.material as THREE.MeshLambertMaterial).color.setHex(sweat ? 0x1b1b21 : orig); }
   o.getObjectByName('hem')!.visible = sweat;
   o.getObjectByName('scarf')!.visible = !!(mask & OUTFIT.scarf);
+  o.getObjectByName('hanbok')!.visible = !!(mask & OUTFIT.hanbok);
   c.armR.getObjectByName('flowers')!.visible = !!(mask & OUTFIT.flowers);
   c.armR.getObjectByName('ramen')!.visible = !!(mask & OUTFIT.ramen);
   o.userData.mask = mask;
