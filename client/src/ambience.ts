@@ -38,6 +38,7 @@ function noiseBuffer(ctx: AudioContext, kind: 'brown' | 'pink', seconds = 6) {
 export function createAmbience() {
   let ctx: AudioContext | null = null;
   let pinkBuf!: AudioBuffer, fxBus!: GainNode, fireRumble!: GainNode, fireLevel = 0;
+  let crowdGain!: GainNode, sizzleGain!: GainNode;
   let seaBus!: GainNode, buskBus!: GainNode, buskLevel = 0, buskTimer = 0, buskStep = 0, seaOn = true;
   let master!: GainNode, windGain!: GainNode, windFilter!: BiquadFilterNode, rainGain!: GainNode, birdBus!: GainNode;
   let on = true, alt = -20;
@@ -61,6 +62,15 @@ export function createAmbience() {
     const brown = noiseBuffer(c, 'brown'), pink = noiseBuffer(c, 'pink');
     seaBus = c.createGain(); seaBus.gain.value = seaOn ? 1 : 0; seaBus.connect(master);
     buskBus = c.createGain(); buskBus.gain.value = 0; buskBus.connect(master);
+    // 시장 웅성거림: 사람 목소리 대역의 잡음을 천천히 출렁이게
+    const crowdBp = c.createBiquadFilter(); crowdBp.type = 'bandpass'; crowdBp.frequency.value = 520; crowdBp.Q.value = 0.8;
+    crowdGain = c.createGain(); crowdGain.gain.value = 0;
+    loop(pink).connect(crowdBp).connect(crowdGain).connect(master);
+    const clfo = c.createOscillator(); clfo.frequency.value = 0.31; const cdep = c.createGain(); cdep.gain.value = 120; clfo.connect(cdep).connect(crowdBp.frequency); clfo.start();
+    // 철판 지글지글: 높은 대역 잡음
+    const sizHp = c.createBiquadFilter(); sizHp.type = 'highpass'; sizHp.frequency.value = 3800;
+    sizzleGain = c.createGain(); sizzleGain.gain.value = 0;
+    loop(pink).connect(sizHp).connect(sizzleGain).connect(master);
 
     // 파도: 두 개의 느린 LFO가 겹쳐서 불규칙한 너울
     const waveLp = c.createBiquadFilter(); waveLp.type = 'lowpass'; waveLp.frequency.value = 480; waveLp.Q.value = 0.4;
@@ -223,6 +233,12 @@ export function createAmbience() {
       if (!ctx || !buskBus) return;
       buskBus.gain.setTargetAtTime(buskLevel * 0.9, ctx.currentTime, 0.4);
       if (buskLevel > 0.01 && !buskTimer && ctx.state === 'running') buskTick();
+    },
+    /** 광장시장: 웅성거림과 철판 소리 (0~1) */
+    setMarket(crowd: number, sizzle: number) {
+      if (!ctx || !crowdGain) return;
+      crowdGain.gain.setTargetAtTime(clamp(crowd, 0, 1) * 0.5, ctx.currentTime, 0.5);
+      sizzleGain.gain.setTargetAtTime(clamp(sizzle, 0, 1) * 0.12, ctx.currentTime, 0.3);
     },
     /** 바다 소리 (서울 시내에서는 끔) */
     setSea(v: boolean) {

@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, setOutfit, outfitOf, showLeftFlowers } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, FOOD, FOOD_MASK, foodBits, foodOf, setOutfit, outfitOf, showLeftFlowers } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL, BINDAE_STALL, TTEOK_CART, STAGE } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL, MARKET_STALLS, TTEOK_CART, STAGE } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
@@ -578,6 +578,12 @@ function loop(t: number) {
   bonfire.update(dt, t, night);
   const fireDist = Math.hypot(me.root.position.x - BONFIRE.x, me.root.position.z - BONFIRE.z);
   amb.setFire(bonfire.level * clamp(1.15 - fireDist / 14, 0, 1));
+  if (place.id === 'gwangjang') {
+    const p = me.root.position, inAlley = p.z < 10 ? 1 : clamp(1 - (p.z - 10) / 8, 0.2, 1);
+    let siz = 0;
+    for (const sl of MARKET_STALLS) if (sl.food === 1 || sl.food === 2 || sl.food === 4 || sl.food === 9) siz = Math.max(siz, clamp(1.2 - Math.hypot(p.x - sl.side * 2.75, p.z - sl.z) / 4, 0, 1));
+    amb.setMarket(inAlley, siz);
+  } else amb.setMarket(0, 0);
   prints.update(dt);
   stones.update(dt);
   castles.update(dt, t);
@@ -1387,7 +1393,7 @@ function applyTerrain(p: Place) {
   $('routeBtn').hidden = !placeRoute(p);
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
   if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
-  if (outfitOf(me) & (OUTFIT.bindae | OUTFIT.tteok)) setSnack(0);
+  if (foodOf(outfitOf(me))) setSnack(0);
 }
 const OUTFIT_BTNS: [string, number][] = [['ofSweat', OUTFIT.sweat], ['ofScarf', OUTFIT.scarf], ['ofFlowers', OUTFIT.flowers]];
 function renderOutfit() { OUTFIT_BTNS.forEach(([id, bit]) => $(id).setAttribute('aria-pressed', String(!!((store.outfit ?? 0) & bit)))); }
@@ -1506,39 +1512,67 @@ $('ramenBtn').onclick = () => {
   setTimeout(() => { ramenCooking = false; if (place.id !== 'hangang') return; setRamen(true); nextBite = 0; toast(T.ramenDone); }, 4000);
 };
 
-// ================= 광장시장 빈대떡 · 명동 떡볶이 =================
-// 가게 앞에서 사면 손에 들고, 걷지 않고 가만히 있으면 몇 초마다 한 입 (앉아도 서도 됨)
-const SNACKS = [
-  { place: 'gwangjang', bit: OUTFIT.bindae, at: BINDAE_STALL, r: 2.0, wait: 3500, btn: () => T.bindaeBtn, cooking: () => T.bindaeCooking, done: () => T.bindaeDone, ate: () => T.bindaeAte },
-  { place: 'myeongdong', bit: OUTFIT.tteok, at: TTEOK_CART, r: 2.1, wait: 2200, btn: () => T.tteokBtn, cooking: () => T.tteokCooking, done: () => T.tteokDone, ate: () => T.tteokAte },
-];
-let snackBuying = false, snackBites = 0, nextSnackBite = 0;
-const snackHere = () => SNACKS.find(s => s.place === place.id);
-function setSnack(bit: number) {
-  const mask = (outfitOf(me) & ~(OUTFIT.bindae | OUTFIT.tteok)) | bit;
+// ================= 시장 음식 (광장시장 12가지 · 명동 떡볶이) =================
+// 가게 앞에 서면 '○○ 사기' → 잠깐 뒤 손에 들고, 걷지 않고 가만히 있으면 몇 초마다 한 입 (앉아도 서도 됨).
+// 다른 가게에서 또 사면 들고 있던 걸 바꿔 듦. 광장시장 12가지를 다 먹으면 도장 완성.
+interface Shop { food: number; x: number; z: number; fx: number; r: number; emoji: string; ko: string; en: string; taste: [string, string]; wait: number }
+const SHOPS: Record<string, Shop[]> = {
+  gwangjang: MARKET_STALLS.map(sl => ({ ...sl, x: sl.side * 1.55, z: sl.z, fx: sl.side * 2.75, r: 1.25 })),
+  myeongdong: [{ food: FOOD.tteokbokki, x: TTEOK_CART.x + 1.4, z: TTEOK_CART.z, fx: TTEOK_CART.x, r: 1.6, emoji: '🌶', ko: '떡볶이', en: 'Tteokbokki', taste: ['매콤달콤!', 'Sweet and spicy!'], wait: 2200 }],
+};
+const MARKET_FOODS = MARKET_STALLS.length;
+let buying = false, snackBites = 0, nextSnackBite = 0, nearShop: Shop | null = null;
+const foodName = (s: Shop) => (lang === 'ko' ? s.ko : s.en);
+function setSnack(food: number) {
+  const mask = (outfitOf(me) & ~FOOD_MASK) | foodBits(food);
   setOutfit(me, mask);
   if (connected) net.emit('outfit', mask);
   snackBites = 0;
 }
-function updateSnack(t: number) {
-  const s = snackHere(), b = $('snackBtn');
-  const holding = !!(outfitOf(me) & (OUTFIT.bindae | OUTFIT.tteok));
-  const near = !!s && !snackBuying && !holding && Math.hypot(me.root.position.x - s.at.x, me.root.position.z - s.at.z) < s.r;
-  if (b.hidden === near) b.hidden = !near;
-  if (near && b.textContent !== s!.btn()) b.textContent = s!.btn();
-  if (holding && s && me.state !== 'walk' && !me.emote && t > nextSnackBite) {
-    nextSnackBite = t + 3200;
-    me.emote = 'eat'; me.emoteT = 0; if (connected) net.emit('emote', 'eat');
-    if (++snackBites >= 6) { setTimeout(() => { setSnack(0); toast(s.ate()); track('snack_eaten', { place: place.id }); }, 1600); nextSnackBite = t + 1e9; }
+function shopNear(): Shop | null {
+  let best: Shop | null = null, bd = Infinity;
+  for (const s of SHOPS[place.id] ?? []) {
+    const d = Math.hypot(me.root.position.x - s.x, (me.root.position.z - s.z) * 0.8);
+    if (d < s.r && d < bd) { best = s; bd = d; }
   }
+  return best;
+}
+function updateSnack(t: number) {
+  const b = $('snackBtn'), held = foodOf(outfitOf(me));
+  nearShop = buying ? null : shopNear();
+  const show = !!nearShop && nearShop.food !== held;
+  if (b.hidden === show) b.hidden = !show;
+  if (show) { const txt = T.buyFood(nearShop!.emoji, foodName(nearShop!)); if (b.textContent !== txt) b.textContent = txt; }
+  if (!held || me.state === 'walk' || me.emote || t < nextSnackBite) return;
+  const shop = (SHOPS[place.id] ?? []).find(s => s.food === held);
+  if (!shop) return;
+  nextSnackBite = t + 3200;
+  me.emote = 'eat'; me.emoteT = 0; if (connected) net.emit('emote', 'eat');
+  if (++snackBites < 6) return;
+  nextSnackBite = t + 1e9;
+  setTimeout(() => {
+    setSnack(0);
+    toast(T.foodAte(shop.emoji, shop.taste[lang === 'ko' ? 0 : 1]));
+    track('snack_eaten', { place: place.id, food: shop.food });
+    if (place.id !== 'gwangjang') return;
+    const got = new Set(store.foods ?? []); const before = got.size; got.add(shop.food);
+    store.foods = [...got]; save();
+    if (got.size > before) setTimeout(() => toast(got.size === MARKET_FOODS ? T.stampAll(MARKET_FOODS) : T.stamp(got.size, MARKET_FOODS)), 2600);
+    if (got.size === MARKET_FOODS && before < MARKET_FOODS) { life.heartBurst(0); track('market_complete'); }
+  }, 1600);
 }
 $('snackBtn').onclick = () => {
-  const s = snackHere(); if (!s) return;
-  snackBuying = true; $('snackBtn').hidden = true;
-  toast(s.cooking());
-  turnTo(me, Math.atan2(-(s.at.x - me.root.position.x), -(s.at.z - me.root.position.z)), 1);
-  track('snack_buy', { place: place.id });
-  setTimeout(() => { snackBuying = false; if (place.id !== s.place) return; setSnack(s.bit); nextSnackBite = performance.now() + 1500; toast(s.done()); }, s.wait);
+  const s = nearShop; if (!s) return;
+  buying = true; $('snackBtn').hidden = true;
+  toast(T.foodCooking(s.emoji, foodName(s)));
+  turnTo(me, Math.atan2(-(s.fx - me.root.position.x), -(s.z - me.root.position.z)), 1);
+  track('snack_buy', { place: place.id, food: s.food });
+  const here = place.id;
+  setTimeout(() => {
+    buying = false; if (place.id !== here) return;
+    setSnack(s.food); nextSnackBite = performance.now() + 1500;
+    toast(T.foodDone(s.emoji, foodName(s)));
+  }, s.wait);
 };
 
 // ================= 홍대 버스킹 =================
@@ -1668,4 +1702,4 @@ $('hanbokBtn').onclick = () => {
   track('hanbok', { on });
 };
 
-Object.assign(window, { __hae: { metro: () => openMetro(), bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { meState: () => [me.state, me.emote, foodOf(outfitOf(me)), snackBites, nextSnackBite, performance.now()], metro: () => openMetro(), bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

@@ -219,9 +219,14 @@ export function animChar(c: Char, dt: number) {
   c.legR.rotation.x += (lR - c.legR.rotation.x) * e;
   c.inner.position.y += (y - c.inner.position.y) * e;
   // 꽃다발은 팔이 어떻게 움직여도 꽃이 위로 오게
-  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL'], [c.armR, 'ramen'], [c.armR, 'bindae'], [c.armR, 'tteok']] as const) {
+  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL'], [c.armR, 'ramen'], [c.armR, 'food']] as const) {
     const f = arm.getObjectByName(name);
     if (f?.visible) { f.rotation.x = -arm.rotation.x; f.rotation.z = -arm.rotation.z; }
+  }
+  const fs = c.armR.getObjectByName('food');
+  if (fs?.visible) for (const ch of fs.children) if (ch.visible && ch.userData.steam) {
+    const sm = ch.userData.steam as THREE.Mesh, k = (c.phase * 0.5) % 1;
+    sm.position.y = 0.14 + k * 0.2; sm.scale.setScalar(0.7 + k); (sm.material as THREE.MeshBasicMaterial).opacity = 0.3 * (1 - k);
   }
   const bs = c.armR.getObjectByName('bsteam') as THREE.Mesh | undefined;
   if (bs?.parent?.visible) { const k = (c.phase * 0.5) % 1; bs.position.y = 0.14 + k * 0.2; bs.scale.setScalar(0.7 + k); (bs.material as THREE.MeshBasicMaterial).opacity = 0.3 * (1 - k); }
@@ -241,10 +246,14 @@ export function turnTo(c: Char, ang: number, dt: number) {
 // ---------- 소품 (주문진 사진 자리용) ----------
 // 1: 회색 맨투맨 + 검은 슬랙스, 2: 빨간 목도리, 4: 메밀꽃 다발.
 // 이름 없는 평범한 옷과 소품만 쓰고, 특정 인물의 얼굴·이름은 쓰지 않는다.
-export const OUTFIT = { sweat: 1, scarf: 2, flowers: 4, ramen: 8, hanbok: 16, bindae: 32, tteok: 64 } as const;
+export const OUTFIT = { sweat: 1, scarf: 2, flowers: 4, ramen: 8, hanbok: 16 } as const;
+/** 손에 든 시장 음식: 32~480 자리(4비트)에 음식 번호 1~15 */
+export const FOOD_MASK = 15 << 5;
+export const foodBits = (id: number) => (id & 15) << 5;
+export const foodOf = (mask: number) => (mask >> 5) & 15;
 /** 손에 드는 먹을거리 (그 장소를 떠나면 내려놓음) */
-export const HELD = OUTFIT.ramen | OUTFIT.bindae | OUTFIT.tteok;
-const FOODS = ['ramen', 'bindae', 'tteok'];
+export const HELD = OUTFIT.ramen | FOOD_MASK;
+const FOODS = ['ramen', 'food'];
 
 /** 메밀꽃 다발: 붉은 줄기 끝에 작고 하얀 꽃송이가 몽글몽글, 크라프트지로 감쌈. 꽃이 위로 오게 세운다 */
 function makeBuckwheat() {
@@ -278,6 +287,119 @@ function makeBuckwheat() {
   return g;
 }
 
+
+/** 시장 음식 12가지 (번호는 beach-extras MARKET_STALLS의 food와 같음) */
+export const FOOD = { bindae: 1, tteokbokki: 2, gimbap: 3, jeon: 4, kalguksu: 5, yukhoe: 6, sundae: 7, kkultteok: 8, kkwabaegi: 9, sikhye: 10, japchae: 11, eomuk: 12 } as const;
+const lm = (c: number, extra: Partial<THREE.MeshLambertMaterialParameters> = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
+function mesh(g: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D) {
+  const o = new THREE.Mesh(g, m); o.position.set(x, y, z); parent.add(o); return o;
+}
+function buildFoods(arm: THREE.Object3D) {
+  const root = new THREE.Group(); root.name = 'food'; root.position.set(0, -0.46, -0.08); root.visible = false; arm.add(root);
+  const plateG = new THREE.CylinderGeometry(0.16, 0.13, 0.025, 16), white = lm(0xf5f3ee);
+  const sticks = (p: THREE.Object3D, x = 0.1) => { for (const dx of [-0.012, 0.012]) { const ch = mesh(new THREE.CylinderGeometry(0.005, 0.006, 0.24, 4), lm(0xc9a46a), x + dx, 0.06, 0, p); ch.rotation.z = -1.2; } };
+  const steam = (p: THREE.Object3D) => {
+    const sm = mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }), 0, 0.14, 0, p);
+    p.userData.steam = sm;
+  };
+  const make = (id: number, fn: (p: THREE.Group) => void) => { const p = new THREE.Group(); p.userData.id = id; p.visible = false; fn(p); root.add(p); };
+  // 1 빈대떡: 접시 위 노릇한 전
+  make(1, p => {
+    mesh(plateG, white, 0, 0, 0, p);
+    mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.03, 14), lm(0xd49a3c), 0, 0.03, 0, p);
+    for (let k = 0; k < 5; k++) mesh(new THREE.BoxGeometry(0.03, 0.012, 0.03), lm(k % 2 ? 0x6aa35a : 0xa8432c), Math.cos(k * 1.3) * 0.06, 0.05, Math.sin(k * 1.3) * 0.06, p);
+    sticks(p); steam(p);
+  });
+  // 2 떡볶이: 종이컵 + 빨간 떡 + 꼬치
+  make(2, p => {
+    mesh(new THREE.CylinderGeometry(0.085, 0.06, 0.13, 12), white, 0, 0, 0, p);
+    const sc = mesh(new THREE.CircleGeometry(0.08, 12), lm(0xd8341f), 0, 0.066, 0, p); sc.rotation.x = -Math.PI / 2;
+    for (let k = 0; k < 4; k++) { const r = mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.07, 6), lm(0xe0582c), (k % 2 - 0.5) * 0.06, 0.08, (k < 2 ? -1 : 1) * 0.025, p); r.rotation.z = Math.PI / 2 + k; }
+    const pk = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 4), lm(0xe9d3a8), 0.03, 0.15, 0, p); pk.rotation.z = -0.3;
+  });
+  // 3 마약김밥: 작은 김밥 6개 + 겨자 소스 종지
+  make(3, p => {
+    mesh(plateG, white, 0, 0, 0, p);
+    for (let k = 0; k < 6; k++) {
+      const x = (k % 3 - 1) * 0.06, z = (k < 3 ? -0.035 : 0.035) - 0.02;
+      const r = mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.09, 8), lm(0x1d2a21), x, 0.03, z, p); r.rotation.x = Math.PI / 2;
+      const f = mesh(new THREE.CircleGeometry(0.018, 8), lm(0xf6f0de), x, 0.03, z + 0.046, p); void f;
+    }
+    mesh(new THREE.CylinderGeometry(0.035, 0.028, 0.025, 10), white, 0.08, 0.025, 0.08, p);
+    mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.005, 10), lm(0xe8c23a), 0.08, 0.04, 0.08, p);
+  });
+  // 4 모둠전: 노랑·초록·주황 전
+  make(4, p => {
+    mesh(plateG, white, 0, 0, 0, p);
+    [[0xe2b54a, -0.05, -0.03], [0x7fb25a, 0.05, -0.02], [0xd9822f, 0, 0.05], [0xe8cf7a, 0.06, 0.07]].forEach(([c, x, z]) => {
+      const j = mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 10), lm(c), x, 0.025, z, p); j.scale.z = 0.7;
+    });
+    sticks(p);
+  });
+  // 5 칼국수: 스테인리스 그릇 + 면 + 호박
+  make(5, p => {
+    mesh(new THREE.CylinderGeometry(0.12, 0.08, 0.08, 16), lm(0xb9bec4), 0, 0, 0, p);
+    const br = mesh(new THREE.CircleGeometry(0.11, 14), lm(0xe9dcc0), 0, 0.041, 0, p); br.rotation.x = -Math.PI / 2;
+    for (let k = 0; k < 7; k++) { const n = mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8), lm(0xf4ecd6), (k % 4 - 1.5) * 0.04, 0.045, (k < 4 ? -1 : 1) * 0.03, p); n.rotation.x = Math.PI / 2; }
+    for (let k = 0; k < 3; k++) mesh(new THREE.BoxGeometry(0.03, 0.01, 0.015), lm(0x6aa35a), -0.04 + k * 0.04, 0.05, 0.06, p);
+    sticks(p, 0.12); steam(p);
+  });
+  // 6 육회: 붉은 고기 + 노른자 + 배채
+  make(6, p => {
+    mesh(plateG, white, 0, 0, 0, p);
+    for (let k = 0; k < 6; k++) mesh(new THREE.BoxGeometry(0.01, 0.01, 0.07), lm(0xf6f1d6), -0.08 + k * 0.032, 0.02, 0.06, p);
+    const m = mesh(new THREE.SphereGeometry(0.07, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), lm(0xb32a36), 0, 0.012, -0.02, p); m.scale.y = 0.6;
+    mesh(new THREE.SphereGeometry(0.025, 10, 8), lm(0xf2b632), 0, 0.055, -0.02, p);
+    for (let k = 0; k < 6; k++) mesh(new THREE.SphereGeometry(0.006, 4, 4), lm(0xf7f2e0), Math.cos(k) * 0.04, 0.05, -0.02 + Math.sin(k) * 0.04, p);
+  });
+  // 7 순대: 썬 순대 + 간
+  make(7, p => {
+    mesh(plateG, white, 0, 0, 0, p);
+    for (let k = 0; k < 7; k++) { const r = mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 10), lm(0x3a2626), -0.075 + k * 0.025, 0.03, -0.02, p); r.rotation.z = Math.PI / 2 - 0.4; }
+    for (let k = 0; k < 3; k++) mesh(new THREE.BoxGeometry(0.035, 0.02, 0.03), lm(0x6b3a2a), -0.05 + k * 0.05, 0.025, 0.06, p);
+    mesh(new THREE.CylinderGeometry(0.025, 0.02, 0.015, 8), lm(0xc49a6c), 0.09, 0.02, 0.07, p);
+  });
+  // 8 꿀떡: 알록달록 동그란 떡
+  make(8, p => {
+    mesh(plateG, white, 0, 0, 0, p);
+    const cols = [0xf6b5c8, 0xffffff, 0xa9d98a, 0xf4e18a];
+    for (let k = 0; k < 9; k++) mesh(new THREE.SphereGeometry(0.028, 10, 8), lm(cols[k % 4]), (k % 3 - 1) * 0.06, 0.035, (Math.floor(k / 3) - 1) * 0.06, p);
+    const pk = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.16, 4), lm(0xe9d3a8), 0.04, 0.1, 0, p); pk.rotation.z = -0.4;
+  });
+  // 9 꽈배기: 꼬인 도넛을 종이에 싸서
+  make(9, p => {
+    const paper = mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.1, 8, 1, true), new THREE.MeshLambertMaterial({ color: 0xf2ead8, side: THREE.DoubleSide }), 0, 0, 0, p); void paper;
+    const tw = new THREE.Group(); tw.position.y = 0.12; p.add(tw);
+    for (let k = 0; k < 2; k++) {
+      const strand = mesh(new THREE.TorusKnotGeometry(0.03, 0.016, 32, 6, 2, 1 + k), lm(0xd59a45), 0, 0, 0, tw);
+      strand.scale.set(0.9, 2.4, 0.9);
+    }
+    for (let k = 0; k < 10; k++) mesh(new THREE.BoxGeometry(0.006, 0.006, 0.006), lm(0xffffff), Math.cos(k * 2.1) * 0.035, 0.05 + (k % 5) * 0.03, Math.sin(k * 2.1) * 0.035, p);
+  });
+  // 10 식혜: 투명 컵 + 쌀알 + 빨대
+  make(10, p => {
+    mesh(new THREE.CylinderGeometry(0.06, 0.045, 0.14, 12), new THREE.MeshLambertMaterial({ color: 0xdfeef8, transparent: true, opacity: 0.45 }), 0, 0.02, 0, p);
+    mesh(new THREE.CylinderGeometry(0.055, 0.042, 0.1, 12), lm(0xf0e3c2), 0, 0, 0, p);
+    for (let k = 0; k < 8; k++) mesh(new THREE.SphereGeometry(0.006, 4, 4), lm(0xffffff), Math.cos(k * 0.8) * 0.03, 0.052, Math.sin(k * 0.8) * 0.03, p);
+    const straw = mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.22, 6), lm(0xe8455a), 0.015, 0.12, 0, p); straw.rotation.z = -0.25;
+  });
+  // 11 잡채: 반짝이는 당면 + 당근·시금치
+  make(11, p => {
+    mesh(plateG, white, 0, 0, 0, p);
+    for (let k = 0; k < 10; k++) { const n = mesh(new THREE.TorusGeometry(0.035 + (k % 3) * 0.012, 0.005, 4, 12), lm(0x8a5a35), Math.cos(k) * 0.03, 0.025 + (k % 2) * 0.008, Math.sin(k) * 0.03, p); n.rotation.x = Math.PI / 2 + (k % 3 - 1) * 0.3; }
+    for (let k = 0; k < 6; k++) mesh(new THREE.BoxGeometry(0.03, 0.008, 0.008), lm(k % 2 ? 0xe5772c : 0x3e8a3a), Math.cos(k * 1.7) * 0.06, 0.04, Math.sin(k * 1.7) * 0.06, p);
+    sticks(p);
+  });
+  // 12 어묵: 종이컵 국물 + 꼬치에 접힌 어묵
+  make(12, p => {
+    mesh(new THREE.CylinderGeometry(0.075, 0.055, 0.1, 12), white, 0, 0, 0, p);
+    const br = mesh(new THREE.CircleGeometry(0.07, 12), lm(0xd9b07a), 0, 0.051, 0, p); br.rotation.x = -Math.PI / 2;
+    const stick = mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.32, 4), lm(0xe9d3a8), 0, 0.12, 0, p); void stick;
+    for (let k = 0; k < 4; k++) { const f = mesh(new THREE.BoxGeometry(0.07, 0.035, 0.012), lm(0xd99a55), 0, 0.12 + k * 0.035, 0, p); f.rotation.y = (k % 2 ? 1 : -1) * 0.5; }
+    steam(p);
+  });
+}
+
 export function setOutfit(c: Char, mask: number) {
   let o = c.inner.getObjectByName('outfit') as THREE.Group | undefined;
   if (!o) {
@@ -305,18 +427,7 @@ export function setOutfit(c: Char, mask: number) {
     for (const dx of [-0.012, 0.012]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, 0.26, 4), new THREE.MeshLambertMaterial({ color: 0xc9a46a })); ch.position.set(0.05 + dx, 0.12, 0); ch.rotation.z = -0.5; bowl.add(ch); }
     const bsteam = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }));
     bsteam.name = 'bsteam'; bsteam.position.y = 0.14; bowl.add(bsteam);
-    // 빈대떡: 하얀 접시 위 노릇한 전 + 나무젓가락
-    const plate = new THREE.Group(); plate.name = 'bindae'; plate.position.set(0, -0.46, -0.08); plate.visible = false; c.armR.add(plate);
-    plate.add(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.025, 16), new THREE.MeshLambertMaterial({ color: 0xf5f3ee })));
-    const cake = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.03, 14), new THREE.MeshLambertMaterial({ color: 0xd49a3c })); cake.position.y = 0.03; plate.add(cake);
-    for (let k = 0; k < 4; k++) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.03), new THREE.MeshLambertMaterial({ color: k % 2 ? 0x6aa35a : 0xa8432c })); d.position.set(Math.cos(k * 1.6) * 0.06, 0.05, Math.sin(k * 1.6) * 0.06); plate.add(d); }
-    for (const dx of [-0.012, 0.012]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, 0.24, 4), new THREE.MeshLambertMaterial({ color: 0xc9a46a })); ch.position.set(0.1 + dx, 0.06, 0); ch.rotation.z = -1.2; plate.add(ch); }
-    // 떡볶이: 종이컵에 빨간 떡 + 꼬치
-    const cup = new THREE.Group(); cup.name = 'tteok'; cup.position.set(0, -0.46, -0.06); cup.visible = false; c.armR.add(cup);
-    cup.add(new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.06, 0.13, 12), new THREE.MeshLambertMaterial({ color: 0xffffff })));
-    const sauce = new THREE.Mesh(new THREE.CircleGeometry(0.08, 12), new THREE.MeshLambertMaterial({ color: 0xd8341f })); sauce.rotation.x = -Math.PI / 2; sauce.position.y = 0.066; cup.add(sauce);
-    for (let k = 0; k < 4; k++) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.07, 6), new THREE.MeshLambertMaterial({ color: 0xe0582c })); r.rotation.z = Math.PI / 2 + k; r.position.set((k % 2 - 0.5) * 0.06, 0.08, (k < 2 ? -1 : 1) * 0.025); cup.add(r); }
-    const pick = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 4), new THREE.MeshLambertMaterial({ color: 0xe9d3a8 })); pick.position.set(0.03, 0.15, 0); pick.rotation.z = -0.3; cup.add(pick);
+    buildFoods(c.armR);
     // 한복: 짧은 저고리 + 고름 + 넓게 퍼지는 긴 치마 (색은 사람마다 다르게)
     const hb = new THREE.Group(); hb.name = 'hanbok'; hb.visible = false; o.add(hb);
     const HB = [[0xf6c1cc, 0x3d5aa8], [0xfbe3a1, 0xc8324a], [0xbfe3cf, 0x8a4fb0], [0xcfe0ff, 0xe36a8c], [0xffffff, 0x2f7d6d]];
@@ -343,8 +454,9 @@ export function setOutfit(c: Char, mask: number) {
   o.getObjectByName('hanbok')!.visible = !!(mask & OUTFIT.hanbok);
   c.armR.getObjectByName('flowers')!.visible = !!(mask & OUTFIT.flowers);
   c.armR.getObjectByName('ramen')!.visible = !!(mask & OUTFIT.ramen);
-  c.armR.getObjectByName('bindae')!.visible = !!(mask & OUTFIT.bindae);
-  c.armR.getObjectByName('tteok')!.visible = !!(mask & OUTFIT.tteok);
+  const fid = foodOf(mask), fg = c.armR.getObjectByName('food')!;
+  fg.visible = fid > 0;
+  for (const ch of fg.children) ch.visible = ch.userData.id === fid;
   o.userData.mask = mask;
 }
 export const outfitOf = (c: Char) => ((c.inner.getObjectByName('outfit')?.userData.mask as number) ?? 0);

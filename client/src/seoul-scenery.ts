@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BINDAE_STALL, CARTS, MARKET, MYEONGDONG, STAGE } from './beach-extras';
+import { CARTS, MARKET, MARKET_STALLS, MYEONGDONG, STAGE } from './beach-extras';
 import { textSprite } from './character';
 
 // 서울 지하철역 장소들: 광장시장(종로5가), 명동, 홍대입구
@@ -88,11 +88,139 @@ function animSteam(list: { s: THREE.Sprite; y: number; ph: number }[], t: number
 }
 
 // ---------- 광장시장 (종로5가) ----------
-// 반투명 아치 지붕이 덮인 먹자골목. 양옆으로 노점, 왼쪽 가운데가 빈대떡 가게(앞에 동그란 의자 4개)
+// 반투명 아치 지붕이 덮인 먹자골목. 양옆 노점 12곳마다 간판·메뉴판·조명·의자, 음식은 가게마다 다름.
+/** 두 줄 간판: 위 한국어 크게, 아래 영어 작게 */
+function sign2(ko: string, en: string, bg: string, fg: string, w: number, h: number) {
+  const c = document.createElement('canvas'); c.width = Math.round(256 * w / h); c.height = 256;
+  const g = c.getContext('2d')!;
+  g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height);
+  g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 8; g.strokeRect(12, 12, c.width - 24, c.height - 24);
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+  let size = 130; g.font = `900 ${size}px "Noto Sans KR", sans-serif`;
+  while (g.measureText(ko).width > c.width - 70 && size > 40) { size -= 6; g.font = `900 ${size}px "Noto Sans KR", sans-serif`; }
+  g.fillText(ko, c.width / 2, 100);
+  g.font = '700 54px "Noto Sans KR", sans-serif'; g.globalAlpha = 0.9; g.fillText(en, c.width / 2, 200);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
+}
+/** 칠판 메뉴판 */
+function menuBoard(lines: string[]) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 320;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#6b4a2c'; g.fillRect(0, 0, 256, 320);
+  g.fillStyle = '#23372c'; g.fillRect(14, 14, 228, 292);
+  g.fillStyle = '#f3efe2'; g.textAlign = 'center';
+  g.font = '800 40px "Noto Sans KR", sans-serif'; g.fillText('메뉴', 128, 66);
+  g.fillStyle = 'rgba(243,239,226,.5)'; g.fillRect(50, 84, 156, 3);
+  g.fillStyle = '#f3efe2'; g.font = '700 34px "Noto Sans KR", sans-serif';
+  lines.forEach((l, i) => g.fillText(l, 128, 140 + i * 58));
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.0), new THREE.MeshLambertMaterial({ map: tex }));
+}
+const hex = (n: number) => '#' + n.toString(16).padStart(6, '0');
+/** 가게 카운터 위 음식 진열 (가게 좌표계: x는 골목 쪽이 -side, 카운터 윗면 y=0.95) */
+function counterFood(food: number, s: THREE.Group, side: number, GLOW: THREE.Texture, steam: ReturnType<typeof steamPuffs>, world: THREE.Object3D, wx: number, wz: number) {
+  const top = 0.95, x0 = 0.05 * side;
+  const tray = (c: number, w = 0.8, d = 0.9, z = 0) => box(w, 0.05, d, M(c), x0, top + 0.025, z, s);
+  const puff = (z: number, n = 2, y = 0.25) => steam.push(...steamPuffs(world, GLOW, wx, top + y, wz + z, n));
+  switch (food) {
+    case 1: { // 빈대떡 철판
+      box(0.9, 0.06, 1.6, M(0x2a2725), x0, top + 0.03, -0.3, s);
+      for (let i = 0; i < 4; i++) cyl(0.2, 0.2, 0.04, M(0xd9a441), x0 + (i % 2 - 0.5) * 0.4, top + 0.08, -0.85 + Math.floor(i / 2) * 0.5, s, 16);
+      cyl(0.18, 0.16, 0.3, M(0xb8b2a6), x0, top + 0.15, 0.85, s, 14); // 녹두 반죽 통
+      cyl(0.16, 0.16, 0.02, M(0xe4d18a), x0, top + 0.31, 0.85, s, 14);
+      puff(-0.5, 3); break;
+    }
+    case 2: { // 떡볶이 큰 철판
+      box(0.9, 0.12, 1.4, M(0x2f2f2f), x0, top + 0.06, -0.2, s);
+      box(0.82, 0.03, 1.3, M(0xd8401f), x0, top + 0.12, -0.2, s);
+      for (let i = 0; i < 22; i++) { const r = cyl(0.03, 0.03, 0.16, M(0xf2d9c4), x0 - 0.3 + (i % 5) * 0.15, top + 0.15, -0.75 + Math.floor(i / 5) * 0.28, s, 6); r.rotation.z = Math.PI / 2; r.rotation.y = i; }
+      tray(0xf0d58a, 0.6, 0.5, 0.75); for (let i = 0; i < 6; i++) box(0.12, 0.06, 0.16, M(0xd9a23f), x0 - 0.15 + (i % 3) * 0.15, top + 0.08, 0.65 + Math.floor(i / 3) * 0.2, s);
+      puff(-0.2); break;
+    }
+    case 3: { // 마약김밥 산더미
+      tray(0xe9e2d3, 0.8, 1.6);
+      for (let i = 0; i < 40; i++) { const r = cyl(0.04, 0.04, 0.1, M(0x1d2a21), x0 - 0.28 + (i % 6) * 0.11, top + 0.08 + Math.floor(i / 24) * 0.07, -0.6 + (Math.floor(i / 6) % 4) * 0.36, s, 8); r.rotation.x = Math.PI / 2; }
+      for (const z of [0.55, 0.75]) { cyl(0.06, 0.05, 0.04, M(0xffffff), x0, top + 0.05, z + 0.1, s, 10); cyl(0.05, 0.05, 0.01, M(0xe8c23a), x0, top + 0.075, z + 0.1, s, 10); }
+      break;
+    }
+    case 4: { // 모둠전 진열대
+      tray(0xd7cbb2, 0.85, 1.9);
+      const cols = [0xe2b54a, 0x7fb25a, 0xd9822f, 0xe8cf7a, 0xc95b3a];
+      for (let i = 0; i < 25; i++) { const j = cyl(0.07, 0.07, 0.03, M(cols[i % 5]), x0 - 0.3 + (i % 5) * 0.15, top + 0.07 + (i % 2) * 0.02, -0.8 + Math.floor(i / 5) * 0.4, s, 10); j.scale.z = 0.75; }
+      break;
+    }
+    case 5: { // 칼국수: 큰 솥 + 반죽 밀대
+      cyl(0.32, 0.3, 0.45, M(0xa8acb0), x0, top + 0.22, -0.5, s, 18);
+      cyl(0.3, 0.3, 0.02, M(0xe8dcbf), x0, top + 0.44, -0.5, s, 18);
+      box(0.7, 0.04, 0.8, M(0xcfb58a), x0, top + 0.02, 0.5, s);
+      box(0.5, 0.03, 0.5, M(0xf2ebd8), x0, top + 0.055, 0.5, s);
+      const pin = cyl(0.03, 0.03, 0.6, M(0xb68c58), x0, top + 0.1, 0.5, s, 8); pin.rotation.x = Math.PI / 2;
+      puff(-0.5, 3, 0.5); break;
+    }
+    case 6: { // 육회 접시들
+      for (let i = 0; i < 4; i++) {
+        const z = -0.9 + i * 0.6;
+        cyl(0.2, 0.16, 0.03, M(0xffffff), x0, top + 0.02, z, s, 16);
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), M(0xb32a36)); m.scale.y = 0.6; m.position.set(x0, top + 0.035, z); s.add(m);
+        const y = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), M(0xf2b632)); y.position.set(x0, top + 0.1, z); s.add(y);
+      }
+      break;
+    }
+    case 7: { // 순대 찜기
+      cyl(0.35, 0.35, 0.3, M(0x8d9298), x0, top + 0.15, -0.4, s, 18);
+      for (let i = 0; i < 3; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.22 - i * 0.07, 0.04, 8, 20), M(0x3a2626)); t.rotation.x = Math.PI / 2; t.position.set(x0, top + 0.33, -0.4); s.add(t); }
+      box(0.6, 0.04, 0.5, M(0xcfb58a), x0, top + 0.02, 0.6, s);
+      for (let i = 0; i < 6; i++) { const r = cyl(0.04, 0.04, 0.03, M(0x3a2626), x0 - 0.15 + i * 0.06, top + 0.06, 0.6, s, 10); r.rotation.z = Math.PI / 2; }
+      puff(-0.4, 3, 0.4); break;
+    }
+    case 8: { // 꿀떡·인절미 쟁반
+      const cols = [0xf6b5c8, 0xffffff, 0xa9d98a, 0xf4e18a];
+      for (let t = 0; t < 3; t++) {
+        const z = -0.8 + t * 0.8; box(0.7, 0.04, 0.65, M(0x8a6a44), x0, top + 0.02, z, s);
+        for (let i = 0; i < 16; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), M(t === 1 ? 0xd9bf7a : cols[(i + t) % 4])); b.position.set(x0 - 0.22 + (i % 4) * 0.15, top + 0.08, z - 0.22 + Math.floor(i / 4) * 0.15); if (t === 1) b.scale.set(1.3, 0.7, 1); s.add(b); }
+      }
+      break;
+    }
+    case 9: { // 꽈배기 쟁반 + 튀김 냄비
+      box(0.75, 0.04, 1.0, M(0xe8dcc0), x0, top + 0.02, -0.4, s);
+      for (let i = 0; i < 10; i++) { const k = new THREE.Mesh(new THREE.TorusKnotGeometry(0.05, 0.025, 32, 6, 2, 3), M(0xd59a45)); k.scale.set(0.8, 0.8, 2.2); k.rotation.x = Math.PI / 2; k.position.set(x0 - 0.22 + (i % 4) * 0.15, top + 0.08, -0.8 + Math.floor(i / 4) * 0.3); s.add(k); }
+      cyl(0.28, 0.25, 0.25, M(0x333333), x0, top + 0.12, 0.6, s, 16); cyl(0.26, 0.26, 0.02, M(0xc9902a), x0, top + 0.24, 0.6, s, 16);
+      puff(0.6, 2, 0.35); break;
+    }
+    case 10: { // 식혜 냉장 진열장
+      box(0.8, 0.8, 1.2, M(0xd8eef8, { transparent: true, opacity: 0.35 }), x0, top + 0.4, -0.2, s);
+      for (let i = 0; i < 12; i++) { cyl(0.06, 0.05, 0.15, M(i % 3 === 2 ? 0x8a4a2a : 0xf0e3c2), x0 - 0.2 + (i % 3) * 0.2, top + 0.1 + Math.floor(i / 6) * 0.35, -0.6 + (Math.floor(i / 3) % 2) * 0.35, s, 10); }
+      cyl(0.2, 0.2, 0.5, M(0xb9bec4), x0, top + 0.25, 0.75, s, 14); // 식혜 통
+      break;
+    }
+    case 11: { // 잡채 큰 쟁반
+      cyl(0.45, 0.42, 0.06, M(0xc0c4c8), x0, top + 0.03, -0.3, s, 20);
+      for (let i = 0; i < 30; i++) { const n = new THREE.Mesh(new THREE.TorusGeometry(0.08 + (i % 4) * 0.05, 0.008, 4, 16), M(0x8a5a35)); n.rotation.x = Math.PI / 2 + (i % 3 - 1) * 0.2; n.position.set(x0 + Math.cos(i) * 0.15, top + 0.08 + (i % 3) * 0.015, -0.3 + Math.sin(i) * 0.15); s.add(n); }
+      for (let i = 0; i < 14; i++) box(0.06, 0.012, 0.012, M(i % 2 ? 0xe5772c : 0x3e8a3a), x0 + Math.cos(i * 1.7) * 0.25, top + 0.12, -0.3 + Math.sin(i * 1.7) * 0.25, s);
+      box(0.6, 0.06, 0.5, M(0x6b3a22), x0, top + 0.03, 0.7, s); // 떡갈비
+      break;
+    }
+    case 12: { // 어묵 국물 통
+      box(0.8, 0.2, 1.5, M(0x9aa0a6), x0, top + 0.1, -0.1, s);
+      box(0.72, 0.02, 1.42, M(0xd9b07a), x0, top + 0.19, -0.1, s);
+      for (let i = 0; i < 14; i++) {
+        const z = -0.7 + (i % 7) * 0.2, x = x0 + (i < 7 ? -0.15 : 0.15);
+        const st = cyl(0.008, 0.008, 0.5, M(0xe9d3a8), x, top + 0.35, z, s, 4); st.rotation.z = (i < 7 ? 1 : -1) * 0.5;
+        const f = box(0.12, 0.05, 0.02, M(0xd99a55), x - (i < 7 ? 1 : -1) * 0.06, top + 0.25, z, s); f.rotation.z = (i < 7 ? 1 : -1) * 0.5;
+      }
+      puff(-0.1, 3, 0.3); break;
+    }
+  }
+}
 function market(scene: THREE.Scene, GLOW: THREE.Texture) {
   const g = new THREE.Group(); scene.add(g);
   farGround(g, 0x6f6a62);
   const L = MARKET.front - MARKET.back, zc = (MARKET.front + MARKET.back) / 2;
+  // 바닥: 젖은 듯한 타일 줄 + 가운데 배수로
+  for (let z = MARKET.back; z < MARKET.front; z += 1.0) { const l = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.03), M(0x6a655d)); l.rotation.x = -Math.PI / 2; l.position.set(0, 0.015, z); g.add(l); }
+  const drain = new THREE.Mesh(new THREE.PlaneGeometry(0.3, L), M(0x3e3b37)); drain.rotation.x = -Math.PI / 2; drain.position.set(0, 0.018, zc); g.add(drain);
+  for (let z = MARKET.back; z < MARKET.front; z += 0.25) { const gr = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.04), M(0x5c5852)); gr.rotation.x = -Math.PI / 2; gr.position.set(0, 0.02, z); g.add(gr); }
   // 아치 지붕과 철골
   const roof = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, L, 24, 1, true, -Math.PI / 2, Math.PI),
     M(0xdfe8e0, { transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
@@ -101,77 +229,89 @@ function market(scene: THREE.Scene, GLOW: THREE.Texture) {
   for (let z = MARKET.back; z <= MARKET.front; z += 3.2) {
     const rib = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.06, 4, 20, Math.PI), steel); rib.position.set(0, 3.2, z); g.add(rib);
   }
-  // 골목 끝 벽, 바깥 건물
+  const ridge = box(0.12, 0.12, L, steel, 0, 7.8, zc, g); void ridge;
+  // 골목 끝 벽 + 현수막, 바깥 건물
   box(9, 7, 0.4, M(0x8a7e70), 0, 3.5, MARKET.back - 0.2, g);
+  const endBanner = sign2('광장시장 먹자골목', 'Gwangjang Market Food Alley', '#f4ead2', '#a8302a', 5, 1.1); endBanner.position.set(0, 4.2, MARKET.back + 0.02); g.add(endBanner);
   for (const sx of [-1, 1]) for (let z = MARKET.back; z < MARKET.front; z += 6) building(6, 7 + ((z * 7) & 3), 6, pick([0x9a8f82, 0x8b8c8f, 0xa59585], z), sx * 8.4, z + 3, g);
   for (let x = -40; x <= 40; x += 9) if (Math.abs(x) > 12) building(8, 8 + (x & 5), 8, pick([0x9d958a, 0x878a90, 0xb3a796], x), x, MARKET.back - 14, g);
-  // 노점: 카운터 + 뒤 선반 + 차양 + 주인 + 음식
-  const KINDS = [
-    { k: 'gimbap', ko: '김밥 · Gimbap', aw: 0xd9533c },
-    { k: 'jeon', ko: '전 · Jeon', aw: 0x3c7dd9 },
-    { k: 'noodle', ko: '칼국수 · Noodles', aw: 0x3a9a5b },
-    { k: 'tteok', ko: '떡 · Rice cakes', aw: 0xe0a336 },
-    { k: 'yukhoe', ko: '육회 · Yukhoe', aw: 0xb03a5e },
-    { k: 'sundae', ko: '순대 · Sundae', aw: 0x7b5bc4 },
-  ];
+  // 노점
   const steam: ReturnType<typeof steamPuffs> = [];
   const vendors: THREE.Group[] = [];
-  let ki = 0;
-  for (const side of [-1, 1]) for (let k = -4; k <= 1; k++) {
-    const z = BINDAE_STALL.z + k * 3.2;
-    const isBindae = side === -1 && k === 0;
-    const kind = isBindae ? { k: 'bindae', ko: '빈대떡 · Mung bean pancake', aw: 0xe2672a } : KINDS[ki++ % KINDS.length];
+  const lamps: THREE.Sprite[] = [];
+  let flip: THREE.Mesh | null = null;
+  const stoolM = [M(0xd8392b), M(0x2f6fd0)];
+  MARKET_STALLS.forEach((sl, i) => {
+    const side = sl.side, z = sl.z;
     const s = new THREE.Group(); s.position.set(side * 2.75, 0, z); g.add(s);
+    // 카운터 (앞면 타일) + 뒤 벽 + 선반
     box(1.0, 0.9, 2.9, M(0xb9b0a2), 0, 0.45, 0, s);
+    box(0.02, 0.6, 2.8, M(i % 2 ? 0x8fb5c4 : 0xc4b28f), -side * 0.51, 0.45, 0, s);
     box(1.06, 0.06, 2.96, M(0xd8d4cc), 0, 0.92, 0, s);
     box(0.3, 3.0, 3.0, M(0x6e5a45), side * 1.6, 1.5, 0, s);
-    for (let y = 1.0; y < 2.6; y += 0.6) box(0.5, 0.05, 2.8, M(0x8a7259), side * 1.35, y, 0, s);
-    const aw = box(1.8, 0.06, 3.1, M(kind.aw), side * 0.6, 2.45, 0, s); aw.rotation.z = side * 0.25;
-    const v = figure(pick([0xf3efe6, 0x9fb6d1, 0xe7c7a0], ki + k), pick([0xf4f1ea, 0xd3423a, 0x3c5a7a], ki), 0xe9e4d8);
-    v.position.set(side * 0.85, 0, 0.3); v.rotation.y = side * Math.PI / 2; s.add(v); vendors.push(v);
-    const tag = textSprite(kind.ko, 0.42); tag.position.set(-side * 0.2, 2.95, 0); s.add(tag);
-    const top = 0.95;
-    if (kind.k === 'bindae') {
-      box(0.9, 0.06, 1.6, M(0x2a2725), -side * 0.0, top + 0.03, -0.3, s);
-      for (let i = 0; i < 4; i++) cyl(0.2, 0.2, 0.04, M(0xd9a441), (i % 2 - 0.5) * 0.4, top + 0.08, -0.85 + Math.floor(i / 2) * 0.5, s, 16);
-      steam.push(...steamPuffs(g, GLOW, s.position.x, top + 0.25, z - 0.4));
-      // 앞의 동그란 의자
-      for (const dz of [-1.2, -0.4, 0.4, 1.2]) {
-        cyl(0.2, 0.2, 0.06, M(0xd8392b), -side * 0.95, 0.44, dz, s, 12);
-        cyl(0.04, 0.05, 0.42, M(0x8a8f94), -side * 0.95, 0.21, dz, s, 6);
-      }
-    } else if (kind.k === 'gimbap') {
-      for (let i = 0; i < 12; i++) { const r = cyl(0.05, 0.05, 0.05, M(0x1f2a22), (i % 4 - 1.5) * 0.12, top + 0.04, -0.6 + Math.floor(i / 4) * 0.14, s, 10); r.rotation.x = Math.PI / 2; }
-      for (let i = 0; i < 6; i++) cyl(0.045, 0.045, 0.012, M(0xf4efe0), (i % 3 - 1) * 0.12, top + 0.075, 0.5 + Math.floor(i / 3) * 0.12, s, 10);
-    } else if (kind.k === 'jeon') {
-      for (let i = 0; i < 6; i++) box(0.22, 0.04, 0.16, M(pick([0xd9b04a, 0x6aa35a, 0xc9733a], i)), (i % 2 - 0.5) * 0.3, top + 0.03, -0.7 + i * 0.25, s);
-    } else if (kind.k === 'noodle') {
-      cyl(0.3, 0.28, 0.4, M(0xa8acb0), 0, top + 0.2, 0, s, 16);
-      steam.push(...steamPuffs(g, GLOW, s.position.x, top + 0.45, z, 2));
-    } else if (kind.k === 'tteok') {
-      for (let i = 0; i < 8; i++) box(0.08, 0.05, 0.4, M(pick([0xffffff, 0xf4c2cf, 0xb9df9f], i)), (i % 4 - 1.5) * 0.12, top + 0.03, -0.3 + Math.floor(i / 4) * 0.5, s);
-    } else if (kind.k === 'yukhoe') {
-      for (let i = 0; i < 3; i++) { cyl(0.14, 0.14, 0.03, M(0xb52d3a), 0, top + 0.03, -0.6 + i * 0.6, s, 14); cyl(0.04, 0.04, 0.03, M(0xf2c43a), 0, top + 0.055, -0.6 + i * 0.6, s, 8); }
-    } else {
-      for (let i = 0; i < 4; i++) { const r = cyl(0.05, 0.05, 0.5, M(0x3a2a2a), (i - 1.5) * 0.14, top + 0.05, 0, s, 8); r.rotation.x = Math.PI / 2; }
-      steam.push(...steamPuffs(g, GLOW, s.position.x, top + 0.2, z, 2));
+    for (const dz of [-1.55, 1.55]) box(1.9, 2.6, 0.08, M(0x7d6a55), side * 0.65, 1.3, dz, s); // 옆 가게와의 칸막이
+    for (const y of [1.3, 1.85]) {
+      box(0.5, 0.05, 2.8, M(0x8a7259), side * 1.35, y, 0, s);
+      for (let k = 0; k < 5; k++) cyl(0.09, 0.07, 0.08 + (k % 2) * 0.04, M(k % 3 ? 0xf3f1ec : 0xb9bec4), side * 1.35, y + 0.06, -1.1 + k * 0.55, s, 10); // 그릇 더미
     }
-  }
-  // 골목 위 전구 줄
+    // 바닥 장독·박스
+    for (const dz of [-1.0, 1.1]) { const jar = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), M(0x5a3a26)); jar.scale.y = 1.2; jar.position.set(side * 1.15, 0.26, dz); s.add(jar); cyl(0.12, 0.12, 0.05, M(0x4a2e1e), side * 1.15, 0.53, dz, s, 10); }
+    box(0.45, 0.35, 0.45, M(0xc9a46a), side * 1.2, 0.18, 0, s);
+    // 차양
+    const aw = box(2.4, 0.06, 3.1, M(sl.aw), side * 0.4, 2.68, 0, s); aw.rotation.z = side * 0.19;
+    const fr = box(0.04, 0.18, 3.1, M(0xffffff), -side * 0.78, 2.4, 0, s); void fr;
+    // 간판: 골목을 향해 (양쪽 끝에서 비스듬히 읽히도록 살짝 입구 쪽으로)
+    const sg = sign2(`${sl.emoji} ${sl.ko}`, sl.en, hex(sl.aw), '#fffaf0', 2.7, 0.8);
+    sg.position.set(-side * 0.8, 3.1, 0); sg.rotation.y = -side * Math.PI / 2; s.add(sg);
+    // 골목 쪽으로 튀어나온 작은 세로 간판 (입구에서 줄지어 보임)
+    const fl = sign2(sl.ko, sl.en, '#fff6e0', hex(sl.aw), 1.05, 0.55);
+    fl.position.set(-side * 1.15, 3.55, 1.2); s.add(fl);
+    const flB = fl.clone(); flB.rotation.y = Math.PI; flB.position.z = 1.19; s.add(flB);
+    box(0.03, 0.3, 0.03, M(0x333333), -side * 1.15, 3.95, 1.2, s);
+    // 메뉴판 (뒤 벽)
+    const mb = menuBoard(sl.menu); mb.position.set(side * 1.44, 2.62, 0.85); mb.rotation.y = -side * Math.PI / 2; s.add(mb);
+    // 카운터 위 매달린 등
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.18, 12, 1, true), M(0x2f3a33, { side: THREE.DoubleSide })); shade.position.set(-side * 0.1, 2.1, 0); s.add(shade);
+    box(0.01, 0.4, 0.01, M(0x222222), -side * 0.1, 2.38, 0, s);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffe0a0 })); bulb.position.set(-side * 0.1, 2.02, 0); s.add(bulb);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffc870, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.3 }));
+    glow.scale.setScalar(1.6); glow.position.set(side * 2.65, 1.95, z); g.add(glow); lamps.push(glow);
+    // 주인
+    const v = figure(pick([0xf3efe6, 0x9fb6d1, 0xe7c7a0, 0xd8a9b8], i), pick([0xf4f1ea, 0xd3423a, 0x3c5a7a, 0x5a8a5a], i + 1), 0xe9e4d8);
+    v.position.set(side * 0.85, 0, 0.3); v.rotation.y = side * Math.PI / 2; s.add(v); vendors.push(v);
+    // 음식
+    counterFood(sl.food, s, side, GLOW, steam, g, side * 2.75, z);
+    if (sl.food === 1) { flip = cyl(0.2, 0.2, 0.04, M(0xd9a441), 0.05 * side + 0.2, 1.03, -0.85, s, 16); }
+    // 의자 (beach-extras 좌석과 같은 자리)
+    for (const dz of i === 0 ? [-1.2, -0.4, 0.4, 1.2] : [-0.6, 0.6]) {
+      cyl(0.2, 0.2, 0.06, stoolM[(i + (dz > 0 ? 1 : 0)) % 2], side * 1.75, 0.44, z + dz, g, 12);
+      cyl(0.04, 0.05, 0.42, M(0x8a8f94), side * 1.75, 0.21, z + dz, g, 6);
+    }
+  });
+  // 골목 위 전구 줄과 붉은 초롱
   const pts: [number, number, number][] = [];
-  for (let z = MARKET.back + 1; z < MARKET.front; z += 1.6) { pts.push([-1.7, 3.0, z]); pts.push([1.7, 3.0, z]); }
+  for (let z = MARKET.back + 1; z < MARKET.front; z += 1.6) { pts.push([-0.9, 4.4, z]); pts.push([0.9, 4.4, z]); }
   const lights = bulbs(g, GLOW, pts);
-  // 입구 간판
+  for (let z = MARKET.back + 2; z < MARKET.front; z += 4) for (const x of [-0.5, 0.5]) {
+    const ln = cyl(0.18, 0.18, 0.4, M(x < 0 ? 0xd8392b : 0xf0c040, { emissive: x < 0 ? 0x5a1010 : 0x5a4010 }), x, 5.2, z, g, 12);
+    box(0.01, 0.6, 0.01, M(0x222222), x, 5.7, z, g); void ln;
+  }
+  // 입구: 붉은 기둥과 큰 간판, 안쪽에 먹자골목 현수막
   for (const sx of [-1, 1]) box(0.22, 4.6, 0.22, M(0x7a2b22), sx * 2.45, 2.3, MARKET.front + 0.1, g);
   const gate = sign('광장시장 · Gwangjang Market', '#a8302a', '#fff3d6', 4.8, 0.7); gate.position.set(0, 4.5, MARKET.front + 0.15); g.add(gate);
   const back = gate.clone(); back.rotation.y = Math.PI; back.position.z = MARKET.front + 0.05; g.add(back);
+  const inner = sign2('먹자골목', 'Food Alley · 12 stalls', '#2f5a3a', '#fff3d6', 2.6, 0.7); inner.position.set(0, 3.6, MARKET.front - 2.5); g.add(inner);
+  const innerB = inner.clone(); innerB.rotation.y = Math.PI; innerB.position.z = MARKET.front - 2.51; g.add(innerB);
   return {
     group: g,
     update(_dt: number, t: number, night: number) {
       animSteam(steam, t);
       for (const s of lights) s.material.opacity = 0.08 + 0.6 * night;
-      // 주인들이 가끔 손을 움직임 (뒤집기·썰기)
+      for (const s of lamps) s.material.opacity = 0.22 + 0.5 * night;
+      // 주인들이 가끔 손을 움직임 (뒤집기·썰기·담기)
       vendors.forEach((v, i) => { (v.userData.arm as THREE.Group).rotation.x = 0.9 + Math.sin(t / 300 + i * 1.7) * 0.35; });
+      // 빈대떡 주인이 5초마다 한 장을 휙 뒤집음
+      if (flip) { const k = (t % 5000) / 600; const u = Math.min(1, k); flip.position.y = 1.03 + Math.sin(Math.PI * u) * 0.35; flip.rotation.x = Math.PI * u; }
     },
   };
 }

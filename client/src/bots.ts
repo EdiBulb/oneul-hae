@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { animChar, disposeChar, makeChar, textSprite, type Char } from './character';
+import { animChar, disposeChar, makeChar, textSprite, setOutfit, foodBits, type Char } from './character';
 import { ADJ, BODY_COLORS, HAT_COLORS, NOUN, localizeNick, pick } from './places';
-import { floorY } from './beach-extras';
+import { canStand, floorY, MARKET_STALLS } from './beach-extras';
 import type { Seat } from './world';
 
 // 해변을 채워 주는 가상 사용자.
@@ -25,12 +25,14 @@ export function createBots(opts: {
   const { scene, seats } = opts;
   let bots: Bot[] = [];
   let seq = 0;
+  // 시장은 손님이 조금 더 많아야 시장 같음
+  const max = () => (opts.placeId() === 'gwangjang' ? 7 : MAX);
 
   /** 방석(이름 없는 기본 자리)만, 이 장소에 있는 빈 자리 중에서 */
   function freeSeat(): number | null {
     const ids = seats.map((s, i) => i).filter(i => {
       const s = seats[i];
-      return !s.occ && !s.kind && (!s.places || s.places.includes(opts.placeId() as never));
+      return !s.occ && (!s.kind || s.kind === 'stool') && (!s.places || s.places.includes(opts.placeId() as never));
     });
     return ids.length ? pick(ids) : null;
   }
@@ -41,10 +43,16 @@ export function createBots(opts: {
     b.c.root.position.set(s.x, floorY(s.x, s.z) + 0.07, s.z);
     b.c.root.rotation.y = s.ry ?? 0;
     b.c.state = 'sit';
+    // 시장 의자에 앉으면 그 가게 음식을 들고 먹음
+    if (s.kind === 'stool') {
+      const sl = MARKET_STALLS.reduce((a, x) => (Math.abs(x.z - s.z) + (x.side * s.x < 0 ? 9 : 0) < Math.abs(a.z - s.z) + (a.side * s.x < 0 ? 9 : 0) ? x : a));
+      setOutfit(b.c, foodBits(sl.food));
+    } else setOutfit(b.c, 0);
   }
 
   function add() {
-    const standing = !opts.matsHere();
+    // 시장에는 방석 대신 노점 의자가 있음
+    const standing = !opts.matsHere() && opts.placeId() !== 'gwangjang';
     const idx = standing ? -1 : freeSeat();
     if (idx === null) return;
     const c = makeChar(pick(BODY_COLORS), pick(HAT_COLORS));
@@ -54,7 +62,8 @@ export function createBots(opts: {
     const now = performance.now();
     const b: Bot = { c, label, nick, seat: idx, tag: `bot:${seq++}`, nextLantern: now + rand(25000, 150000), nextEmote: now + rand(8000, 60000) };
     if (standing) {
-      const x = rand(-10, 10), z = rand(-6, 9);
+      let x = rand(-10, 10), z = rand(-6, 9);
+      for (let i = 0; i < 30 && !canStand(x, z); i++) { x = rand(-10, 10); z = rand(-6, 12); }
       c.root.position.set(x, floorY(x, z), z);
       c.root.rotation.y = rand(-0.5, 0.5); // 대충 궁궐 쪽을 보며 구경
       c.state = 'idle';
@@ -74,11 +83,11 @@ export function createBots(opts: {
   function fill() {
     // 자리 정보가 새로 고쳐졌으면(재접속) 원래 앉아 있던 방석을 다시 차지
     for (const b of bots) if (b.seat >= 0 && !seats[b.seat]?.occ) seats[b.seat].occ = b.tag;
-    while (bots.length < MAX && (!opts.matsHere() || freeSeat() !== null)) add();
+    while (bots.length < max() && ((!opts.matsHere() && opts.placeId() !== 'gwangjang') || freeSeat() !== null)) add();
   }
 
   function update(dt: number, t: number, cam: THREE.Camera) {
-    if (bots.length < MAX && Math.random() < dt * 0.5) add(); // 빈 방석이 생기면 천천히 다시 채움
+    if (bots.length < max() && Math.random() < dt * 0.5) add(); // 빈 방석이 생기면 천천히 다시 채움
     for (const b of bots) {
       // 진짜 사람이 그 방석에 앉으면 다른 빈 방석으로 옮김
       if (b.seat >= 0 && seats[b.seat]?.occ !== b.tag) {
@@ -89,6 +98,10 @@ export function createBots(opts: {
       if (t > b.nextEmote) {
         b.nextEmote = t + rand(40000, 120000);
         b.c.emote = Math.random() < 0.6 ? 'stretch' : 'wave'; b.c.emoteT = 0;
+      }
+      // 시장 손님은 자주 한 입씩
+      if (b.seat >= 0 && seats[b.seat]?.kind === 'stool' && !b.c.emote && Math.random() < dt / 4) {
+        b.c.emote = 'eat'; b.c.emoteT = 0;
       }
       if (t > b.nextLantern) {
         b.nextLantern = t + rand(90000, 240000);

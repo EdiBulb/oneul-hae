@@ -45,6 +45,25 @@ export const PALACE = { gateZ: -12, x: 0 };
 /** 광장시장: 지붕 덮인 먹자골목 (가운데 통로 |x|<2.1), 빈대떡 가게는 왼쪽 */
 export const MARKET = { half: 2.1, back: -16, front: 9 };
 export const BINDAE_STALL = { x: -2.7, z: 2 };
+/** 광장시장 노점 12곳. z = 2 + k×3.2, side -1은 왼쪽(-x), 1은 오른쪽.
+ *  food는 손에 드는 음식 번호 (character.ts FOOD와 같음) */
+export interface Stall { side: -1 | 1; z: number; food: number; emoji: string; ko: string; en: string; aw: number; menu: string[]; taste: [string, string]; wait: number }
+const st = (side: -1 | 1, k: number, food: number, emoji: string, ko: string, en: string, aw: number, menu: string[], taste: [string, string], wait = 2500): Stall =>
+  ({ side, z: BINDAE_STALL.z + k * 3.2, food, emoji, ko, en, aw, menu, taste, wait });
+export const MARKET_STALLS: Stall[] = [
+  st(-1, 0, 1, '🥞', '빈대떡', 'Bindaetteok', 0xe2672a, ['녹두빈대떡', '고기완자', '김치전'], ['겉은 바삭, 속은 고소!', 'Crispy outside, nutty inside!'], 3500),
+  st(-1, -4, 7, '🌭', '순대', 'Sundae', 0x7b5bc4, ['찹쌀순대', '머리고기', '간·허파'], ['쫀득쫀득해요!', 'Chewy and savory!']),
+  st(-1, -3, 5, '🍜', '칼국수', 'Kalguksu', 0x3a9a5b, ['손칼국수', '수제비', '보리비빔밥'], ['국물이 시원해요!', 'Such a warming broth!'], 3500),
+  st(-1, -2, 4, '🍳', '모둠전', 'Assorted jeon', 0x3c7dd9, ['동그랑땡', '호박전', '동태전'], ['하나씩 골라 먹는 재미!', 'A little of everything!']),
+  st(-1, -1, 3, '🍙', '마약김밥', 'Mayak gimbap', 0xd9533c, ['마약김밥', '참치김밥', '겨자소스'], ['자꾸 손이 가요!', "Can't stop at one!"], 1800),
+  st(-1, 1, 9, '🥨', '꽈배기', 'Kkwabaegi', 0xd6a23a, ['찹쌀꽈배기', '팥도넛', '찹쌀도넛'], ['설탕이 반짝, 달콤해요!', 'Sugary and sweet!'], 2000),
+  st(1, -4, 6, '🥩', '육회', 'Yukhoe', 0xb03a5e, ['육회', '육회비빔밥', '낙지탕탕이'], ['고소한 참기름 향!', 'Silky with sesame oil!']),
+  st(1, -3, 8, '🍡', '꿀떡', 'Kkultteok', 0xe0a336, ['꿀떡', '인절미', '송편'], ['톡 터지는 꿀!', 'A burst of honey!'], 1800),
+  st(1, -2, 11, '🍝', '잡채', 'Japchae', 0x8a5a3a, ['잡채', '떡갈비', '나물'], ['쫄깃한 당면!', 'Bouncy glass noodles!']),
+  st(1, -1, 12, '🍢', '어묵', 'Eomuk', 0x2f7f9a, ['꼬치어묵', '어묵국물', '물떡'], ['따끈한 국물까지!', 'Hot broth included!'], 1800),
+  st(1, 0, 2, '🌶', '떡볶이', 'Tteokbokki', 0xd8392b, ['떡볶이', '튀김', '순대'], ['매콤달콤!', 'Sweet and spicy!']),
+  st(1, 1, 10, '🥤', '식혜', 'Sikhye', 0x5aa0c8, ['식혜', '수정과', '미숫가루'], ['살얼음이 사각사각!', 'Icy and refreshing!'], 1500),
+];
 /** 명동: 양옆 건물 사이 큰길, 가운데 줄에 노점 수레 */
 export const MYEONGDONG = { half: 9, front: 9 };
 export const CARTS = [{ x: 0, z: -9, kind: 'egg' }, { x: 0, z: -3, kind: 'tteok' }, { x: 0, z: 3, kind: 'hotteok' }] as const;
@@ -75,10 +94,12 @@ export function benchSeats() {
     const x = BUS_STOP.x + dx, z = BUS_STOP.z + 0.05;
     out.push({ x, z, ry: Math.PI, y: groundY(z) + 0.44, bench: true, kind: 'bus', sx: x, sz: z + 0.75, places: ['hyangho'] });
   }
-  // 36~39: 광장시장 빈대떡 가게 앞 동그란 의자 (가게를 바라봄)
-  for (const dz of [-1.2, -0.4, 0.4, 1.2]) {
-    const x = BINDAE_STALL.x + 0.95, z = BINDAE_STALL.z + dz;
-    out.push({ x, z, ry: Math.PI / 2, y: groundY(z) + 0.46, bench: true, kind: 'stool', sx: x + 0.7, sz: z, places: ['gwangjang'] });
+  // 36~61: 광장시장 노점 앞 동그란 의자 (가게를 바라봄). 빈대떡 가게 4개, 나머지 가게 2개씩
+  for (const [i, sl] of MARKET_STALLS.entries()) {
+    for (const dz of i === 0 ? [-1.2, -0.4, 0.4, 1.2] : [-0.6, 0.6]) {
+      const x = sl.side * 1.75, z = sl.z + dz;
+      out.push({ x, z, ry: -sl.side * Math.PI / 2, y: groundY(z) + 0.46, bench: true, kind: 'stool', sx: x - sl.side * 0.7, sz: z, places: ['gwangjang'] });
+    }
   }
   return out;
 }
