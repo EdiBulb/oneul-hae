@@ -100,8 +100,9 @@ export function createMountain(scene: THREE.Scene) {
     }
   }
   // 낮은 덤불
-  const bushM = lam(0x55693a);
-  for (let i = 0; i < 26; i++) { const x = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 6), z = 4 + rnd() * 16; const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + rnd() * 0.4, 0), bushM); b.scale.y = 0.6; b.position.set(x, mountainY(x, z) + 0.2, z); g.add(b); }
+  // 가을 단풍 든 덤불 (살짝 어두운 붉은색·주황·갈색)
+  const bushMs = [lam(0x55693a), lam(0x8e3a22), lam(0xa65a26), lam(0x7a4a24), lam(0x9a6a2a)];
+  for (let i = 0; i < 34; i++) { const x = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 6), z = 4 + rnd() * 16; const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + rnd() * 0.4, 0), bushMs[i % bushMs.length]); b.scale.y = 0.6; b.position.set(x, mountainY(x, z) + 0.2, z); g.add(b); }
 
   // ---------- 전망대: 밧줄 난간 + 바위 의자 ----------
   const postM = lam(0x6e4f33), ropeM = new THREE.MeshLambertMaterial({ color: 0xd9c9a3 });

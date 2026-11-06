@@ -15,7 +15,7 @@ import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
 import { createPlaceScenery } from './place-scenery';
 import { createBots } from './bots';
-import { createFireflies, createFlock } from './sky-extras';
+import { createFireflies, createFlock, createLeaves } from './sky-extras';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place, placeBlurb, placeRoute, type PlaceGroup } from './places';
@@ -55,7 +55,9 @@ const world = createWorld(scene, renderer, GLOW);
 const lanterns = createLanterns(scene, GLOW);
 // 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
 const life = createBeachLife(scene);
-const fireflies = createFireflies(scene, GLOW), flock = createFlock(scene);
+const fireflies = createFireflies(scene, GLOW), flock = createFlock(scene), leaves = createLeaves(scene);
+/** 가을(한국 9~11월)에 나무가 있는 곳(산·한강공원)에만 낙엽 */
+const leavesHere = (id: string) => (id === 'jirisan' || id === 'hangang') && [8, 9, 10].includes(new Date().getMonth());
 // 해변 강아지 이름 (해변마다 한 마리)
 const DOG_NAMES: Record<string, [string, string]> = {
   jeongdongjin: ['해피', 'Happy'], seongsan: ['감귤', 'Gamgyul'], homigot: ['호두', 'Hodu'], gisborne: ['키위', 'Kiwi'],
@@ -672,6 +674,7 @@ function loop(t: number) {
   scenery.update(dt, t, night, world.skyLow);
   updateSummit();
   fireflies.update(t, night, me.root.position, floorY);
+  leaves.update(dt, t, me.root.position, floorY);
   flock.update(dt, camera, world.sunDir);
   updateRamen(t);
   updateSparkles(dt);
@@ -1495,6 +1498,7 @@ function applyTerrain(p: Place) {
   setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id); bonfire.setPlace(p.id); scenery.setPlace(p.id); world.setGround(p.id);
   life.setFisher(has.water(p.id)); life.setGulls(!has.peak(p.id)); amb.setSea(has.water(p.id));
   sandBoard.setShown(!has.peak(p.id));
+  leaves.setOn(leavesHere(p.id), me.root.position, floorY);
   summitReached = false;
   $('routeBtn').hidden = !placeRoute(p);
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
