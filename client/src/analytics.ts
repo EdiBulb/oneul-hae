@@ -11,12 +11,24 @@ const POSTHOG_KEY: string | undefined = import.meta.env.VITE_POSTHOG_KEY || 'phc
 const POSTHOG_HOST: string = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 
 let ph: PostHog | null = null;
+
+/** 개발자 본인 기기는 기록에서 뺌: ?me=1 로 한 번 들어오면 이 브라우저는 계속 제외, ?me=0 이면 다시 포함 */
+const OPT_KEY = 'oneul-hae-optout';
+function optedOut() {
+  try {
+    const q = new URLSearchParams(location.search).get('me');
+    if (q === '1') localStorage.setItem(OPT_KEY, '1');
+    if (q === '0') localStorage.removeItem(OPT_KEY);
+    return localStorage.getItem(OPT_KEY) === '1';
+  } catch { return false; }
+}
+const OUT = optedOut();
 const queue: [string, Record<string, unknown> | undefined][] = [];
 
 /** uid: 브라우저에 저장된 익명 ID. 같은 사람의 재방문을 이어서 보기 위해 사용 (이름·연락처는 보내지 않음) */
 export function initAnalytics(uid: string) {
-  try { inject(); } catch { /* 광고 차단기 등 */ }
-  if (!POSTHOG_KEY) return;
+  if (!OUT) { try { inject(); } catch { /* 광고 차단기 등 */ } }
+  if (!POSTHOG_KEY || OUT) return;
   // 첫 화면을 빨리 띄우려고, PostHog는 페이지가 뜬 뒤에 따로 불러옴
   const load = () => import('posthog-js').then(({ default: posthog }) => {
     posthog.init(POSTHOG_KEY, {
@@ -37,7 +49,7 @@ export function initAnalytics(uid: string) {
 
 /** 행동 기록. 분석 도구가 꺼져 있거나 막혀 있어도 아무 일도 일어나지 않음 */
 export function track(event: string, props?: Record<string, unknown>) {
-  if (!POSTHOG_KEY) return;
+  if (!POSTHOG_KEY || OUT) return;
   try {
     if (ph) ph.capture(event, props);
     else if (queue.length < 50) queue.push([event, props]);
