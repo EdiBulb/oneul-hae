@@ -240,6 +240,7 @@ function market(scene: THREE.Scene, GLOW: THREE.Texture) {
   const vendors: THREE.Group[] = [];
   const lamps: THREE.Sprite[] = [];
   let flip: THREE.Mesh | null = null;
+  const tags: THREE.Sprite[] = [], hits: THREE.Object3D[] = [];
   const stoolM = [M(0xd8392b), M(0x2f6fd0)];
   MARKET_STALLS.forEach((sl, i) => {
     const side = sl.side, z = sl.z;
@@ -261,8 +262,13 @@ function market(scene: THREE.Scene, GLOW: THREE.Texture) {
     const aw = box(2.4, 0.06, 3.1, M(sl.aw), side * 0.4, 2.68, 0, s); aw.rotation.z = side * 0.19;
     const fr = box(0.04, 0.18, 3.1, M(0xffffff), -side * 0.78, 2.4, 0, s); void fr;
     // 간판: 골목을 향해 (양쪽 끝에서 비스듬히 읽히도록 살짝 입구 쪽으로)
-    const sg = sign2(`${sl.emoji} ${sl.ko}`, sl.en, hex(sl.aw), '#fffaf0', 2.7, 0.8);
-    sg.position.set(-side * 0.8, 3.1, 0); sg.rotation.y = -side * Math.PI / 2; s.add(sg);
+    // 입구 쪽으로 45° 돌려서 골목을 걸어 들어오면서 읽히게
+    const sg = sign2(`${sl.emoji} ${sl.ko}`, sl.en, hex(sl.aw), '#fffaf0', 2.2, 0.75);
+    sg.position.set(-side * 0.85, 3.15, 0); sg.rotation.y = -side * Math.PI / 4; s.add(sg);
+    // 어느 방향에서 봐도 읽히는 이름표 (카메라를 늘 바라봄)
+    const tag = textSprite(`${sl.emoji} ${sl.ko} · ${sl.en}`, 0.5); tag.position.set(side * 1.95, 2.2, z); g.add(tag); tags.push(tag);
+    // 가게를 탭하면 살 수 있게: 화면에 보이는 가게 물체 자체로 판정
+    s.userData.food = sl.food; tag.userData.food = sl.food; hits.push(s, tag);
     // 골목 쪽으로 튀어나온 작은 세로 간판 (입구에서 줄지어 보임)
     const fl = sign2(sl.ko, sl.en, '#fff6e0', hex(sl.aw), 1.05, 0.55);
     fl.position.set(-side * 1.15, 3.55, 1.2); s.add(fl);
@@ -300,12 +306,13 @@ function market(scene: THREE.Scene, GLOW: THREE.Texture) {
   for (const sx of [-1, 1]) box(0.22, 4.6, 0.22, M(0x7a2b22), sx * 2.45, 2.3, MARKET.front + 0.1, g);
   const gate = sign('광장시장 · Gwangjang Market', '#a8302a', '#fff3d6', 4.8, 0.7); gate.position.set(0, 4.5, MARKET.front + 0.15); g.add(gate);
   const back = gate.clone(); back.rotation.y = Math.PI; back.position.z = MARKET.front + 0.05; g.add(back);
-  const inner = sign2('먹자골목', 'Food Alley · 12 stalls', '#2f5a3a', '#fff3d6', 2.6, 0.7); inner.position.set(0, 3.6, MARKET.front - 2.5); g.add(inner);
+  const inner = sign2('먹자골목', 'Food Alley · 12 stalls', '#2f5a3a', '#fff3d6', 2.0, 0.55); inner.position.set(0, 5.6, MARKET.front - 2.5); g.add(inner);
   const innerB = inner.clone(); innerB.rotation.y = Math.PI; innerB.position.z = MARKET.front - 2.51; g.add(innerB);
   return {
-    group: g,
+    group: g, hits,
     update(_dt: number, t: number, night: number) {
       animSteam(steam, t);
+      void tags;
       for (const s of lights) s.material.opacity = 0.08 + 0.6 * night;
       for (const s of lamps) s.material.opacity = 0.22 + 0.5 * night;
       // 주인들이 가끔 손을 움직임 (뒤집기·썰기·담기)
@@ -484,6 +491,8 @@ export function createSeoulScenery(scene: THREE.Scene, GLOW: THREE.Texture) {
     setPlace(p: string) { id = p; mk.group.visible = p === 'gwangjang'; md.group.visible = p === 'myeongdong'; hd.group.visible = p === 'hongdae'; },
     /** 홍대 버스커가 지금 연주 중인지 */
     get busking() { return id === 'hongdae' && hd.playing; },
+    /** 지금 장소에서 탭으로 살 수 있는 가게 판정 상자 */
+    get stallHits(): THREE.Object3D[] { return id === 'gwangjang' ? mk.hits : []; },
     update(dt: number, t: number, night: number) {
       if (id === 'gwangjang') mk.update(dt, t, night);
       if (id === 'myeongdong') md.update(dt, t, night);

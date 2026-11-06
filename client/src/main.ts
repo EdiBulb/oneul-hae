@@ -387,8 +387,10 @@ function updateCamera(dt: number) {
 // 화면 드래그 = 둘러보기, 두 손가락/휠 = 줌
 const cvs = renderer.domElement, ptrs = new Map<number, { x: number; y: number }>();
 let pinch0 = 0, dist0 = 0;
+let tap0: { x: number; y: number; t: number } | null = null;
 cvs.addEventListener('pointerdown', e => {
   cvs.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  tap0 = ptrs.size === 1 ? { x: e.clientX, y: e.clientY, t: performance.now() } : null;
   if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); dist0 = cam.tDist; }
 });
 cvs.addEventListener('pointermove', e => {
@@ -403,7 +405,12 @@ cvs.addEventListener('pointermove', e => {
     setView(dist0 * pinch0 / Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)));
   }
 });
-const ptrEnd = (e: PointerEvent) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch0 = 0; };
+const ptrEnd = (e: PointerEvent) => {
+  // 거의 움직이지 않은 짧은 터치 = 탭
+  if (e.type === 'pointerup' && tap0 && ptrs.size === 1 && Math.hypot(e.clientX - tap0.x, e.clientY - tap0.y) < 10 && performance.now() - tap0.t < 450) tapStall(e);
+  tap0 = null;
+  ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch0 = 0;
+};
 cvs.addEventListener('pointerup', ptrEnd); cvs.addEventListener('pointercancel', ptrEnd);
 cvs.addEventListener('wheel', e => { e.preventDefault(); setView(cam.tDist * (1 + e.deltaY * 0.0012)); }, { passive: false });
 
@@ -1530,9 +1537,22 @@ function setSnack(food: number) {
   snackBites = 0;
 }
 function shopNear(): Shop | null {
+  const p = me.root.position;
+  if (place.id === 'gwangjang') {
+    // 골목 반쪽(그 가게 쪽)에 서서 가게 앞 3m 안이면 됨. 한가운데 줄에서는 바라보는 쪽 가게
+    let best: Shop | null = null, bd = Infinity;
+    const fx = -Math.sin(me.root.rotation.y);
+    for (const s of SHOPS.gwangjang) {
+      const side = Math.sign(s.fx), dz = Math.abs(p.z - s.z);
+      // 골목 한가운데(x=0)에서는 오른쪽 가게
+      const onSide = p.x * side > 0 || (p.x === 0 && side > 0) || (Math.abs(p.x) < 0.3 && fx * side > 0.5);
+      if (onSide && dz < 1.6 && dz < bd) { best = s; bd = dz; }
+    }
+    return best;
+  }
   let best: Shop | null = null, bd = Infinity;
   for (const s of SHOPS[place.id] ?? []) {
-    const d = Math.hypot(me.root.position.x - s.x, (me.root.position.z - s.z) * 0.8);
+    const d = Math.hypot(p.x - s.x, (p.z - s.z) * 0.8);
     if (d < s.r && d < bd) { best = s; bd = d; }
   }
   return best;
@@ -1561,8 +1581,29 @@ function updateSnack(t: number) {
     if (got.size === MARKET_FOODS && before < MARKET_FOODS) { life.heartBurst(0); track('market_complete'); }
   }, 1600);
 }
-$('snackBtn').onclick = () => {
-  const s = nearShop; if (!s) return;
+$('snackBtn').onclick = () => { if (nearShop) buyFood(nearShop); };
+/** 광장시장 가게를 화면에서 탭: 가까우면 바로 사고, 멀면 다가가라고 알려 줌 */
+function tapStall(e: PointerEvent): boolean {
+  const hits = scenery.stallHits;
+  if (!hits.length) return false;
+  const r = cvs.getBoundingClientRect();
+  const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  tapRay.setFromCamera(ndc, camera);
+  const hit = tapRay.intersectObjects(hits, true)[0];
+  if (!hit) return false;
+  let o: THREE.Object3D | null = hit.object;
+  while (o && o.userData.food === undefined) o = o.parent;
+  const shop = o && SHOPS.gwangjang.find(s => s.food === o!.userData.food);
+  if (!shop) return false;
+  const d = Math.hypot(me.root.position.x - shop.x, me.root.position.z - shop.z);
+  if (d > 6) { toast(T.walkCloser(shop.emoji, foodName(shop))); return true; }
+  if (buying) return true;
+  if (foodOf(outfitOf(me)) === shop.food) { toast(T.alreadyHave(shop.emoji, foodName(shop))); return true; }
+  buyFood(shop);
+  return true;
+}
+const tapRay = new THREE.Raycaster();
+function buyFood(s: Shop) {
   buying = true; $('snackBtn').hidden = true;
   toast(T.foodCooking(s.emoji, foodName(s)));
   turnTo(me, Math.atan2(-(s.fx - me.root.position.x), -(s.z - me.root.position.z)), 1);
@@ -1702,4 +1743,4 @@ $('hanbokBtn').onclick = () => {
   track('hanbok', { on });
 };
 
-Object.assign(window, { __hae: { meState: () => [me.state, me.emote, foodOf(outfitOf(me)), snackBites, nextSnackBite, performance.now()], metro: () => openMetro(), bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, meState: () => [me.state, me.emote, foodOf(outfitOf(me)), snackBites, nextSnackBite, performance.now()], metro: () => openMetro(), bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

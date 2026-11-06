@@ -295,6 +295,7 @@ export function createPlaceScenery(scene: THREE.Scene, GLOW: THREE.Texture) {
     },
     cook: () => han.cook(),
     get busking() { return seoul.busking; },
+    get stallHits() { return seoul.stallHits; },
     update(dt: number, t: number, night: number) {
       if (id === 'hyangho') bus.update(dt);
       if (id === 'hangang') han.update(dt, t, night);
