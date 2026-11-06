@@ -16,6 +16,7 @@ import { createSkyLife } from './skylife';
 import { createPlaceScenery } from './place-scenery';
 import { createBots } from './bots';
 import { createFireflies, createFlock, createLeaves } from './sky-extras';
+import { createEcho, createLateSleeper, say } from './gags';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place, placeBlurb, placeRoute, type PlaceGroup } from './places';
@@ -56,6 +57,7 @@ const lanterns = createLanterns(scene, GLOW);
 // 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
 const life = createBeachLife(scene);
 const fireflies = createFireflies(scene, GLOW), flock = createFlock(scene), leaves = createLeaves(scene);
+const echo = createEcho(scene), late = createLateSleeper(scene, floorY);
 /** 가을(한국 9~11월)에 나무가 있는 곳(산·한강공원)에만 낙엽 */
 const leavesHere = (id: string) => (id === 'jirisan' || id === 'hangang') && [8, 9, 10].includes(new Date().getMonth());
 // 해변 강아지 이름 (해변마다 한 마리)
@@ -260,6 +262,7 @@ net.on('emote', (id, e) => {
   if (!r) return;
   r.c.emote = e; r.c.emoteT = 0;
   const near = r.c.root.position.distanceTo(me.root.position);
+  if (e === 'yaho') yahoFrom(r.c);
   if (e === 'clap') { amb.clap(clamp(1.1 - near / 18, 0, 0.8)); if (near < 12) ticker(T.clapBy(localizeNick(r.info.nick))); }
   // 가까운 사람이 커피를 들면 같이 누르라고 알려 줌
   if (e === 'cheers' && r.c.root.position.distanceTo(me.root.position) < 3) toast(T.cheersNearby(localizeNick(r.info.nick)));
@@ -675,6 +678,7 @@ function loop(t: number) {
   updateSummit();
   fireflies.update(t, night, me.root.position, floorY);
   leaves.update(dt, t, me.root.position, floorY);
+  echo.update(dt); late.update(dt); updateYaho(t);
   flock.update(dt, camera, world.sunDir);
   updateRamen(t);
   updateSparkles(dt);
@@ -1635,6 +1639,49 @@ function updateSummit() {
   else if (!live && !replay) { toast(T.summitReach); setTimeout(() => startReplay(true), 900); }
 }
 
+// ================= 야호 메아리 · 늦잠 잔 사람 (천왕봉) =================
+const pick = <X,>(a: readonly X[]) => a[Math.floor(Math.random() * a.length)];
+let lastYaho = 0, lateDoneFor = -1;
+/** 누가 외쳤든 같은 장소 사람은 모두 메아리를 들음. 5번에 1번쯤 산이 엉뚱하게 대답 */
+function yahoFrom(c: Char) {
+  say(c, T.yahoShout, 1800);
+  const near = c.root.position.distanceTo(me.root.position);
+  // 같은 4초 안에 외친 건 모두에게 같은 대답이 오도록 시간으로 정함
+  const slot = Math.floor(Date.now() / 4000), reply = (slot * 2654435761 >>> 0) % 5 === 0 ? T.yahoReplies[slot % T.yahoReplies.length] : null;
+  echo.shout(c.root.position, T.yahoEcho, reply);
+  if (reply && c === me) setTimeout(() => say(me, '!?', 2000, 0.7), 3600);
+  if (amb.on && near < 30 && 'speechSynthesis' in window) {
+    // 목소리 메아리: 점점 작고 낮게 세 번
+    [0, 0.8, 1.5].forEach((d, i) => setTimeout(() => {
+      const u = new SpeechSynthesisUtterance(i === 0 ? T.yahoShout : T.yahoEcho);
+      u.lang = lang === 'ko' ? 'ko-KR' : 'en-US'; u.volume = 0.8 * Math.pow(0.45, i) * clamp(1.2 - near / 30, 0, 1); u.pitch = 1.2 - i * 0.15; u.rate = 0.9;
+      speechSynthesis.speak(u);
+    }, d * 1000 + (i ? 300 : 0)));
+  }
+}
+function updateYaho(t: number) {
+  const show = has.peak(place.id) && mySeat === null && !lying;
+  if ($('yahoBtn').hidden === show) $('yahoBtn').hidden = !show;
+  // 해가 뜨고 15초쯤 지나면 늦잠 잔 사람이 헐레벌떡 (순환마다 한 번, LIVE면 그날 한 번)
+  if (!has.peak(place.id) || late.busy) return;
+  const key = cycling() ? Math.floor(Date.now() / CYCLE) : Math.floor(Date.now() / 86400000);
+  const after = cycling() ? cyclePhase() - SR_PHASE : (Date.now() - (sunriseInfo(place, Date.now()).last ?? 0)) / CYCLE;
+  if (key !== lateDoneFor && after > 0.05 && after < 0.12) {
+    lateDoneFor = key;
+    late.start({ huff: T.lateHuff, flop: pick(T.lateLines) });
+    track('late_sleeper', { place: place.id });
+  }
+  void t;
+}
+$('yahoBtn').onclick = () => {
+  const now = performance.now();
+  if (now - lastYaho < 3500) return;
+  lastYaho = now;
+  me.emote = 'yaho'; me.emoteT = 0; if (connected) net.emit('emote', 'yaho');
+  yahoFrom(me);
+  track('yaho', { place: place.id });
+};
+
 // ================= 해변 강아지 =================
 // 강아지는 서버가 채널마다 한 마리씩 움직이고, 쓰다듬으면 모두에게 같은 반응이 보인다.
 function applyDogName() { life.setName(dogName()); ($('petBtn') as HTMLButtonElement).textContent = T.petBtn(dogName()); }
@@ -1665,4 +1712,4 @@ const bots = createBots({
 });
 bots.fill();
 
-Object.assign(window, { __hae: { project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

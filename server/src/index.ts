@@ -243,7 +243,7 @@ io.on('connection', (socket: Sock) => {
 
   socket.on('emote', (e: Emote) => {
     const c = socket.data.channel, now = Date.now();
-    if (!c || !['stretch', 'wave', 'cheers', 'clap', 'dig', 'eat', 'dance'].includes(e) || now - socket.data.lastEmote < 800) return;
+    if (!c || !['stretch', 'wave', 'cheers', 'clap', 'dig', 'eat', 'dance', 'yaho'].includes(e) || now - socket.data.lastEmote < 800) return;
     socket.data.lastEmote = now;
     if (e === 'cheers') {
       const partner = findCheersPartner(socket, c, now);

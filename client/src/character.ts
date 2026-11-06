@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 export type CharState = 'idle' | 'walk' | 'sit' | 'lie';
 /** clink = 다른 사람과 커피잔을 부딪치는 동작 (서버가 짝을 지어 줄 때만) */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet' | 'dance';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet' | 'dance' | 'yaho';
 
 export interface Char {
   root: THREE.Group;
@@ -126,7 +126,7 @@ export function disposeChar(c: Char) {
 }
 
 /** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
-const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0 };
+const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0, yaho: 2.2 };
 export function animChar(c: Char, dt: number) {
   c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
   let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
@@ -189,6 +189,11 @@ export function animChar(c: Char, dt: number) {
       aLz = -0.5 * kk; aRz = 0.5 * kk;
       y += Math.abs(Math.sin(b)) * 0.1 * kk; rz = Math.sin(b / 2) * 0.18 * kk;
       lL = Math.max(0, Math.sin(b)) * 0.4 * kk; lR = Math.max(0, -Math.sin(b)) * 0.4 * kk;
+    }
+    if (c.emote === 'yaho') {
+      // 두 손을 입 옆에 모으고 살짝 뒤로 젖혔다가 앞으로 "야호~"
+      const kk = clamp(k * 2.5, 0, 1);
+      aL = aR = 2.5 * kk; aLz = -0.75 * kk; aRz = 0.75 * kk; y += 0.04 * kk;
     }
     if (c.emote === 'eat') { const up = Math.sin(Math.PI * u); aR = 1.15 + 0.85 * up; aRz = 0.3 * up; }
     if (c.emote === 'give') { aR = 1.0 + 0.5 * clamp(k * 2, 0, 1); aRz = -0.15 * clamp(k * 2, 0, 1); }

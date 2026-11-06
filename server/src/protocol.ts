@@ -10,7 +10,7 @@ export interface Look { body: number; hat: number }
 export type St = 0 | 1 | 2 | 3;
 
 /** cheers = 모닝커피 짠. 혼자면 한 모금 마시고, 가까운 사람과 3초 안에 같이 누르면 컵을 부딪친다 */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap' | 'dig' | 'eat' | 'dance';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap' | 'dig' | 'eat' | 'dance' | 'yaho';
 
 /** [id, x, z, ry, st] — 자주 오가므로 객체 대신 배열 */
 export type Move = [string, number, number, number, St];
