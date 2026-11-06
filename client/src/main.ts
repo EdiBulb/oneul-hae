@@ -1693,7 +1693,8 @@ function speakYaho(vol: number) {
   }
 }
 function updateYaho(t: number) {
-  const show = has.peak(place.id) && mySeat === null && !lying;
+  // 야호 버튼은 피드백으로 뺌 (코드는 남김)
+  const show = false;
   if ($('yahoBtn').hidden === show) $('yahoBtn').hidden = !show;
   // 해가 뜨고 15초쯤 지나면 늦잠 잔 사람이 헐레벌떡 (순환마다 한 번, LIVE면 그날 한 번)
   if (!has.peak(place.id) || late.busy) return;
