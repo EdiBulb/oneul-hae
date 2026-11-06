@@ -109,6 +109,17 @@
   .hint.open{display:block}
   .hint h3{font-family:'Gowun Batang',serif;font-size:20px}
   .hint p{font-size:13.5px;color:var(--ink-dim);margin-top:8px;line-height:1.65}
+  .how{display:flex;flex-direction:column;gap:10px;margin-top:14px;text-align:left}
+  .how-row{display:flex;gap:12px;align-items:center;font-size:15px;line-height:1.45;background:rgba(255,255,255,.06);border-radius:14px;padding:10px 12px}
+  .how-ic{font-size:26px;flex:none;width:34px;text-align:center}
+  .hint .how-pc{font-size:12px;color:var(--ink-faint);margin-top:10px}
+  .replay-pill{margin:10px auto 0;display:block;font:inherit;font-weight:800;font-size:14px;color:#2b1608;background:linear-gradient(180deg,#ffd08a,#ff9e5a);border:0;border-radius:999px;padding:10px 18px;box-shadow:0 6px 20px rgba(255,140,60,.35);cursor:pointer}
+  .replay-pill[hidden]{display:none}
+  .joy-coach{position:absolute;left:30px;bottom:120px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;pointer-events:none;font-weight:inherit}
+  .joy-coach[hidden]{display:none}
+  .joy-coach strong{background:#fff3e2;color:#2b1608;font-size:14px;font-weight:800;padding:8px 12px;border-radius:12px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+  .joy-coach em{font-style:normal;font-size:34px;position:absolute;left:28px;top:96px;animation:joyPush 1.4s ease-in-out infinite}
+  @keyframes joyPush{0%{transform:translate(0,0)}50%{transform:translate(0,-26px)}100%{transform:translate(0,0)}}
   .hint .btn{margin-top:16px}
   .view{position:fixed;right:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;align-items:center}
   .zbtn{font:inherit;width:44px;height:44px;border-radius:50%;font-size:20px;font-weight:700;color:var(--ink);background:var(--glass);border:1px solid var(--line);cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center}

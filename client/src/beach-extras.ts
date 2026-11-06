@@ -38,7 +38,8 @@ export const has = {
 /** 향호 버스정류장: 바다를 등지고 육지 쪽을 보는 정류장 */
 export const BUS_STOP = { x: -12, z: 1.2 };
 /** 서울로 가는 문 (해변) / 지하철 역 출구 (서울) — 같은 자리 */
-export const PORTAL = { x: 8.5, z: 14 };
+/** 서울로 가는 문: 처음 생기는 자리(해변 앞쪽 가운데)에서 멀리, 오른쪽 끝에 둠 */
+export const PORTAL = { x: 16, z: 15.5 };
 /** 경복궁: 정문과 담장 위치 */
 export const PALACE = { gateZ: -12, x: 0 };
 /** 한강 편의점과 라면 기계 */

@@ -376,7 +376,8 @@ function updateCamera(dt: number) {
   camPull += (open - camPull) * (open < camPull ? 1 - Math.pow(0.0001, dt) : 1 - Math.pow(0.05, dt));
   if (camPull < 0.999) camera.position.lerpVectors(target, camera.position, camPull);
   // 바짝 당겨졌을 때: 카메라를 살짝 올려 어깨너머로 보고, 내 캐릭터는 반투명하게 (앞이 가리지 않게)
-  const near = Math.max(clamp((3.2 - cam.dist * camPull) / 2.4, 0, 1), clamp((0.85 - camPull) / 0.45, 0, 1));
+  // 실제로 벽 때문에 당겨졌을 때만 (해변에서 그냥 가까이 줌한 건 그대로)
+  const near = camPull > 0.97 ? 0 : Math.max(clamp((3.2 - cam.dist * camPull) / 2.4, 0, 1), clamp((0.85 - camPull) / 0.45, 0, 1));
   if (near > 0) camera.position.y = Math.min(4.4, camera.position.y + near * 1.4);
   fadeMe(eyeK > 0.5 ? 1 : 1 - near * 0.7);
   // 가까이에선 수평선을, 멀리선 앞쪽 해변 전체를 바라봄
@@ -551,7 +552,14 @@ function updateUI(now: number, alt: number, t: number) {
     compact = T.replaySoonOrRisen(pn, alt >= -0.8);
     $('headline').textContent = alt < -0.8 ? T.soon : T.risen;
     $('sub').textContent = T.sunriseAt(pn, hm(replay.sr, tz));
-    if (k >= 1) { replay = null; track('replay_finished', { place: place.id }); if (markSeen('replay')) { toast(T.replaySeen); track('sunrise_seen', { place: place.id, kind: 'replay', streak: streakCount() }); } }
+    if (k >= 1) {
+      replay = null; track('replay_finished', { place: place.id });
+      if (markSeen('replay')) { toast(T.replaySeen); track('sunrise_seen', { place: place.id, kind: 'replay', streak: streakCount() }); }
+      // 다 본 뒤: 진짜 해돋이는 언제인지, 그리고 이때 처음으로 홈 화면 추가를 권함
+      const nx = sunriseInfo(place, Date.now()).next;
+      if (nx) setTimeout(() => toast(T.realNext(hm(nx, place.tz))), 3200);
+      askInstallAfterSun();
+    }
   } else if (live) {
     const sr = info.windowSR!;
     full = `<span class="dot"></span>LIVE · ${pn}${wx}`;
@@ -572,6 +580,9 @@ function updateUI(now: number, alt: number, t: number) {
       $('sub').textContent = T.nextSunrise(dayName(info.next, tz), hm(info.next, tz), dur(info.next - now));
     }
   }
+  // 해가 안 떠 있는 시간에는 '오늘 해돋이 20초 만에 보기'를 늘 보여 줌 (해돋이 앱인데 해가 없으면 안 되니까)
+  const pill = !live && !replay && !!info.next && place.group !== 'seoul';
+  if ($('replayPill').hidden === pill) $('replayPill').hidden = !pill;
   const expanded = Date.now() < expandedUntil;
   $('center').classList.toggle('collapsed', !expanded);
   $('status').innerHTML = expanded ? full : `${compact}<span class="chev">▾</span>`;
@@ -580,7 +591,7 @@ function updateUI(now: number, alt: number, t: number) {
     if (!watchStart) watchStart = Date.now();
     if (live && !seenFlag && Date.now() - watchStart > 5000) {
       seenFlag = true;
-      if (markSeen('live')) { toast(T.liveSeen(streakCount())); track('sunrise_seen', { place: place.id, kind: 'live', streak: streakCount(), others: remotes.size }); }
+      if (markSeen('live')) { toast(T.liveSeen(streakCount())); track('sunrise_seen', { place: place.id, kind: 'live', streak: streakCount(), others: remotes.size }); askInstallAfterSun(); }
     }
   }
   // 진짜 숫자만: 오늘 알람 끄고 온 사람
@@ -888,12 +899,18 @@ $('wishForm').addEventListener('submit', e => {
   releaseLantern(text, true);
 });
 
-$('replayBtn').onclick = () => {
-  close();
+/** 오늘(또는 다음) 해돋이를 빨리 감아 보여 줌. quick이면 20초 (해 뜨기 6분 전 → 10분 뒤) */
+function startReplay(quick: boolean) {
   const now = Date.now(), info = sunriseInfo(place, now);
-  replay = { sr: info.last ?? info.next!, start: now, duration: 45000, from: -30 * 60000, span: 55 * 60000 };
-  watchStart = 0; expandBanner(4000);
-};
+  const sr = info.last ?? info.next; if (!sr) return;
+  replay = quick ? { sr, start: now, duration: 20000, from: -6 * 60000, span: 16 * 60000 } : { sr, start: now, duration: 45000, from: -30 * 60000, span: 55 * 60000 };
+  watchStart = 0; expandBanner(quick ? 22000 : 4000);
+  // 바다(해 뜨는 쪽)를 바라보게
+  if (!lying) setView(Math.max(cam.tDist, 6.4), 0.22, 0);
+  track('replay_started', { place: place.id, quick });
+}
+$('replayBtn').onclick = () => { close(); startReplay(false); };
+$('replayPill').onclick = () => startReplay(true);
 async function copy(text: string, done: string) {
   try { await navigator.clipboard.writeText(text); toast(done); } catch { toast(text); }
 }
@@ -1034,7 +1051,7 @@ function showInstall(force: boolean) {
 addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   installEvent = e as InstallPromptEvent;
-  if (store.hinted && !openSheet) setTimeout(() => showInstall(false), 3000);
+  if (installReady() && !openSheet) setTimeout(() => showInstall(false), 3000);
 });
 addEventListener('appinstalled', () => { track('app_installed'); installEvent = null; close(); toast(T.installed); });
 $('installGo').onclick = async () => {
@@ -1350,10 +1367,21 @@ $('kakaoBtn').addEventListener('click', () => track('support_clicked', { method:
 $('supportBtn').addEventListener('click', () => track('support_clicked', { method: 'bmc' }));
 
 // ================= 시작 =================
-const askInstallSoon = () => setTimeout(() => { if (!openSheet) showInstall(false); }, 4000);
+// 처음 보는 사이트에서 바로 '홈 화면에 추가'를 묻지 않음: 해를 한 번이라도 본 사람에게만
+// 진짜 해돋이를 함께 봤거나, 다른 날 다시 찾아온 사람 (다시보기 한 번으로는 묻지 않음)
+function installReady() { return Object.values(store.days).includes('live') || Object.keys(store.days).length >= 2; }
+function askInstallAfterSun() { setTimeout(() => { if (!openSheet && installReady()) showInstall(false); }, 9000); }
 if (!store.hinted) $('hint').classList.add('open');
-else { askInstallSoon(); expandBanner(); }
-$('hintBtn').onclick = () => { $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner(); askInstallSoon(); };
+else { if (installReady()) setTimeout(() => { if (!openSheet) showInstall(false); }, 4000); expandBanner(); }
+$('hintBtn').onclick = () => {
+  $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner();
+  // 첫 방문: 조이스틱 위치를 손가락으로 알려 주고, 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌
+  $('joyCoach').hidden = false; coachFrom.copy(me.root.position);
+  const live = !!sunriseInfo(place, Date.now()).windowSR;
+  if (!live && place.group !== 'seoul') setTimeout(() => startReplay(true), 700);
+};
+const coachFrom = new THREE.Vector3();
+setInterval(() => { if (!$('joyCoach').hidden && me.root.position.distanceTo(coachFrom) > 1.5) $('joyCoach').hidden = true; }, 300);
 world.buildLandmark(place);
 applyTerrain(place);
 renderStreak(); renderAlarm(); renderCounts();
@@ -1752,11 +1780,14 @@ function ride(target: Place, st: Station) {
   setTimeout(() => { switchPlace(target, 'portal'); void name; }, 3000);
   setTimeout(() => { ov.hidden = true; riding = false; }, 3400);
 }
+// 문 앞에 가면 버튼만 나타남. 노선도는 버튼을 눌러야 열림 (갑자기 뜨지 않게)
 function updatePortal() {
   const d = Math.hypot(me.root.position.x - PORTAL.x, me.root.position.z - PORTAL.z);
-  if (portalCooldown) { if (d > 2.6) portalCooldown = false; return; }
-  if (d < 1.3 && !riding && !openSheet) { portalCooldown = true; openMetro(); }
+  const show = d < 2.4 && !riding;
+  if ($('metroBtn').hidden === show) $('metroBtn').hidden = !show;
+  void portalCooldown;
 }
+$('metroBtn').onclick = () => { if (!riding && !openSheet) openMetro(); };
 // 한복 대여소
 function updateHanbokBtn() {
   const b = $('hanbokBtn');

@@ -83,13 +83,14 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   const seaU = {
     sunDir: { value: new THREE.Vector3() }, sunCol: { value: new THREE.Color() }, deep: { value: new THREE.Color() },
     skyLow: { value: new THREE.Color() }, fogCol: { value: new THREE.Color() }, sunUp: { value: 0 }, time: { value: 0 },
+    shallow: { value: new THREE.Color() }, day: { value: 0 },
   };
   const seaGeo = new THREE.PlaneGeometry(6000, 6000, 1, 1); seaGeo.rotateX(-Math.PI / 2);
   const sea = new THREE.Mesh(seaGeo, new THREE.ShaderMaterial({
     uniforms: seaU,
     vertexShader: /* glsl */`varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: /* glsl */`
-      uniform vec3 sunDir; uniform vec3 sunCol; uniform vec3 deep; uniform vec3 skyLow; uniform vec3 fogCol; uniform float sunUp; uniform float time;
+      uniform vec3 sunDir; uniform vec3 sunCol; uniform vec3 deep; uniform vec3 skyLow; uniform vec3 fogCol; uniform float sunUp; uniform float time; uniform vec3 shallow; uniform float day;
       varying vec3 vW;
       void main(){
         vec3 n = normalize(vec3(
@@ -99,10 +100,15 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
         vec3 v = normalize(vW - cameraPosition);
         vec3 r = reflect(v, n);
         float fres = pow(1.0 - max(dot(-v, n), 0.0), 3.0);
-        vec3 c = mix(deep, skyLow * 0.75, fres);
+        // 바다 고유의 색: 먼 바다는 짙은 파랑, 해변 가까이는 옥색. 하늘 반사는 비스듬할수록 조금만
+        vec3 c = mix(deep, skyLow * 0.8, fres * mix(0.95, 0.45, day));
+        float shore = smoothstep(-40.0, -3.0, vW.z) * day;
+        c = mix(c, shallow, shore * 0.6);
+        // 잔물결 하이라이트 (낮에 반짝임)
+        c += vec3(0.9, 0.95, 1.0) * pow(max(n.x * 3.0 + n.z * 2.0, 0.0), 6.0) * 0.12 * day;
         float sd = max(dot(r, sunDir), 0.0);
         c += sunCol * (pow(sd, 140.0) * 2.4 + pow(sd, 14.0) * 0.28) * sunUp;
-        c = mix(c, fogCol, smoothstep(60.0, 900.0, length(vW - cameraPosition)));
+        c = mix(c, fogCol, smoothstep(120.0, 1100.0, length(vW - cameraPosition)) * mix(1.0, 0.7, day));
         gl_FragColor = vec4(c, 1.0);
       }`,
   }));
@@ -188,6 +194,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
 
   // ---------- 매 프레임: 해 위치에 맞춰 하늘·바다·조명 갱신 ----------
   const sunDir = new THREE.Vector3(), sunCol = new THREE.Color(), deep = new THREE.Color(), tmp = new THREE.Color();
+  const SEA_DEEP = new THREE.Color(0x13567f), SEA_SHALLOW = new THREE.Color(0x3fb0b8);
   function update(now: number, place: Place, refSunrise: number, camera: THREE.Camera, t: number) {
     const sp = sunPos(now, place.lat, place.lng);
     const az0 = sunPos(refSunrise, place.lat, place.lng).az; // 일출 방향을 화면 정면(-z)에 맞춤
@@ -210,7 +217,10 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     const gs = 110 + 60 * glow;
     sunGlow.scale.set(gs, gs, 1); sunGlow.material.opacity = glow * 0.38; sunGlow.visible = glow > 0.01;
 
-    deep.copy(top).multiplyScalar(0.45);
+    // 낮일수록 하늘색 대신 바다 고유의 파란색 (회색 흙탕물처럼 보이지 않게)
+    const day = clamp((alt + 2) / 14, 0, 1);
+    deep.copy(top).multiplyScalar(0.45).lerp(SEA_DEEP, day * 0.85);
+    seaU.shallow.value.copy(SEA_SHALLOW).multiplyScalar(0.55 + 0.45 * day); seaU.day.value = day;
     seaU.sunDir.value.copy(sunDir); seaU.sunCol.value.copy(sunCol); seaU.deep.value.copy(deep);
     seaU.skyLow.value.copy(low); seaU.fogCol.value.copy(low);
     seaU.sunUp.value = clamp((alt + 1.5) / 5, 0, 1); seaU.time.value = t / 1000;
