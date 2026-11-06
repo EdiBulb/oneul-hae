@@ -15,6 +15,7 @@ export interface Place {
 }
 export type PlaceGroup = 'sunrise' | 'kcontent';
 
+// 사람이 적을 땐 장소를 줄여 한곳에 모이게 (기스본·K콘텐츠 촬영지는 잠시 내림, 코드는 그대로)
 export const PLACES: Place[] = [
   { id: 'jirisan', name: '지리산 천왕봉', region: '산청', nameEn: 'Jirisan Cheonwangbong', regionEn: 'Sancheong', lat: 35.3369, lng: 127.7306, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'hallasan', name: '한라산 백록담', region: '제주', nameEn: 'Hallasan Baengnokdam', regionEn: 'Jeju', lat: 33.3617, lng: 126.5292, tz: 'Asia/Seoul', group: 'sunrise' },
@@ -22,10 +23,6 @@ export const PLACES: Place[] = [
   { id: 'seongsan', name: '성산일출봉', region: '제주', nameEn: 'Seongsan Ilchulbong', regionEn: 'Jeju', lat: 33.458, lng: 126.9425, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'seopjikoji', name: '섭지코지', region: '제주', nameEn: 'Seopjikoji', regionEn: 'Jeju', lat: 33.4240, lng: 126.9310, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'homigot', name: '호미곶', region: '포항', nameEn: 'Homigot', regionEn: 'Pohang', lat: 36.0767, lng: 129.5689, tz: 'Asia/Seoul', group: 'sunrise' },
-  { id: 'gisborne', name: '기스본', region: '뉴질랜드', nameEn: 'Gisborne', regionEn: 'New Zealand', lat: -38.6623, lng: 178.0176, tz: 'Pacific/Auckland', group: 'sunrise' },
-  { id: 'jumunjin', name: '주문진 방파제', region: '강릉', nameEn: 'Jumunjin Breakwater', regionEn: 'Gangneung', lat: 37.885, lng: 128.831, tz: 'Asia/Seoul', group: 'kcontent' },
-  { id: 'hyangho', name: '향호 버스정류장', region: '강릉', nameEn: 'Hyangho Bus Stop', regionEn: 'Gangneung', lat: 37.92, lng: 128.80, tz: 'Asia/Seoul', group: 'kcontent' },
-  { id: 'hangang', name: '한강공원', region: '서울 여의도', nameEn: 'Han River Park', regionEn: 'Yeouido, Seoul', lat: 37.5284, lng: 126.934, tz: 'Asia/Seoul', group: 'kcontent' },
 ];
 
 const WISHES_KO = ['오늘도 무사히', '건강하게', '합격 기원', '월급 들어와라', '좋은 하루', '다 잘 될 거야', '사랑하는 사람들 행복하게', '퇴근 빨리'];

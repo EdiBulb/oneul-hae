@@ -10,28 +10,6 @@ const PAGES = {
   seopjikoji: { lang: 'ko', title: '섭지코지 · 오늘의 해, 온라인 해돋이', desc: '제주 섭지코지의 검은 현무암 해안과 촛대바위 사이로 떠오르는 해를 사람들과 함께 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.', image: 'og-seopjikoji.png', alt: '검은 바위와 바다에 선 촛대바위 사이로 떠오르는 해' },
   seongsan: { lang: 'ko', title: '성산일출봉 · 오늘의 해, 온라인 해돋이', desc: '제주 성산일출봉 앞바다에서 사람들과 함께 실시간 해돋이를 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.' },
   homigot: { lang: 'ko', title: '호미곶 · 오늘의 해, 온라인 해돋이', desc: '포항 호미곶 상생의 손 앞에서 사람들과 함께 실시간 해돋이를 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.' },
-  gisborne: { lang: 'ko', title: '기스본 · 오늘의 해, 온라인 해돋이', desc: '세계에서 가장 먼저 해가 뜨는 도시 중 하나, 뉴질랜드 기스본에서 함께 실시간 해돋이를 봐요.' },
-  jumunjin: {
-    lang: 'en',
-    title: "Jumunjin Breakwater, Korea · Today's Sun",
-    desc: "Stand on the little breakwater known from the K-drama 'Goblin'. A live 3D Korean seaside you can visit from anywhere: real sunrise, grey sweatshirts, red scarves and photos together.",
-    image: 'og-jumunjin.png',
-    alt: 'Two characters, one holding a buckwheat bouquet and one in a red scarf, facing each other on a breakwater at sunrise',
-  },
-  hyangho: {
-    lang: 'en',
-    title: "Hyangho Bus Stop, Korea · Today's Sun",
-    desc: 'Sit at the little seaside bus stop from a famous K-pop album cover, on the beach in Gangneung. A live 3D Korean seaside you can visit from anywhere.',
-    image: 'og-hyangho.png',
-    alt: 'A small blue-roofed bus stop with a purple bench on a sandy beach, the sea behind it',
-  },
-  hangang: {
-    lang: 'en',
-    title: "Han River Ramyeon, Seoul · Today's Sun",
-    desc: "Cook convenience-store ramyeon and eat it on a picnic mat by Seoul's Han River at night, with people from around the world. No app needed.",
-    image: 'og-hangang.png',
-    alt: 'Characters eating instant noodles on picnic mats by the Han River with the lit-up Seoul skyline across the water',
-  },
 };
 
 const base = readFileSync('dist/index.html', 'utf8');

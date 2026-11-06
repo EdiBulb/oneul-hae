@@ -33,10 +33,10 @@ interface Gull { g: THREE.Group; wl: THREE.Mesh; wr: THREE.Mesh; mode: 'circle' 
 
 export function createBeachLife(scene: THREE.Scene) {
   const gulls: Gull[] = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 3; i++) {
     const { g, wl, wr } = makeGull();
     scene.add(g);
-    const ground = i >= 4;
+    const ground = true; // 하늘을 맴도는 3D 갈매기는 덩어리처럼 보여서 뺌 (하늘엔 실루엣 갈매기 무리만)
     gulls.push({ g, wl, wr, mode: ground ? 'ground' : 'circle', t: rand(0, 6.28), r: rand(14, 30), h: rand(7, 14), speed: rand(0.12, 0.22) * (Math.random() < 0.5 ? 1 : -1), cx: rand(-8, 8), cz: rand(-28, -14), vy: 0, rest: 0 });
   }
   function landGull(gl: Gull) {

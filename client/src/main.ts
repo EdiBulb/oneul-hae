@@ -80,7 +80,7 @@ const world = createWorld(scene, renderer, GLOW);
 const lanterns = createLanterns(scene, GLOW);
 // 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
 const life = createBeachLife(scene);
-const fireflies = createFireflies(scene, GLOW), flock = createFlock(scene), leaves = createLeaves(scene);
+const fireflies = createFireflies(scene, GLOW), flock = createFlock(scene, GLOW), leaves = createLeaves(scene);
 const echo = createEcho(scene), late = createLateSleeper(scene, floorY);
 /** 가을(한국 9~11월)에 나무가 있는 곳(산·한강공원)에만 낙엽 */
 // 낙엽은 사용자 피드백으로 잠시 끔 (모델 품질이 받쳐줄 때 다시)
@@ -266,7 +266,8 @@ net.on('welcome', w => {
   if (mySeat !== null) { leaveSeat(); me.state = 'idle'; }
   if (outfitOf(me)) net.emit('outfit', outfitOf(me));
   if (me.blanket.visible) net.emit('blanket', true); // 다시 접속·채널 이동 때 담요 상태 알려 주기
-  traces.set(w.traces);
+  // 유령 같은 흔적(오늘 다녀간 자리)은 피드백으로 숨김 — 방문자 수만 씀
+  void traces;
   sandPosts = w.board ?? []; renderSandLabel(); if (sandOpen) renderSand();
   todayVisitors = w.traces.visitors;
   bots.fill();
@@ -1738,12 +1739,14 @@ function horizonScreen() {
 }
 /** 응원한 사람에게서 빛 알갱이가 게이지로 날아감 */
 function spark(from: THREE.Vector3) {
-  const h = horizonScreen(); if (!h) return;
+  // 빛 알갱이는 응원 버튼으로 모인다 (게이지가 버튼 안에서 차오름)
+  const r = $('cheerBtn').getBoundingClientRect(); if (!r.width) return;
+  const h = [r.left + r.width * (0.2 + Math.random() * 0.6), r.top + r.height / 2];
   sparkTmp.copy(from); sparkTmp.y += 1.6; const p = sparkTmp.project(camera);
   if (p.z > 1) return;
   const el = document.createElement('div'); el.className = 'spark';
   const x0 = (p.x + 1) / 2 * innerWidth, y0 = (1 - p.y) / 2 * innerHeight, a = Math.PI * (0.15 + Math.random() * 0.7);
-  const x1 = h[0] - Math.cos(a) * 118, y1 = h[1] - Math.sin(a) * 118;
+  void a; const x1 = h[0], y1 = h[1];
   el.style.left = `${x0}px`; el.style.top = `${y0}px`; $('sparks').appendChild(el);
   el.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${x1 - x0}px,${y1 - y0}px) scale(.6)`, opacity: 0.2 }], { duration: 900, easing: 'ease-in' }).onfinish = () => el.remove();
 }
@@ -1756,16 +1759,16 @@ function updateCheer(t: number, dt: number) {
   if (!w) { if (!g.hidden) g.hidden = true; return; }
   if (cheerHinted !== w.key) { cheerHinted = w.key; ticker(T.cheerHint); }
   const mine = myCheers[w.key] ?? 0, left = CHEER_MAX - mine;
-  $('cheerLeft').textContent = String(left); $('cheerLabel').textContent = left > 0 ? T.cheerBtn : T.cheerDone;
-  b.dataset.done = left > 0 ? '0' : '1';
-  const pct = cheerPct(w), h = horizonScreen();
-  g.hidden = !h;
-  // 지평선에 붙이되, 위쪽 안내 알약을 가리지 않게 너무 높으면 조금 내림
-  if (h) { g.style.left = `${h[0]}px`; g.style.top = `${Math.max(h[1] + 4, 270)}px`; }
-  ($('gaugeFill') as unknown as SVGPathElement).setAttribute('stroke-dasharray', `${(371 * pct).toFixed(1)} 371`);
-  g.classList.toggle('full', pct >= 1);
-  const label = pct >= 1 ? T.gaugeFull : T.gauge(Math.round(pct * 100));
-  if ($('gaugeLabel').textContent !== label) $('gaugeLabel').textContent = label;
+    b.dataset.done = left > 0 ? '0' : '1';
+  // 햇살 게이지 = 버튼 자체가 왼쪽부터 차오름 (해 뜨는 장면을 가리지 않게)
+  const pct = cheerPct(w);
+  if (!g.hidden) g.hidden = true;
+  b.style.setProperty('--fill', `${(pct * 100).toFixed(1)}%`);
+  b.classList.toggle('full', pct >= 1);
+  const lbl = pct >= 1 ? T.gaugeFull : left > 0 ? T.cheerBtn : T.cheerDone;
+  if ($('cheerLabel').textContent !== lbl) $('cheerLabel').textContent = lbl;
+  $('cheerLeft').textContent = `${Math.round(pct * 100)}%`;
+  b.setAttribute('aria-label', `${lbl} · ${T.gauge(Math.round(pct * 100))}`);
   // 가짜 사용자들도 가끔 응원 (보이기만)
   if (t - lastBotSpark > 2400 && bots.count) { lastBotSpark = t; const ps = bots.positions(); spark(ps[Math.floor(Math.random() * ps.length)]); }
 }

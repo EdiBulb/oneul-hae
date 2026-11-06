@@ -271,7 +271,14 @@
 
 
 /* 같이 해 띄우기 */
-.cheer-btn{display:inline-flex;align-items:center;gap:6px}
+.cheer-btn{display:inline-flex;align-items:center;gap:6px;position:relative;overflow:hidden;isolation:isolate;
+  background:linear-gradient(180deg,rgba(60,32,14,.78),rgba(40,20,8,.78)) !important;color:#ffe2b0 !important;border:1.5px solid rgba(255,192,112,.7) !important;text-shadow:0 1px 3px rgba(60,20,0,.6)}
+/* 버튼 안 게이지: 누를수록 왼쪽부터 금빛이 차오름 */
+.cheer-btn::before{content:'';position:absolute;inset:0;z-index:-1;width:var(--fill,0%);background:linear-gradient(180deg,#ffc070,#ff8a3d);transition:width .45s cubic-bezier(.2,.8,.2,1)}
+.cheer-btn::after{content:'';position:absolute;top:0;bottom:0;left:var(--fill,0%);width:3px;margin-left:-2px;background:#fff6d8;box-shadow:0 0 10px 3px rgba(255,220,140,.8);transition:left .45s cubic-bezier(.2,.8,.2,1);z-index:-1}
+.cheer-btn.full{color:#2b1608 !important;border-color:#ffe29a !important;animation:cheerFull 1.4s ease-in-out infinite}
+.cheer-btn.full::after{display:none}
+@keyframes cheerFull{0%,100%{box-shadow:0 0 0 0 rgba(255,214,120,.0)}50%{box-shadow:0 0 22px 6px rgba(255,214,120,.65)}}
 .cheer-btn b{font-size:12px;background:#2b1608;color:#ffd08a;border-radius:10px;padding:2px 7px}
 .cheer-btn[data-done="1"]{opacity:.65}
 .gauge{position:fixed;left:0;top:0;width:260px;pointer-events:none;z-index:2;transform:translate(-50%,-100%) scale(.66);transform-origin:50% 100%;display:flex;flex-direction:column;align-items:center}

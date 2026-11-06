@@ -31,36 +31,75 @@ export function createFireflies(scene: THREE.Scene, GLOW: THREE.Texture) {
 }
 
 /** 해 앞을 가로질러 날아가는 새 떼 (검은 실루엣, 노을 프사 느낌) */
-export function createFlock(scene: THREE.Scene) {
+/** 갈매기 무리: 꽉 찬 검은 실루엣 3~5마리가 해 앞을 느슨하게 지나감.
+ *  날개는 안쪽·바깥쪽 두 마디라 바깥 날개가 살짝 늦게 따라와 자연스럽게 펄럭이고, 가끔 날개를 편 채 미끄러진다.
+ *  해 가까이 지날 땐 뒤쪽 금빛 후광 + 날개 가장자리 빛(림 라이트)이 켜진다. */
+export function createFlock(scene: THREE.Scene, GLOW: THREE.Texture) {
   const g = new THREE.Group(); scene.add(g); g.visible = false;
-  const m = new THREE.MeshBasicMaterial({ color: 0x1a1418, fog: false, side: THREE.DoubleSide });
-  const birds = Array.from({ length: 9 }, (_, i) => {
+  const ink = new THREE.MeshBasicMaterial({ color: 0x120a07, fog: false, side: THREE.DoubleSide });
+  // 날개 모양 (오른쪽 날개 기준, 몸통 쪽이 x=0)
+  const inner = new THREE.Shape();
+  inner.moveTo(0, 0.12); inner.bezierCurveTo(0.6, 0.32, 1.2, 0.34, 1.6, 0.22); inner.lineTo(1.6, -0.12); inner.bezierCurveTo(1.1, -0.06, 0.5, -0.14, 0, -0.2); inner.closePath();
+  const outer = new THREE.Shape();
+  outer.moveTo(0, 0.22); outer.bezierCurveTo(0.7, 0.2, 1.4, 0.0, 2.1, -0.32); outer.bezierCurveTo(1.4, -0.22, 0.6, -0.18, 0, -0.12); outer.closePath();
+  const gIn = new THREE.ShapeGeometry(inner, 6), gOut = new THREE.ShapeGeometry(outer, 8);
+  const body = new THREE.Shape();
+  body.moveTo(-0.62, 0); body.bezierCurveTo(-0.4, 0.2, 0.3, 0.2, 0.7, 0.04); body.lineTo(0.95, 0.0); body.lineTo(0.7, -0.06); body.bezierCurveTo(0.3, -0.2, -0.4, -0.2, -0.62, 0);
+  const gBody = new THREE.ShapeGeometry(body, 6);
+  const rimMat = (o: number) => new THREE.SpriteMaterial({ map: GLOW, color: 0xffb04a, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true, opacity: o });
+  const N = 5;
+  const birds = Array.from({ length: N }, (_, i) => {
     const b = new THREE.Group();
-    const wl = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.5), m); wl.position.x = -1.2; b.add(wl);
-    const wr = wl.clone(); wr.position.x = 1.2; b.add(wr);
-    const body = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), m); b.add(body);
-    // V 대형
-    const row = Math.ceil(i / 2), side = i % 2 ? 1 : -1;
-    b.position.set(side * row * 5, -row * 2.4 + (Math.random() - 0.5), 0);
+    const wing = (side: 1 | -1) => {
+      const root = new THREE.Group(), mIn = new THREE.Mesh(gIn, ink), elbow = new THREE.Group(), mOut = new THREE.Mesh(gOut, ink);
+      root.scale.x = side; elbow.position.x = 1.55; elbow.add(mOut); root.add(mIn, elbow); b.add(root);
+      return { root, elbow };
+    };
+    const L = wing(-1), R = wing(1);
+    const bd = new THREE.Mesh(gBody, ink); bd.rotation.z = Math.PI / 2; bd.scale.set(1, 1.15, 1); b.add(bd);
+    // 해 앞을 지날 때 켜지는 빛: 뒤쪽 큰 후광 + 몸에 붙은 작은 반짝임
+    const halo = new THREE.Sprite(rimMat(0)); halo.scale.set(9, 9, 1); halo.position.z = -0.5; halo.renderOrder = 4; b.add(halo);
+    const rim = new THREE.Sprite(rimMat(0)); rim.scale.set(5.5, 2.2, 1); rim.position.z = 0.2; rim.renderOrder = 6; b.add(rim);
     g.add(b);
-    return { b, wl, wr, ph: Math.random() * 6 };
+    const sc = [1.25, 1, 0.85, 0.7, 0.6][i];
+    b.scale.setScalar(sc * 3.6);
+    return { b, L, R, halo, rim, sc, ph: Math.random() * 6, sp: 5 + Math.random() * 2.5,
+      ox: i * 11 + (Math.random() - 0.5) * 6, oy: (Math.random() - 0.5) * 14, oz: (Math.random() - 0.5) * 40,
+      glide: Math.random() * 6, bob: Math.random() * 6 };
   });
   let t0 = -1;
+  const right = new THREE.Vector3(), toB = new THREE.Vector3(), base = new THREE.Vector3();
   return {
-    fly() { t0 = 0; g.visible = true; },
+    fly() {
+      t0 = 0; g.visible = true;
+      for (const bd of birds) { bd.ph = Math.random() * 6; bd.glide = Math.random() * 6; }
+    },
     update(dt: number, camera: THREE.Camera, sunDir: THREE.Vector3) {
       if (t0 < 0) return;
       t0 += dt;
-      const T = 16, k = t0 / T;
+      const T = 22, k = t0 / T;
       if (k > 1) { t0 = -1; g.visible = false; return; }
-      // 해 방향 400m 앞, 오른쪽 → 왼쪽으로 가로지르며 살짝 올라감
-      const right = new THREE.Vector3(-sunDir.z, 0, sunDir.x).normalize();
-      g.position.copy(camera.position).addScaledVector(sunDir, 400).addScaledVector(right, (0.5 - k) * 260);
-      g.position.y += 18 + k * 30;
-      g.lookAt(camera.position);
+      // 해 방향 300m 앞, 오른쪽 → 왼쪽으로 해 원반을 가로지르며 아주 살짝 올라감
+      right.set(-sunDir.z, 0, sunDir.x).normalize();
+      base.copy(camera.position).addScaledVector(sunDir, 300);
       for (const bd of birds) {
-        const f = Math.sin((t0 * 7 + bd.ph)) * 0.6;
-        bd.wl.rotation.z = f; bd.wr.rotation.z = -f;
+        const x = (0.5 - k) * 160 + bd.ox - 14;
+        const p = bd.b.position.copy(base).addScaledVector(right, x).addScaledVector(sunDir, bd.oz);
+        p.y += bd.oy + 3 + k * 8 + Math.sin(t0 * 0.9 + bd.bob) * 1.2;
+        bd.b.lookAt(camera.position);
+        bd.b.rotateZ(Math.sin(t0 * 0.7 + bd.bob) * 0.08); // 살짝 기우뚱
+        // 날갯짓: 4초 중 1.3초는 날개를 편 채 활공
+        const cyc = (t0 + bd.glide) % 4, flap = cyc < 2.7 ? 1 : 0.15;
+        const a = t0 * bd.sp + bd.ph, f = Math.sin(a) * 0.55 * flap + 0.12;
+        const fo = Math.sin(a - 0.9) * 0.45 * flap - 0.08;
+        bd.L.root.rotation.z = -f; bd.R.root.rotation.z = f;
+        bd.L.elbow.rotation.z = fo; bd.R.elbow.rotation.z = fo;
+        // 해와 가까울수록 빛남 (화면상 각도로)
+        toB.copy(p).sub(camera.position).normalize();
+        const near = THREE.MathUtils.clamp((toB.dot(sunDir) - 0.985) / 0.0148, 0, 1);
+        const glow = near * near;
+        bd.halo.material.opacity = glow * 0.75; bd.rim.material.opacity = glow * 0.9;
+        bd.halo.visible = bd.rim.visible = glow > 0.01;
       }
     },
   };

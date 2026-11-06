@@ -21,6 +21,26 @@
       "source": "/hongdae",
       "destination": "/",
       "permanent": false
+    },
+    {
+      "source": "/gisborne",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/jumunjin",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/hyangho",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/hangang",
+      "destination": "/",
+      "permanent": false
     }
   ]
 }
