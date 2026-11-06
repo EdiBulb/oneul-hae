@@ -53,6 +53,17 @@ function onResize() {
   camera.aspect = w / h; camera.fov = w < h ? 64 : 50; camera.updateProjectionMatrix();
 }
 addEventListener('resize', onResize); onResize();
+// 인앱 브라우저 시트 닫힘 방지: 스크롤 위치를 30px에 고정 (0이면 시트가 아래로 끌려 내려감)
+const PIN = 30;
+const pin = () => { if (Math.abs(scrollY - PIN) > 1) scrollTo(0, PIN); };
+addEventListener('scroll', pin, { passive: true });
+addEventListener('load', pin); pin(); setTimeout(pin, 300);
+// 화면(3D·조이스틱) 위의 세로 드래그를 페이지가 소비해서 바깥 앱으로 넘어가지 않게
+document.addEventListener('touchmove', e => {
+  const t = e.target as HTMLElement;
+  if (t.closest('.sheet, .sand-area, .chips, textarea, input, [data-scroll]')) return;
+  e.preventDefault();
+}, { passive: false });
 // 폰을 돌린 직후에는 화면 크기가 늦게 바뀌는 브라우저가 있어서 조금 뒤에 다시 맞춤
 const resizeSoon = () => { onResize(); setTimeout(onResize, 150); setTimeout(onResize, 600); };
 addEventListener('orientationchange', resizeSoon);
