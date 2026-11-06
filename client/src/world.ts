@@ -9,13 +9,15 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 /** 해 고도별 하늘색 (위, 중간, 지평선) */
 const C = (r: number, g: number, b: number) => new THREE.Color(r / 255, g / 255, b / 255);
 const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
+  // 참고: 실제 일출 사진 4장에서 뽑은 색 — 위는 맑은 파랑, 중간은 분홍·보라, 수평선은 진한 주황·다홍
   [-18, C(4, 6, 26), C(9, 13, 42), C(17, 22, 58)],
-  [-10, C(10, 16, 51), C(36, 39, 90), C(74, 58, 110)],
-  [-5, C(26, 44, 104), C(92, 86, 146), C(226, 140, 112)],
-  [0, C(48, 86, 160), C(150, 132, 170), C(255, 196, 140)],
-  [4, C(72, 126, 194), C(170, 178, 205), C(255, 226, 180)],
+  [-10, C(10, 16, 51), C(30, 34, 88), C(70, 48, 100)],
+  [-5, C(20, 40, 105), C(112, 66, 128), C(232, 92, 58)],
+  [-1.5, C(28, 72, 166), C(206, 104, 122), C(255, 104, 28)],
+  [1.5, C(36, 104, 204), C(240, 150, 112), C(255, 132, 36)],
+  [5, C(58, 126, 212), C(248, 188, 140), C(255, 196, 112)],
   [12, C(90, 152, 210), C(152, 196, 232), C(230, 240, 246)],
-];
+]
 
 /** 앉을 자리. 방석·데크는 바다(ry 0)를, 통나무는 모닥불을 바라본다.
  *  bench(통나무·데크 끝)면 y가 엉덩이 높이, sx·sz는 일어날 때 내려설 자리 */
@@ -50,23 +52,29 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   // ---------- 하늘 ----------
   const skyU = {
     top: { value: new THREE.Color() }, mid: { value: new THREE.Color() }, low: { value: new THREE.Color() },
-    sunDir: { value: new THREE.Vector3(0, 0, -1) }, glow: { value: 0 }, stars: { value: 0 },
+    sunDir: { value: new THREE.Vector3(0, 0, -1) }, glow: { value: 0 }, stars: { value: 0 }, dawn: { value: 0 },
   };
   const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16), new THREE.ShaderMaterial({
     uniforms: skyU, side: THREE.BackSide, depthWrite: false, fog: false,
     vertexShader: /* glsl */`varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: /* glsl */`
-      uniform vec3 top; uniform vec3 mid; uniform vec3 low; uniform vec3 sunDir; uniform float glow; uniform float stars;
+      uniform vec3 top; uniform vec3 mid; uniform vec3 low; uniform vec3 sunDir; uniform float glow; uniform float stars; uniform float dawn;
       varying vec3 vDir;
       float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
       void main(){
         vec3 d = normalize(vDir); float h = d.y;
-        vec3 c = mix(low, mid, smoothstep(0.0, 0.16, h));
-        c = mix(c, top, smoothstep(0.16, 0.75, h));
+        vec3 c = mix(low, mid, smoothstep(0.0, 0.12, h));
+        c = mix(c, top, smoothstep(0.12, 0.5, h));
         if(h < 0.0) c = low;
+        // 해 쪽 수평선은 주황 띠가 옆으로 길게 번지고, 반대쪽은 보랏빛으로 식는다 (사진처럼)
+        vec2 dh = normalize(d.xz + 1e-5), sh = normalize(sunDir.xz + 1e-5);
+        float side = pow(dot(dh, sh) * 0.5 + 0.5, 3.0), hh = max(h, 0.0);
+        c += vec3(1.0, 0.36, 0.06) * exp(-hh * 11.0) * side * 0.55 * dawn;
+        c += vec3(0.95, 0.35, 0.45) * exp(-hh * 4.0) * side * (1.0 - exp(-hh * 11.0)) * 0.18 * dawn;
+        c = mix(c, c * vec3(0.72, 0.7, 1.05), (1.0 - side) * dawn * 0.45 * (1.0 - smoothstep(0.0, 0.35, hh)));
         float s = max(dot(d, sunDir), 0.0);
-        c += vec3(1.0, 0.55, 0.3) * pow(s, 5.0) * 0.3 * glow;
-        c += vec3(1.0, 0.8, 0.55) * pow(s, 60.0) * 0.4 * glow;
+        c += vec3(1.0, 0.5, 0.18) * pow(s, 5.0) * (0.3 + 0.25 * dawn) * glow;
+        c += vec3(1.0, 0.78, 0.45) * pow(s, 60.0) * (0.4 + 0.3 * dawn) * glow;
         c += vec3(step(0.9965, hash(floor(d * 520.0))) * stars * smoothstep(0.03, 0.25, h));
         gl_FragColor = vec4(c, 1.0);
       }`,
@@ -98,14 +106,14 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   const seaU = {
     sunDir: { value: new THREE.Vector3() }, sunCol: { value: new THREE.Color() }, deep: { value: new THREE.Color() },
     skyLow: { value: new THREE.Color() }, fogCol: { value: new THREE.Color() }, sunUp: { value: 0 }, time: { value: 0 },
-    shallow: { value: new THREE.Color() }, day: { value: 0 },
+    shallow: { value: new THREE.Color() }, day: { value: 0 }, dawn: { value: 0 },
   };
   const seaGeo = new THREE.PlaneGeometry(6000, 6000, 1, 1); seaGeo.rotateX(-Math.PI / 2);
   const sea = new THREE.Mesh(seaGeo, new THREE.ShaderMaterial({
     uniforms: seaU,
     vertexShader: /* glsl */`varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: /* glsl */`
-      uniform vec3 sunDir; uniform vec3 sunCol; uniform vec3 deep; uniform vec3 skyLow; uniform vec3 fogCol; uniform float sunUp; uniform float time; uniform vec3 shallow; uniform float day;
+      uniform vec3 sunDir; uniform vec3 sunCol; uniform vec3 deep; uniform vec3 skyLow; uniform vec3 fogCol; uniform float sunUp; uniform float time; uniform vec3 shallow; uniform float day; uniform float dawn;
       varying vec3 vW;
       void main(){
         vec3 n = normalize(vec3(
@@ -123,6 +131,14 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
         c += vec3(0.9, 0.95, 1.0) * pow(max(n.x * 3.0 + n.z * 2.0, 0.0), 6.0) * 0.12 * day;
         float sd = max(dot(r, sunDir), 0.0);
         c += sunCol * (pow(sd, 140.0) * 2.4 + pow(sd, 14.0) * 0.28) * sunUp;
+        // 해의 길: 해 바로 아래로 세로로 길게 반짝이는 금빛 띠 (멀수록 가늘고, 물결 따라 깜빡임)
+        vec3 vh = normalize(vec3(v.x, 0.0, v.z)); vec3 sh = normalize(vec3(sunDir.x, 0.0, sunDir.z) + 1e-5);
+        float lat = 1.0 - dot(vh, sh);
+        float road = exp(-lat / 0.0016) * smoothstep(0.0, 0.25, -v.y + 0.02);
+        float sp = 0.5 + 0.5 * sin(vW.x * 6.0 + time * 3.1) * sin(vW.z * 9.0 - time * 2.4 + n.x * 30.0);
+        c += mix(sunCol, vec3(1.0, 0.85, 0.5), 0.35) * road * (0.25 + 1.6 * sp * sp) * sunUp * (0.55 + 0.9 * dawn);
+        // 동틀 녘엔 바다도 하늘의 주황·분홍을 비춘다
+        c = mix(c, skyLow * 0.75, dawn * 0.28 * (1.0 - road));
         c = mix(c, fogCol, smoothstep(120.0, 1100.0, length(vW - cameraPosition)) * mix(1.0, 0.7, day));
         gl_FragColor = vec4(c, 1.0);
       }`,
@@ -227,11 +243,14 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     skyU.top.value.copy(top); skyU.mid.value.copy(mid); skyU.low.value.copy(low); skyU.sunDir.value.copy(sunDir);
     const glow = clamp((alt + 9) / 10, 0, 1);
     skyU.glow.value = glow;
+    // 동틀 녘 정도: 해가 -8°~+3°일 때 가장 강하고, 높이 뜨면 사라짐 (낮 하늘은 파랗게)
+    const dawn = clamp((alt + 8) / 6, 0, 1) * (1 - clamp((alt - 3) / 9, 0, 1));
+    skyU.dawn.value = dawn; seaU.dawn.value = dawn;
     skyU.stars.value = clamp((-alt - 5) / 9, 0, 1);
     sky.position.copy(camera.position);
 
     const warm = clamp(alt / 12, 0, 1);
-    sunCol.setRGB(1, 0.62 + 0.34 * warm, 0.42 + 0.5 * warm);
+    sunCol.setRGB(1, 0.5 + 0.46 * warm, 0.16 + 0.76 * warm);
     (sunMesh.material as THREE.MeshBasicMaterial).color.copy(sunCol);
     sunMesh.position.copy(camera.position).addScaledVector(sunDir, 850);
     sunMesh.visible = alt > -3;
