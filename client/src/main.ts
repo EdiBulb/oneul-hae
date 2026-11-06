@@ -15,12 +15,13 @@ import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
 import { createPlaceScenery } from './place-scenery';
 import { createBots } from './bots';
+import { createFireflies, createFlock } from './sky-extras';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place, placeBlurb, placeRoute, type PlaceGroup } from './places';
 import { T, applyHtml, lang, num, setLang } from './i18n';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
-import { dayName, dur, hm, mmss, sunriseInfo, sunrises } from './sun';
+import { dayName, dur, hm, mmss, sunPos, sunriseInfo, sunrises } from './sun';
 import { createWorld, glowTexture, groundY } from './world';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
@@ -54,6 +55,7 @@ const world = createWorld(scene, renderer, GLOW);
 const lanterns = createLanterns(scene, GLOW);
 // 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
 const life = createBeachLife(scene);
+const fireflies = createFireflies(scene, GLOW), flock = createFlock(scene);
 // 해변 강아지 이름 (해변마다 한 마리)
 const DOG_NAMES: Record<string, [string, string]> = {
   jeongdongjin: ['해피', 'Happy'], seongsan: ['감귤', 'Gamgyul'], homigot: ['호두', 'Hodu'], gisborne: ['키위', 'Kiwi'],
@@ -95,8 +97,51 @@ let replay: { sr: number; start: number; duration: number; from: number; span: n
 let watchStart = 0, seenFlag = false;
 /** 산 정상: 절벽 끝에 닿았는지 (장소를 옮기면 초기화) */
 let summitReached = false;
+// ================= 5분 순환 하늘 =================
+// 진짜 해돋이 시간(LIVE)이 아니면 하루를 5분으로 줄여 계속 돌린다: 해 뜸 → 낮 → 뒤쪽으로 해 짐 → 밤(반딧불) → 다시 해 뜸.
+// 시계 기준이라 같은 장소에 있는 사람은 모두 같은 하늘을 본다. 기록(해 본 날)은 진짜 해돋이만 인정.
+const CYCLE = 5 * 60000;
+// 한 바퀴 안에서 각 구간이 차지하는 비율과, 그 구간에 해당하는 실제 시각 범위 (일출 SR·일몰 SS 기준, 분)
+const SEG: [number, 'sr' | 'ss' | 'sr2', number, 'sr' | 'ss' | 'sr2', number][] = [
+  [0.30, 'sr', -25, 'sr', 20],   // 새벽·해돋이 (가장 길게)
+  [0.15, 'sr', 20, 'ss', -20],   // 낮은 빨리
+  [0.17, 'ss', -20, 'ss', 30],   // 해넘이
+  [0.38, 'ss', 30, 'sr2', -25],  // 밤 (반딧불)
+];
+const SR_PHASE = 0.30 * (25 / 45); // 해가 지평선을 넘는 순간
+let cycleDay = { key: '', sr: 0, ss: 0 };
+function cycleRefs() {
+  const key = place.id + dateKey(Date.now());
+  if (cycleDay.key !== key) {
+    const info = sunriseInfo(place, Date.now());
+    const sr = info.last ?? info.next ?? Date.now();
+    let ss = sr + 12 * 3600000, prev = sunPos(sr + 3 * 3600000, place.lat, place.lng).alt;
+    for (let t = sr + 3 * 3600000 + 60000; t < sr + 20 * 3600000; t += 60000) {
+      const a = sunPos(t, place.lat, place.lng).alt;
+      if (prev >= -0.833 && a < -0.833) { ss = t; break; }
+      prev = a;
+    }
+    cycleDay = { key, sr, ss };
+  }
+  return cycleDay;
+}
+const cyclePhase = () => (Date.now() % CYCLE) / CYCLE;
+/** 다음 순환 해돋이까지 남은 밀리초 */
+const cycleToSunrise = () => (((SR_PHASE - cyclePhase()) % 1 + 1) % 1) * CYCLE;
+function cycleTime() {
+  const { sr, ss } = cycleRefs(), at = { sr, ss, sr2: sr + 86400000 };
+  let p = cyclePhase();
+  for (const [w, a, da, b, db] of SEG) {
+    if (p <= w) { const t0 = at[a] + da * 60000, t1 = at[b] + db * 60000; return t0 + (t1 - t0) * (p / w); }
+    p -= w;
+  }
+  return sr;
+}
+/** 지금 순환 중인지 (LIVE·다시보기·'실제 하늘 보기'가 아니면) */
+const cycling = () => !replay && !store.realSky && !sunriseInfo(place, Date.now()).windowSR;
+
 const virtualNow = () => {
-  if (!replay) return Date.now();
+  if (!replay) return cycling() ? cycleTime() : Date.now();
   const k = Math.min(1, (Date.now() - replay.start) / replay.duration);
   return replay.sr + replay.from + k * replay.span;
 };
@@ -513,13 +558,15 @@ function toggleBanner() {
   lastUI = 0; // 바로 다시 그리기
 }
 
-function updateUI(now: number, alt: number, t: number) {
+function updateUI(vnow: number, alt: number, t: number) {
+  const cyc = cycling(), now = cyc ? Date.now() : vnow;
   const info = sunriseInfo(place, now), tz = place.tz, live = !replay && !!info.windowSR, pn = placeName(place);
   const wx = weatherNow ? ` · ${windLabel(weatherNow)}` : '';
   $('liveDot').className = 'dot' + (live || replay ? '' : ' off');
   $('progress').style.display = replay ? 'block' : 'none';
   // 해가 지평선을 넘는 순간, 해 뜨기 1분 전에는 자동으로 펼침
   if (lastAltForBanner < 0 && alt >= 0 && (live || replay)) { expandBanner(10000); bots.clap(); }
+  else if (lastAltForBanner < 0 && alt >= 0 && cyc) { bots.clap(); flock.fly(); }
   lastAltForBanner = alt;
   if (live && info.windowSR && info.windowSR - now < 60000 && info.windowSR > now && minuteWarned !== info.windowSR) {
     minuteWarned = info.windowSR; expandBanner(65000);
@@ -552,6 +599,14 @@ function updateUI(now: number, alt: number, t: number) {
       $('sub').textContent = T.sunriseAt(pn, hm(sr, tz));
       compact = `<span class="dot"></span>${T.liveRisen(pn)}`;
     }
+  } else if (cyc) {
+    // 순환: 다음 해까지 남은 시간 + 진짜 해돋이(LIVE) 안내
+    const left = cycleToSunrise(), ph = cyclePhase();
+    const rising = ph < 0.30, setting = ph >= 0.45 && ph < 0.62, nightTime = ph >= 0.62;
+    $('headline').textContent = rising ? (alt < -0.8 ? T.cycSoon(mmss(left)) : T.risen) : setting ? T.cycSet : nightTime ? T.cycNight(mmss(left)) : T.cycDay;
+    $('sub').textContent = info.next ? T.cycLive(dayName(info.next, tz), hm(info.next, tz), dur(info.next - now)) : '';
+    full = T.cycFull(pn);
+    compact = T.cycCompact(mmss(left));
   } else {
     full = `${T.localTime(pn, hm(now, tz))}${wx}`;
     compact = info.next ? T.nextCompact(pn, hm(info.next, tz), dur(info.next - now)) : pn;
@@ -562,7 +617,8 @@ function updateUI(now: number, alt: number, t: number) {
   }
   // 해가 안 떠 있는 시간에는 '오늘 해돋이 20초 만에 보기'를 늘 보여 줌 (해돋이 앱인데 해가 없으면 안 되니까)
   // ✕로 닫으면 오늘은 다시 안 보임 (메뉴의 '오늘 해돋이 다시보기'는 그대로)
-  const pill = !live && !replay && !!info.next && store.replayPillOff !== dateKey(Date.now()) && (!has.peak(place.id) || summitReached);
+  // 순환 중엔 해가 계속 뜨니 다시보기 버튼은 '실제 하늘 보기'를 켠 사람에게만
+  const pill = !cyc && !live && !replay && !!info.next && store.replayPillOff !== dateKey(Date.now()) && (!has.peak(place.id) || summitReached);
   if ($('replayWrap').hidden === pill) $('replayWrap').hidden = !pill;
   const expanded = Date.now() < expandedUntil;
   $('center').classList.toggle('collapsed', !expanded);
@@ -591,9 +647,10 @@ function loop(t: number) {
   const now = virtualNow();
   updateMe(dt);
   updateCamera(dt);
-  const info = sunriseInfo(place, now);
-  const ref = replay ? replay.sr : (info.windowSR ?? info.next ?? info.last ?? now);
-  const alt = world.update(now, place, ref, camera, t);
+  const cyc = cycling();
+  const info = cyc ? null : sunriseInfo(place, now);
+  const ref = cyc ? cycleRefs().sr : replay ? replay.sr : (info!.windowSR ?? info!.next ?? info!.last ?? now);
+  const alt = world.update(now, place, ref, camera, t, cyc);
   amb.setAlt(alt);
   updateRemotes(dt);
   lanterns.update(dt);
@@ -614,6 +671,8 @@ function loop(t: number) {
   updateHandoff(dt);
   scenery.update(dt, t, night, world.skyLow);
   updateSummit();
+  fireflies.update(t, night, me.root.position, floorY);
+  flock.update(dt, camera, world.sunDir);
   updateRamen(t);
   updateSparkles(dt);
   if (sky.update(dt, t, alt, camera, lying)) showStarWish();
@@ -1356,9 +1415,12 @@ $('hintBtn').onclick = () => {
   // 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌
   const live = !!sunriseInfo(place, Date.now()).windowSR;
   if (has.peak(place.id)) setTimeout(() => toast(T.summitWalk), 700);
-  else if (!live) setTimeout(() => startReplay(true), 700);
+  else if (!live && !cycling()) setTimeout(() => startReplay(true), 700);
 };
 // 메뉴에서 처음 화면 다시 보기 (시작하기를 누르면 첫 방문처럼 해돋이 다시보기까지)
+function renderRealSky() { $('realSkyBtn').textContent = store.realSky ? T.realSkyOn : T.realSkyOff; }
+renderRealSky();
+$('realSkyBtn').onclick = () => { store.realSky = !store.realSky; save(); renderRealSky(); close(); toast(store.realSky ? T.realSkyToastOn : T.realSkyToastOff); track('real_sky', { on: !!store.realSky }); };
 $('introBtn').onclick = () => { close(); setTimeout(openHint, 250); track('intro_reopened'); };
 world.buildLandmark(place);
 applyTerrain(place);
@@ -1565,7 +1627,8 @@ function updateSummit() {
   // 뒤쪽 언덕에 가리지 않게 카메라를 조금 높여서 발아래 절벽과 운해를 내려다봄
   if (!lying) setView(Math.max(cam.tDist, 7), 0.46, 0);
   const live = !!sunriseInfo(place, Date.now()).windowSR;
-  if (!live && !replay) { toast(T.summitReach); setTimeout(() => startReplay(true), 900); }
+  if (cycling()) toast(T.summitCycle(mmss(cycleToSunrise())));
+  else if (!live && !replay) { toast(T.summitReach); setTimeout(() => startReplay(true), 900); }
 }
 
 // ================= 해변 강아지 =================

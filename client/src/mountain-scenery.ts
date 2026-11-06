@@ -7,22 +7,6 @@ import { SUMMIT, mountainY } from './beach-extras';
 const lam = (c: number, extra: Partial<THREE.MeshLambertMaterialParameters> = {}) => new THREE.MeshLambertMaterial({ color: c, flatShading: true, ...extra });
 const rnd = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
 
-/** 구름 무늬: 부드러운 흰 덩어리를 겹쳐 그린 반복 텍스처 */
-function cloudTexture() {
-  const c = document.createElement('canvas'); c.width = c.height = 512;
-  const g = c.getContext('2d')!;
-  g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 160; i++) {
-    const x = rnd() * 512, y = rnd() * 512, r = 30 + rnd() * 90;
-    for (const [dx, dy] of [[0, 0], [512, 0], [-512, 0], [0, 512], [0, -512]]) {
-      const gr = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, r);
-      gr.addColorStop(0, `rgba(255,255,255,${0.35 + rnd() * 0.3})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
-      g.fillStyle = gr; g.beginPath(); g.arc(x + dx, y + dy, r, 0, Math.PI * 2); g.fill();
-    }
-  }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
-}
-
 /** 먼 능선 한 겹: 위쪽이 들쭉날쭉한 세로 띠 */
 function ridge(dist: number, top: number, amp: number, color: number, seed: number) {
   const pts = 90, w = 3200, geo = new THREE.BufferGeometry();
@@ -137,14 +121,11 @@ export function createMountain(scene: THREE.Scene) {
   board.position.y = 1.6; sign.add(board);
 
   // ---------- 운해: 발아래 넓게 깔린 구름 두 겹 (천천히 흐름) ----------
-  const tex = cloudTexture();
-  const cloudA = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.97, depthWrite: false }));
-  cloudA.rotation.x = -Math.PI / 2; cloudA.position.y = -34; tex.repeat.set(9, 9); g.add(cloudA);
-  const tex2 = tex.clone(); tex2.needsUpdate = true; tex2.repeat.set(5, 5);
-  const cloudB = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ map: tex2, transparent: true, opacity: 0.55, depthWrite: false }));
-  cloudB.rotation.x = -Math.PI / 2; cloudB.position.y = -30; g.add(cloudB);
+  // 반복 무늬 텍스처를 넓게 깔면 일부 폰 GPU에서 무지개 점으로 깨져서, 바닥은 단색 + 위에 구름 덩어리를 많이 띄움
   const base = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ color: 0xdfe6ee }));
-  base.rotation.x = -Math.PI / 2; base.position.y = -38; g.add(base);
+  base.rotation.x = -Math.PI / 2; base.position.y = -36; g.add(base);
+  const haze = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
+  haze.rotation.x = -Math.PI / 2; haze.position.y = -31; g.add(haze);
 
   // 뭉게뭉게 솟은 구름 덩어리 (가까운 것은 크게, 멀수록 작게): 운해가 평면이 아니라 입체로 보이게
   const puffTex = (() => {
@@ -159,8 +140,8 @@ export function createMountain(scene: THREE.Scene) {
     return new THREE.CanvasTexture(cv);
   })();
   const puffs: THREE.Sprite[] = [];
-  for (let i = 0; i < 70; i++) {
-    const ang = (rnd() - 0.5) * Math.PI * 1.25, d = 28 + Math.pow(rnd(), 0.7) * 420;
+  for (let i = 0; i < 150; i++) {
+    const ang = (rnd() - 0.5) * Math.PI * 1.4, d = 24 + Math.pow(rnd(), 0.8) * 520;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 0.92 }));
     const w = 18 + d * 0.22 + rnd() * 30; sp.scale.set(w, w * 0.45, 1);
     sp.position.set(Math.sin(ang) * d, -31 + rnd() * 10 + w * 0.12, -Math.cos(ang) * d - 4); g.add(sp); puffs.push(sp);
@@ -179,11 +160,12 @@ export function createMountain(scene: THREE.Scene) {
   return {
     group: g,
     update(dt: number, night: number, low: THREE.Color) {
-      tex.offset.x += dt * 0.0016; tex.offset.y += dt * 0.0006;
-      tex2.offset.x -= dt * 0.0011;
+      void dt;
+      // 구름 덩어리가 아주 천천히 흘러감
+      for (const [i, sp] of puffs.entries()) { sp.position.x += dt * (0.4 + (i % 5) * 0.12); if (sp.position.x > 600) sp.position.x -= 1200; }
       // 구름색: 낮엔 하얗게, 해 뜰 무렵엔 하늘 아래쪽 색(분홍·주황)이 물듦, 밤엔 푸르스름하게 어둡게
       tmp.copy(cDay).lerp(cNight, night).lerp(low, 0.35 * (1 - night * 0.6));
-      for (const m of [cloudA, cloudB, base]) (m.material as THREE.MeshBasicMaterial).color.copy(tmp);
+      for (const m of [base, haze]) (m.material as THREE.MeshBasicMaterial).color.copy(tmp);
       for (const sp of puffs) sp.material.color.copy(tmp);
       (base.material as THREE.MeshBasicMaterial).color.multiplyScalar(0.92);
       ridges.forEach((r, i) => (r.material as THREE.MeshBasicMaterial).color.copy(ridgeBase[i]).lerp(dark, night * 0.75));

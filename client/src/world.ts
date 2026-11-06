@@ -11,9 +11,9 @@ const C = (r: number, g: number, b: number) => new THREE.Color(r / 255, g / 255,
 const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
   [-18, C(4, 6, 26), C(9, 13, 42), C(17, 22, 58)],
   [-10, C(10, 16, 51), C(36, 39, 90), C(74, 58, 110)],
-  [-5, C(24, 38, 90), C(99, 74, 128), C(224, 124, 92)],
-  [0, C(43, 70, 132), C(184, 108, 138), C(255, 171, 102)],
-  [4, C(70, 115, 176), C(220, 157, 140), C(255, 210, 150)],
+  [-5, C(26, 44, 104), C(92, 86, 146), C(226, 140, 112)],
+  [0, C(48, 86, 160), C(150, 132, 170), C(255, 196, 140)],
+  [4, C(72, 126, 194), C(170, 178, 205), C(255, 226, 180)],
   [12, C(90, 152, 210), C(152, 196, 232), C(230, 240, 246)],
 ];
 
@@ -78,6 +78,21 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   sunMesh.renderOrder = -1; scene.add(sunMesh);
   const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffa060, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true }));
   sunGlow.renderOrder = -1; scene.add(sunGlow);
+  const glareSprite = (color: number) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true })); s.renderOrder = 5; scene.add(s); return s; };
+  // [스프라이트, 크기, 최대 밝기]
+  const glare: [THREE.Sprite, number, number][] = [[glareSprite(0xffffff), 70, 1], [glareSprite(0xfff2c8), 170, 0.75], [glareSprite(0xffd890), 420, 0.35]];
+  const rays = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 512;
+    const g = c.getContext('2d')!; g.translate(256, 256);
+    for (let i = 0; i < 18; i++) {
+      g.rotate((Math.PI * 2) / 18 + (i % 3) * 0.05);
+      const len = 150 + (i % 4) * 40, gr = g.createLinearGradient(0, 0, len, 0);
+      gr.addColorStop(0, 'rgba(255,250,230,0.9)'); gr.addColorStop(1, 'rgba(255,240,200,0)');
+      g.fillStyle = gr; g.beginPath(); g.moveTo(0, -3); g.lineTo(len, -9 - (i % 2) * 6); g.lineTo(len, 9 + (i % 2) * 6); g.lineTo(0, 3); g.fill();
+    }
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
+    s.renderOrder = 5; scene.add(s); return s;
+  })();
 
   // ---------- 바다 (물결 노멀 + 해의 길 반사) ----------
   const seaU = {
@@ -196,10 +211,12 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   // ---------- 매 프레임: 해 위치에 맞춰 하늘·바다·조명 갱신 ----------
   const sunDir = new THREE.Vector3(), sunCol = new THREE.Color(), deep = new THREE.Color(), tmp = new THREE.Color();
   const SEA_DEEP = new THREE.Color(0x13567f), SEA_SHALLOW = new THREE.Color(0x3fb0b8);
-  function update(now: number, place: Place, refSunrise: number, camera: THREE.Camera, t: number) {
+  /** wide: 5분 순환처럼 해가 하늘을 한 바퀴 다 돌 때 (해는 앞에서 떠서 뒤쪽으로 짐) */
+  function update(now: number, place: Place, refSunrise: number, camera: THREE.Camera, t: number, wide = false) {
     const sp = sunPos(now, place.lat, place.lng);
     const az0 = sunPos(refSunrise, place.lat, place.lng).az; // 일출 방향을 화면 정면(-z)에 맞춤
-    const alt = sp.alt, daz = clamp(sp.az - az0, -70, 70) * rad, ar = alt * rad;
+    const lim = wide ? 180 : 70;
+    const alt = sp.alt, daz = clamp(((sp.az - az0 + 540) % 360) - 180, -lim, lim) * rad, ar = alt * rad;
     sunDir.set(Math.sin(daz) * Math.cos(ar), Math.sin(ar), -Math.cos(daz) * Math.cos(ar)).normalize();
     skyAt(alt);
     skyU.top.value.copy(top); skyU.mid.value.copy(mid); skyU.low.value.copy(low); skyU.sunDir.value.copy(sunDir);
@@ -209,7 +226,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     sky.position.copy(camera.position);
 
     const warm = clamp(alt / 12, 0, 1);
-    sunCol.setRGB(1, 0.47 + 0.45 * warm, 0.27 + 0.6 * warm);
+    sunCol.setRGB(1, 0.62 + 0.34 * warm, 0.42 + 0.5 * warm);
     (sunMesh.material as THREE.MeshBasicMaterial).color.copy(sunCol);
     sunMesh.position.copy(camera.position).addScaledVector(sunDir, 850);
     sunMesh.visible = alt > -3;
@@ -217,6 +234,15 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     sunGlow.material.color.copy(sunCol);
     const gs = 110 + 60 * glow;
     sunGlow.scale.set(gs, gs, 1); sunGlow.material.opacity = glow * 0.38; sunGlow.visible = glow > 0.01;
+    // 눈부심: 하얗게 타는 중심 + 넓게 번지는 빛 + 빛줄기 (해가 지평선 근처일 때 가장 강하게)
+    const up = clamp((alt + 1.2) / 3, 0, 1), nearH = 1 - clamp((alt - 6) / 20, 0, 0.6);
+    for (const [s, sc, op] of glare) {
+      s.position.copy(sunMesh.position); s.visible = up > 0.01;
+      s.scale.set(sc, sc, 1); s.material.opacity = op * up * nearH;
+    }
+    rays.position.copy(sunMesh.position); rays.visible = up > 0.01;
+    rays.material.opacity = 0.3 * up * nearH; rays.material.rotation = t / 9000;
+    rays.scale.set(400, 400, 1);
 
     // 낮일수록 하늘색 대신 바다 고유의 파란색 (회색 흙탕물처럼 보이지 않게)
     const day = clamp((alt + 2) / 14, 0, 1);
@@ -230,7 +256,9 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     // three.js 최신 버전은 조명 단위가 물리 기반이라 π를 곱해 예전 밝기에 맞춤
     const dayK = clamp((alt + 6) / 18, 0, 1);
     hemi.color.copy(mid).multiplyScalar(0.6).add(tmp.setRGB(0.24, 0.26, 0.4));
-    hemi.intensity = (0.75 + 0.3 * dayK) * Math.PI;
+    // 해가 낮게 떠 있을 땐 역광: 주변광을 줄여 앞쪽 바위·사람이 실루엣처럼 어둡게 → 해가 더 빛남
+    const backlit = clamp(1 - Math.abs(alt - 1.5) / 7, 0, 1);
+    hemi.intensity = (0.75 + 0.3 * dayK) * (1 - 0.45 * backlit) * Math.PI;
     moon.intensity = 0.4 * (1 - dayK) * Math.PI;
     sunLight.color.copy(sunCol);
     sunLight.intensity = clamp((alt + 2) / 8, 0, 1) * 0.95 * Math.PI;
@@ -238,5 +266,5 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     return alt;
   }
 
-  return { seats, buildLandmark, update, setGround, skyLow: low };
+  return { seats, buildLandmark, update, setGround, skyLow: low, sunDir };
 }

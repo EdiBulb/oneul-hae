@@ -25,6 +25,8 @@ interface Saved {
   dex?: Record<string, number>;
   /** 다시보기 버튼을 닫은 날 */
   replayPillOff?: string;
+  /** 5분 순환 대신 실제 하늘 보기 */
+  realSky?: boolean;
   /** 오늘 강아지 쓰다듬은 횟수: key = 장소|현지날짜 */
   pets?: { key: string; n: number };
   /** 직접 쓴 소원을 다른 사람에게도 보여줄지 (기본: 보여줌) */
