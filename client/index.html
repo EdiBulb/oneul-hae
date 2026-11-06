@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>오늘의 해, 온라인 해돋이</title>
-<meta name="description" content="온라인 해돋이 오늘의 해. 출근 전 1분, 정동진·성산일출봉·호미곶 해변에서 사람들과 함께 실시간 해돋이를 봐요. 해 뜨기 5분 전 알람, 풍등 올리기, 매일 해 본 날 기록까지. 설치 없이 바로 접속하는 3D 온라인 해돋이.">
+<meta name="description" content="온라인 해돋이 오늘의 해. 출근 전 1분, 지리산 천왕봉 정상과 정동진·성산일출봉·호미곶 해변에서 사람들과 함께 실시간 해돋이를 봐요. 해 뜨기 5분 전 알람, 풍등 올리기, 매일 해 본 날 기록까지. 설치 없이 바로 접속하는 3D 온라인 해돋이.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -52,7 +52,7 @@
 <div id="scene"></div>
 <section class="sr-only">
   <h1>오늘의 해, 온라인 해돋이</h1>
-  <p>오늘의 해는 매일 아침 실제 일출 시각에 맞춰 정동진, 제주 성산일출봉, 포항 호미곶, 뉴질랜드 기스본 해변에서 해가 뜨는 모습을 다른 사람들과 함께 보는 3D 웹 서비스예요. 캐릭터로 해변을 걷고, 방석에 앉고, 소원을 적은 풍등을 올릴 수 있어요. 해 뜨기 5분 전 알람과 연속 기록으로 매일 아침 해 보는 습관을 만들어 보세요.</p>
+  <p>오늘의 해는 매일 아침 실제 일출 시각에 맞춰 지리산 천왕봉 정상과 정동진, 제주 성산일출봉, 포항 호미곶, 뉴질랜드 기스본 해변에서 해가 뜨는 모습을 다른 사람들과 함께 보는 3D 웹 서비스예요. 캐릭터로 해변을 걷고, 방석에 앉고, 소원을 적은 풍등을 올릴 수 있어요. 해 뜨기 5분 전 알람과 연속 기록으로 매일 아침 해 보는 습관을 만들어 보세요.</p>
 </section>
 <noscript>오늘의 해는 3D 화면을 쓰기 때문에 자바스크립트가 필요해요.</noscript>
 
@@ -269,10 +269,10 @@
 </div>
 
 <div class="hint" id="hint">
-  <h3 data-i18n="hintTitle">해변에 도착했어요</h3>
+  <h3 id="hintTitle" data-i18n="hintTitle">해변에 도착했어요</h3>
   <div class="how">
     <div class="how-row"><span class="how-ic">👆</span><span data-i18n-html="how2">화면 아무 데나 <b>쓱 밀면</b> 주변을 둘러봐요</span></div>
-    <div class="how-row"><span class="how-ic">🌅</span><span data-i18n-html="how3">해가 안 떠 있는 시간이면 <b>오늘 아침 해돋이</b>를 먼저 보여 드려요</span></div>
+    <div class="how-row"><span class="how-ic">🌅</span><span id="how3" data-i18n-html="how3">해가 안 떠 있는 시간이면 <b>오늘 아침 해돋이</b>를 먼저 보여 드려요</span></div>
   </div>
   <button class="btn primary" id="hintBtn" data-i18n="start">시작하기</button>
 </div>

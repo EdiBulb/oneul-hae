@@ -1342,7 +1342,14 @@ $('supportBtn').addEventListener('click', () => track('support_clicked', { metho
 // 진짜 해돋이를 함께 봤거나, 다른 날 다시 찾아온 사람 (다시보기 한 번으로는 묻지 않음)
 function installReady() { return Object.values(store.days).includes('live') || Object.keys(store.days).length >= 2; }
 function askInstallAfterSun() { setTimeout(() => { if (!openSheet && installReady()) showInstall(false); }, 9000); }
-if (!store.hinted) $('hint').classList.add('open');
+/** 첫 안내 카드: 산 정상이면 '걸어가 보세요'로 */
+function openHint() {
+  const peak = has.peak(place.id);
+  $('hintTitle').textContent = peak ? T.hintPeakTitle : (lang === 'ko' ? '해변에 도착했어요' : "You've arrived at the beach");
+  if (peak) $('how3').innerHTML = T.hintPeakHow; else applyHtml();
+  $('hint').classList.add('open');
+}
+if (!store.hinted) openHint();
 else { if (installReady()) setTimeout(() => { if (!openSheet) showInstall(false); }, 4000); expandBanner(); }
 $('hintBtn').onclick = () => {
   $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner();
@@ -1352,7 +1359,7 @@ $('hintBtn').onclick = () => {
   else if (!live) setTimeout(() => startReplay(true), 700);
 };
 // 메뉴에서 처음 화면 다시 보기 (시작하기를 누르면 첫 방문처럼 해돋이 다시보기까지)
-$('introBtn').onclick = () => { close(); setTimeout(() => $('hint').classList.add('open'), 250); track('intro_reopened'); };
+$('introBtn').onclick = () => { close(); setTimeout(openHint, 250); track('intro_reopened'); };
 world.buildLandmark(place);
 applyTerrain(place);
 renderStreak(); renderAlarm(); renderCounts();

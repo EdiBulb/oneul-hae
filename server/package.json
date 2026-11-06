@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
+    "start": "node --max-old-space-size=200 --import tsx src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

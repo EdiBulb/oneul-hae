@@ -396,4 +396,9 @@ setInterval(() => {
   }
 }, 60 * 60 * 1000);
 
+// 메모리 사용량을 10분마다 로그에 남김 (Render 무료 512MB 한도 추적용)
+setInterval(() => {
+  const m = process.memoryUsage(), mb = (n: number) => Math.round(n / 1048576);
+  console.log(`[mem] rss ${mb(m.rss)}MB heap ${mb(m.heapUsed)}/${mb(m.heapTotal)}MB sockets ${io.engine.clientsCount}`);
+}, 10 * 60 * 1000);
 http.listen(PORT, () => console.log(`오늘의 해 서버: http://localhost:${PORT} (채널 정원 ${CAP}명, 푸시 ${pushEnabled ? '켜짐' : '꺼짐'})`));
