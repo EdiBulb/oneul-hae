@@ -81,13 +81,14 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   sky.renderOrder = -2; scene.add(sky);
 
   // ---------- 해 ----------
-  const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(15, 24, 16), new THREE.MeshBasicMaterial({ color: 0xffaa66, fog: false }));
+  const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(24, 32, 16), new THREE.MeshBasicMaterial({ color: 0xffaa66, fog: false }));
   sunMesh.renderOrder = -1; scene.add(sunMesh);
   const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffa060, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true }));
   sunGlow.renderOrder = -1; scene.add(sunGlow);
   const glareSprite = (color: number) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true })); s.renderOrder = 5; scene.add(s); return s; };
   // [스프라이트, 크기, 최대 밝기]
-  const glare: [THREE.Sprite, number, number][] = [[glareSprite(0xffffff), 70, 1], [glareSprite(0xfff2c8), 170, 0.75], [glareSprite(0xffd890), 420, 0.35]];
+  // 각진 빛줄기 대신 은은하게 쫙 퍼지는 빛: 작은 흰 중심 + 점점 넓고 옅어지는 겹겹의 번짐
+  const glare: [THREE.Sprite, number, number][] = [[glareSprite(0xffffff), 44, 0.85], [glareSprite(0xffefc4), 150, 0.5], [glareSprite(0xffc878), 480, 0.34], [glareSprite(0xffa050), 1200, 0.2]];
   const rays = (() => {
     const c = document.createElement('canvas'); c.width = c.height = 512;
     const g = c.getContext('2d')!; g.translate(256, 256);
@@ -135,11 +136,23 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
         float lat = 1.0 - dot(vh, sh);
         float road = exp(-lat / 0.0016) * smoothstep(0.0, 0.25, -v.y + 0.02);
         float sp = 0.5 + 0.5 * sin(vW.x * 6.0 + time * 3.1) * sin(vW.z * 9.0 - time * 2.4 + n.x * 30.0);
-        c += mix(sunCol, vec3(1.0, 0.85, 0.5), 0.35) * road * (0.25 + 1.6 * sp * sp) * sunUp * (0.55 + 0.9 * dawn);
+        c += mix(sunCol, vec3(1.0, 0.85, 0.5), 0.35) * road * (0.2 + 1.1 * sp * sp) * sunUp * (0.4 + 0.6 * dawn);
         // 동틀 녘엔 바다도 하늘의 주황·분홍을 비춘다
         // 동틀 녘 바다는 거의 검정 + 하늘 주황이 비스듬히 살짝 비침 (금빛 길만 밝게)
         c = mix(c, mix(vec3(0.035, 0.02, 0.02), skyLow * 0.45, fres * 0.8), dawn * 0.8 * (1.0 - road));
         c = mix(c, fogCol, smoothstep(120.0, 1100.0, length(vW - cameraPosition)) * mix(1.0, 0.7, day));
+        // 물에 비친 해: 거의 잔잔한 물면에 비친 해 원반이 세로로 살짝 늘어나고, 물결 줄무늬로 끊겨 보인다 (안개 뒤에 그려 또렷하게)
+        vec3 nf = normalize(vec3(n.x * 0.35, 1.0, n.z * 0.35));
+        vec3 rm = reflect(v, nf);
+        vec2 rh = normalize(rm.xz + 1e-6), sh2 = normalize(sunDir.xz + 1e-6);
+        float ah = abs(rh.x * sh2.y - rh.y * sh2.x) * step(0.0, dot(rh, sh2));
+        float av = asin(clamp(rm.y, -1.0, 1.0)) - asin(clamp(sunDir.y, -1.0, 1.0));
+        float R = 0.029;
+        float e = length(vec2(ah / R, av / (R * 2.6)));
+        float stripe = 0.78 + 0.22 * sin(vW.z * 2.3 + time * 1.8 + n.x * 24.0);
+        float disc = (1.0 - smoothstep(0.7, 1.12, e)) * stripe;
+        float halo = exp(-e * e * 0.18) * 0.4;
+        c += mix(sunCol, vec3(1.0, 0.97, 0.86), 0.7) * (disc * 3.2 + halo) * sunUp * step(dot(rh, sh2), 2.0);
         gl_FragColor = vec4(c, 1.0);
       }`,
   }));
@@ -264,7 +277,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
       s.position.copy(sunMesh.position); s.visible = up > 0.01;
       s.scale.set(sc * (1 + gold * 0.9), sc * (1 + gold * 0.9), 1); s.material.opacity = Math.min(1, op * up * nearH * (1 + gold * 0.6));
     }
-    rays.position.copy(sunMesh.position); rays.visible = up > 0.01;
+    rays.position.copy(sunMesh.position); rays.visible = false; // 각진 빛줄기는 끔 (피드백)
     rays.material.opacity = (0.3 + gold * 0.45) * up * nearH; rays.material.rotation = t / 9000;
     rays.scale.set(400, 400, 1);
 
