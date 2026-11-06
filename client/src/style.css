@@ -361,3 +361,9 @@
 .wear-grid .sw{position:absolute;right:-6px;bottom:-2px;width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(255,255,255,.75)}
 .wear-grid .tile.locked{opacity:.5}
 .wear-grid .tile small{font-size:10px;color:var(--ink-dim);line-height:1.2}
+/* 옷 입기 창은 화면 절반만: 위쪽에 내 캐릭터가 보이고, 창 안에서 위아래로 스크롤 */
+#outfitSheet{max-height:52vh;max-height:52dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-top:12px}
+#outfitSheet h2{font-size:18px}
+#outfitSheet .lead{font-size:12.5px;margin-top:2px}
+.sheet-back.clear{background:transparent}
+.dressing #center,.dressing .view,.dressing #chips{opacity:0;pointer-events:none;transition:opacity .25s}

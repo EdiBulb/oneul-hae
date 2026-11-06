@@ -401,7 +401,8 @@ function setView(d: number, pitch?: number, yaw?: number) {
 }
 const camLook = new THREE.Vector3(0, 1.5, 0), target = new THREE.Vector3(), want = new THREE.Vector3();
 const eye = { yaw: 0, pitch: 0.95, tYaw: 0, tPitch: 0.95 };
-let eyeK = 0, camPull = 1;
+let eyeK = 0, camPull = 1, dressK = 0;
+const dressPos = new THREE.Vector3(), dressLook = new THREE.Vector3();
 const eyePos = new THREE.Vector3(), eyeLook = new THREE.Vector3(), lookTmp = new THREE.Vector3();
 let meFade = 1;
 /** 내 캐릭터 반투명 (1 = 그대로) */
@@ -450,6 +451,16 @@ function updateCamera(dt: number) {
   want.set(target.x - Math.sin(cam.yaw) * ahead, target.y + 0.3 * close, target.z - Math.cos(cam.yaw) * ahead);
   camLook.lerp(want, 1 - Math.pow(0.02, dt));
   camera.lookAt(camLook);
+  // 옷 입기: 화면 아래 절반은 옷장, 위 절반엔 내 캐릭터를 정면에서 (dressK 0 → 1)
+  dressK += ((openSheet?.id === 'outfitSheet' ? 1 : 0) - dressK) * (1 - Math.pow(0.01, dt));
+  if (dressK > 0.001) {
+    const k = dressK * dressK * (3 - 2 * dressK), ry = me.root.rotation.y, q = me.root.position;
+    dressPos.set(q.x - Math.sin(ry) * 4.6, q.y + 1.5, q.z - Math.cos(ry) * 4.6);
+    dressLook.set(q.x, q.y - 0.75, q.z);
+    camera.position.lerp(dressPos, k);
+    camera.lookAt(lookTmp.copy(camLook).lerp(dressLook, k));
+    fadeMe(1);
+  }
   // 모래 게시판: 카메라가 판 앞 위쪽으로 다가가 내려다봄 (sandK 0 → 1)
   if (sandK > 0.001) {
     const k = sandK * sandK * (3 - 2 * sandK);
@@ -849,11 +860,11 @@ $('resetView').onclick = () => {
 
 let openSheet: HTMLElement | null = null;
 const back = $('sheetBack');
-function open(id: string) { openSheet = $(id); openSheet.classList.add('open'); back.classList.add('open'); }
+function open(id: string) { openSheet = $(id); openSheet.classList.add('open'); back.classList.add('open'); back.classList.toggle('clear', id === 'outfitSheet'); document.body.classList.toggle('dressing', id === 'outfitSheet'); }
 function close() {
   // 모래에 쓰다가 닫으면 모래 위 미리보기도 지움
   if (openSheet?.id === 'sandSheet') { $('sandPreview').hidden = true; $('sand').classList.remove('previewing'); }
-  openSheet?.classList.remove('open'); back.classList.remove('open', 'over-sand'); openSheet = null;
+  openSheet?.classList.remove('open'); back.classList.remove('open', 'over-sand'); openSheet = null; document.body.classList.remove('dressing');
 }
 back.onclick = close;
 $('lanternBtn').onclick = () => open('wishSheet');
