@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type { DogState } from '../../server/src/protocol';
 import { animChar, makeChar, textSprite } from './character';
 import { groundY } from './world';
+import { floorY } from './beach-extras';
 
 // 해변 풍경: 갈매기, 강아지, 낚시하는 동네 주민.
 // 사람(접속자)과 분명히 다르게 생겼고, 인원수에는 절대 포함하지 않는다.
@@ -166,7 +167,8 @@ export function createBeachLife(scene: THREE.Scene) {
         else dogState.target.set(rand(-16, 14), 0, rand(-1.4, 4));
       }
     }
-    p.y = groundY(p.z);
+    // 산처럼 땅이 높은 곳도 따라가도록 (물에서는 해변 높이 그대로)
+    p.y = Math.max(floorY(p.x, p.z), groundY(p.z));
     // 자세: 앉기는 엉덩이를 내리고, 발라당은 옆으로 누워 배를 보임
     const e = 1 - Math.pow(0.002, dt);
     // 발라당: 발 높이를 축으로 거의 뒤집으므로, 그만큼 몸을 들어 올려 등이 모래 위에 닿게 한다
