@@ -46,10 +46,23 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 3000);
 function onResize() {
   const w = innerWidth, h = innerHeight;
+  if (!w || !h) return;
+  // 가로 화면은 픽셀이 많아 메모리가 부족해질 수 있어서 선명도를 조금 낮춤
+  renderer.setPixelRatio(Math.min(w > h ? 1.25 : 1.75, window.devicePixelRatio || 1));
   renderer.setSize(w, h);
   camera.aspect = w / h; camera.fov = w < h ? 64 : 50; camera.updateProjectionMatrix();
 }
 addEventListener('resize', onResize); onResize();
+// 폰을 돌린 직후에는 화면 크기가 늦게 바뀌는 브라우저가 있어서 조금 뒤에 다시 맞춤
+const resizeSoon = () => { onResize(); setTimeout(onResize, 150); setTimeout(onResize, 600); };
+addEventListener('orientationchange', resizeSoon);
+window.visualViewport?.addEventListener('resize', resizeSoon);
+// 메모리가 모자라 브라우저가 3D 화면을 꺼 버리면(회전·다른 앱 다녀오기) 까맣게 멈추지 않고 다시 불러옴
+renderer.domElement.addEventListener('webglcontextlost', e => {
+  e.preventDefault(); $('glLost').hidden = false; track('gl_context_lost');
+  setTimeout(() => location.reload(), 2500);
+});
+renderer.domElement.addEventListener('webglcontextrestored', () => location.reload());
 
 const GLOW = glowTexture();
 const world = createWorld(scene, renderer, GLOW);

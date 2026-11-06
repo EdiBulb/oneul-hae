@@ -468,6 +468,7 @@ const HTML_EN: Record<string, string> = {
   'introBtn': 'See the welcome screen again',
   'yahoBtn': '⛰️ Yaho!',
   'close': 'Close',
+  'glLost': 'Reloading the view…',
   'letterBtn': 'To tomorrow\'s sun',
   'letterTitle': 'A letter to tomorrow\'s sun',
   'letterLead': 'When the sun rises tomorrow, it will bring this letter back to you.',
