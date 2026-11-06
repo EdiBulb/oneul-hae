@@ -24,7 +24,7 @@ import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, pl
 import { T, applyHtml, lang, locale, num, setLang } from './i18n';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
 import { ITEMS, SLOT_NAME, itemName, migrateOwned, unlocked } from './wardrobe';
-import { EARN, PRICE, buy, earnCycle, earnGolden, earnLive, onSun, owns, shieldOffer, shieldsLeft, spend, sunTotal, useShield, markShieldAsked } from './sunpoints';
+import { EARN, PRICE, buy, grant, earnCycle, earnGolden, earnLive, onSun, owns, shieldOffer, shieldsLeft, spend, sunTotal, useShield, markShieldAsked } from './sunpoints';
 import { dayName, dur, hm, mmss, sunPos, sunriseInfo, sunrises } from './sun';
 import { createWorld, glowTexture, groundY } from './world';
 
@@ -1989,7 +1989,7 @@ function updateSunChip() {
 const SUN_REASON: Record<string, [string, string]> = {
   live: ['진짜 해돋이(LIVE)', 'LIVE sunrise'], cycle: ['5분 해돋이', '5-minute sunrise'], golden: ['금빛 해돋이 함께', 'Golden sunrise'],
   streak3: ['3일 연속 보너스', '3-day streak bonus'], streak7: ['7일 연속 보너스', '7-day streak bonus'], shield: ['연속 기록 지키기', 'Streak saver'],
-  star: ['별똥별 띄우기', 'Shooting star'], fire: ['불꽃 쏘기', 'Firework'],
+  star: ['별똥별 띄우기', 'Shooting star'], fire: ['불꽃 쏘기', 'Firework'], test: ['테스트 햇살', 'Test sunlight'],
 };
 const reasonOf = (t: string) => {
   const r = SUN_REASON[t]; if (r) return SL(r[0], r[1]);
@@ -2049,6 +2049,17 @@ function renderSunSheet() {
     : `<p class="empty">${SL('아직 내역이 없어요. 해를 보면 햇살이 쌓여요.', 'Nothing yet. Watch a sunrise to earn sunlight.')}</p>`;
 }
 const SUN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
+// 개발자 테스트: ?me=1로 기록에서 빠진 기기에서만 ?sun=500 처럼 햇살을 넣을 수 있음 (한 번 넣고 주소에서 지움)
+(() => {
+  try {
+    const q = new URLSearchParams(location.search), n = Number(q.get('sun'));
+    if (!q.has('sun') || localStorage.getItem('oneul-hae-optout') !== '1' || !Number.isFinite(n) || n <= 0) return;
+    grant(Math.min(100000, Math.floor(n)));
+    q.delete('sun'); q.delete('me');
+    history.replaceState(null, '', location.pathname + (q.toString() ? `?${q}` : '') + location.hash);
+    setTimeout(() => toast(SL(`테스트 햇살 ${n} 넣었어요`, `Added ${n} test sunlight`)), 1500);
+  } catch { /* 무시 */ }
+})();
 $('sunChip').onclick = () => { calMonth = new Date(); calMonth.setDate(1); renderSunSheet(); open('sunSheet'); track('sun_open', { sun: sunTotal() }); };
 $('calPrev').onclick = () => { calMonth.setMonth(calMonth.getMonth() - 1); renderSunSheet(); };
 $('calNext').onclick = () => { calMonth.setMonth(calMonth.getMonth() + 1); renderSunSheet(); };

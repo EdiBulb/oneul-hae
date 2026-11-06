@@ -46,6 +46,9 @@ export function earnLive() { const g = once('live', EARN.live); if (g) streakBon
 export function earnCycle() { const g = once('cycle', EARN.cycle, EARN.cycleMax); if (g) streakBonus(); return g; }
 export function earnGolden() { return once('golden', EARN.golden); }
 
+/** 개발자 테스트용 (?me=1로 들어온 기기에서만 main이 부름) */
+export function grant(p: number) { add('test', p); }
+
 export function spend(t: string, p: number) {
   if (sunTotal() < p) return false;
   add(t, -p);
