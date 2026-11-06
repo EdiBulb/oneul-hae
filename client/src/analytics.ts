@@ -6,7 +6,8 @@ import type { PostHog } from 'posthog-js';
 // 2) PostHog: 사람들이 들어와서 무엇을 했는지 (해돋이 완주, 풍등, 알람, 재방문)
 //    VITE_POSTHOG_KEY가 있을 때만 켜짐. 키(phc_...)는 원래 브라우저에 공개되는 값이라 코드에 있어도 괜찮음.
 
-const POSTHOG_KEY: string | undefined = import.meta.env.VITE_POSTHOG_KEY;
+// 공개용 프로젝트 키 (브라우저에 노출돼도 되는 write-only 키). 환경변수가 있으면 그걸 우선
+const POSTHOG_KEY: string | undefined = import.meta.env.VITE_POSTHOG_KEY || 'phc_wJsc42gGxSkirpZbgFVrW3faxaHiNnzEHcqZyADzzdv5';
 const POSTHOG_HOST: string = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 
 let ph: PostHog | null = null;
