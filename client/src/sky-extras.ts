@@ -4,22 +4,25 @@ import * as THREE from 'three';
 
 /** 밤에 내 주변을 둥둥 떠다니는 반딧불 */
 export function createFireflies(scene: THREE.Scene, GLOW: THREE.Texture) {
-  const N = 46, g = new THREE.Group(); scene.add(g);
+  // 장소 곳곳에 흩어져 각자 천천히 떠돌아다님 (사람을 따라다니지 않음)
+  const N = 60, g = new THREE.Group(); scene.add(g);
   const flies = Array.from({ length: N }, (_, i) => {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: i % 5 ? 0xbfff6a : 0x8af0ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
     s.scale.setScalar(0.32); g.add(s);
-    return { s, cx: (Math.random() - 0.5) * 30, cz: Math.random() * 18 - 2, y: 0.5 + Math.random() * 2.4, ph: Math.random() * 100, sp: 0.3 + Math.random() * 0.5, r: 0.6 + Math.random() * 1.6 };
+    return { s, x: (Math.random() - 0.5) * 40, z: -1 + Math.random() * 22, y: 0.5 + Math.random() * 2.4, a: Math.random() * 6.28, sp: 0.25 + Math.random() * 0.4, ph: Math.random() * 100 };
   });
   return {
-    update(t: number, night: number, around: THREE.Vector3, floor: (x: number, z: number) => number) {
+    update(t: number, night: number, _around: THREE.Vector3, floor: (x: number, z: number) => number) {
       const k = Math.max(0, (night - 0.45) / 0.55);
       g.visible = k > 0.01;
       if (!g.visible) return;
       const ts = t / 1000;
       for (const f of flies) {
-        const x = around.x + f.cx + Math.sin(ts * f.sp + f.ph) * f.r, z = around.z + f.cz * 0.8 + Math.cos(ts * f.sp * 0.8 + f.ph) * f.r - 3;
-        f.s.position.set(x, floor(x, z) + f.y + Math.sin(ts * 1.3 + f.ph) * 0.25, z);
-        // 깜빡깜빡
+        // 방향을 조금씩 틀며 날아다니고, 구역 밖으로 나가면 안쪽으로 돌아옴
+        f.a += (Math.sin(ts * 0.7 + f.ph) * 0.9) * 0.016;
+        if (Math.abs(f.x) > 20 || f.z < -1 || f.z > 21) f.a = Math.atan2(10 - f.z, -f.x);
+        f.x += Math.cos(f.a) * f.sp * 0.016; f.z += Math.sin(f.a) * f.sp * 0.016;
+        f.s.position.set(f.x, floor(f.x, f.z) + f.y + Math.sin(ts * 1.3 + f.ph) * 0.3, f.z);
         const blink = Math.max(0, Math.sin(ts * (1.2 + f.sp) + f.ph * 3));
         f.s.material.opacity = k * (0.25 + 0.75 * blink * blink);
       }

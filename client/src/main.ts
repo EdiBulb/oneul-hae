@@ -572,6 +572,8 @@ function updateUI(vnow: number, alt: number, t: number) {
   // 해가 지평선을 넘는 순간, 해 뜨기 1분 전에는 자동으로 펼침
   if (lastAltForBanner < 0 && alt >= 0 && (live || replay)) { expandBanner(10000); bots.clap(); }
   else if (lastAltForBanner < 0 && alt >= 0 && cyc) { bots.clap(); flock.fly(); }
+  if (lastAltForBanner < 0 && alt >= 0 && (live || cyc)) { sunRoseNow(); }
+  maybeDeliverOnLoad(alt, live, cyc);
   lastAltForBanner = alt;
   if (live && info.windowSR && info.windowSR - now < 60000 && info.windowSR > now && minuteWarned !== info.windowSR) {
     minuteWarned = info.windowSR; expandBanner(65000);
@@ -678,7 +680,7 @@ function loop(t: number) {
   updateSummit();
   fireflies.update(t, night, me.root.position, floorY);
   leaves.update(dt, t, me.root.position, floorY);
-  echo.update(dt); late.update(dt); updateYaho(t);
+  echo.update(dt); late.update(dt); updateYaho(t); updateCheer(t, dt);
   flock.update(dt, camera, world.sunDir);
   updateRamen(t);
   updateSparkles(dt);
@@ -1650,11 +1652,16 @@ function yahoFrom(c: Char) {
   const slot = Math.floor(Date.now() / 4000), reply = (slot * 2654435761 >>> 0) % 5 === 0 ? T.yahoReplies[slot % T.yahoReplies.length] : null;
   echo.shout(c.root.position, T.yahoEcho, reply);
   if (reply && c === me) setTimeout(() => say(me, '!?', 2000, 0.7), 3600);
-  if (amb.on && near < 30 && 'speechSynthesis' in window) {
+  // 진짜 사람 목소리 녹음(/yaho.mp3)이 있으면 그걸 메아리로, 없으면 기기 음성으로 "야호"만 읽음
+  const vol = clamp(1.2 - near / 30, 0, 1);
+  if (amb.on && near < 30) amb.playEcho('/yaho.mp3', vol).then(ok => { if (!ok) speakYaho(vol); });
+}
+function speakYaho(vol: number) {
+  if ('speechSynthesis' in window) {
     // 목소리 메아리: 점점 작고 낮게 세 번
     [0, 0.8, 1.5].forEach((d, i) => setTimeout(() => {
-      const u = new SpeechSynthesisUtterance(i === 0 ? T.yahoShout : T.yahoEcho);
-      u.lang = lang === 'ko' ? 'ko-KR' : 'en-US'; u.volume = 0.8 * Math.pow(0.45, i) * clamp(1.2 - near / 30, 0, 1); u.pitch = 1.2 - i * 0.15; u.rate = 0.9;
+      const u = new SpeechSynthesisUtterance(lang === 'ko' ? '야호' : 'Yaho');
+      u.lang = lang === 'ko' ? 'ko-KR' : 'en-US'; u.volume = 0.8 * Math.pow(0.45, i) * vol; u.pitch = 1.2 - i * 0.15; u.rate = 0.9;
       speechSynthesis.speak(u);
     }, d * 1000 + (i ? 300 : 0)));
   }
@@ -1681,6 +1688,142 @@ $('yahoBtn').onclick = () => {
   yahoFrom(me);
   track('yaho', { place: place.id });
 };
+
+// ================= 같이 해 띄우기 (금빛 해돋이) =================
+// 해 뜨기 전 잠깐 '해야 솟아라!'로 응원. 한 사람 10번까지. 게이지가 차면 금빛 해돋이 (못 채워도 해는 그냥 뜸).
+const CHEER_GOAL = 30, CHEER_MAX = 10, BOT_CHEER = 8;
+let cheer = { key: '', total: 0, people: 0 }, myCheers: Record<string, number> = {}, cheerHinted = '', goldT = 0, lastBotSpark = 0;
+/** 지금이 응원 시간이면 이번 해돋이의 이름(key)과 진행률(0~1), 아니면 null */
+function cheerWindow(): { key: string; k: number } | null {
+  if (cycling()) { const ph = cyclePhase(); return ph < SR_PHASE - 0.004 ? { key: `c${Math.floor(Date.now() / CYCLE)}`, k: ph / SR_PHASE } : null; }
+  const sr = sunriseInfo(place, Date.now()).windowSR;
+  if (!sr || store.realSky && !sr) return null;
+  const left = sr - Date.now();
+  return left > 0 && left < 5 * 60000 ? { key: `l${sr}`, k: 1 - left / (5 * 60000) } : null;
+}
+const cheerPct = (w: { key: string; k: number }) => Math.min(1, ((cheer.key === w.key ? cheer.total : 0) + BOT_CHEER * w.k) / CHEER_GOAL);
+const sparkTmp = new THREE.Vector3(), horizonTmp = new THREE.Vector3();
+/** 지평선 위 해가 뜰 자리의 화면 좌표 (카메라 뒤면 null) */
+function horizonScreen() {
+  const d = world.sunDir; horizonTmp.set(d.x, 0, d.z).normalize().multiplyScalar(800).add(camera.position); horizonTmp.y = 0;
+  const p = horizonTmp.project(camera);
+  if (p.z > 1 || Math.abs(p.x) > 1.3) return null;
+  return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight] as const;
+}
+/** 응원한 사람에게서 빛 알갱이가 게이지로 날아감 */
+function spark(from: THREE.Vector3) {
+  const h = horizonScreen(); if (!h) return;
+  sparkTmp.copy(from); sparkTmp.y += 1.6; const p = sparkTmp.project(camera);
+  if (p.z > 1) return;
+  const el = document.createElement('div'); el.className = 'spark';
+  const x0 = (p.x + 1) / 2 * innerWidth, y0 = (1 - p.y) / 2 * innerHeight, a = Math.PI * (0.15 + Math.random() * 0.7);
+  const x1 = h[0] - Math.cos(a) * 118, y1 = h[1] - Math.sin(a) * 118;
+  el.style.left = `${x0}px`; el.style.top = `${y0}px`; $('sparks').appendChild(el);
+  el.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${x1 - x0}px,${y1 - y0}px) scale(.6)`, opacity: 0.2 }], { duration: 900, easing: 'ease-in' }).onfinish = () => el.remove();
+}
+function updateCheer(t: number, dt: number) {
+  // 금빛 해돋이 여운: 40초에 걸쳐 천천히 원래 하늘로
+  if (goldT > 0) { goldT = Math.max(0, goldT - dt); world.setGolden(Math.min(1, goldT / 12)); }
+  const w = cheerWindow(), b = $('cheerBtn'), g = $('gauge');
+  const show = !!w && !openSheet && !lying;
+  if (b.hidden === show) b.hidden = !show;
+  if (!w) { if (!g.hidden) g.hidden = true; return; }
+  if (cheerHinted !== w.key) { cheerHinted = w.key; ticker(T.cheerHint); }
+  const mine = myCheers[w.key] ?? 0, left = CHEER_MAX - mine;
+  $('cheerLeft').textContent = String(left); $('cheerLabel').textContent = left > 0 ? T.cheerBtn : T.cheerDone;
+  b.dataset.done = left > 0 ? '0' : '1';
+  const pct = cheerPct(w), h = horizonScreen();
+  g.hidden = !h;
+  // 지평선에 붙이되, 위쪽 안내 알약을 가리지 않게 너무 높으면 조금 내림
+  if (h) { g.style.left = `${h[0]}px`; g.style.top = `${Math.max(h[1] + 4, 270)}px`; }
+  ($('gaugeFill') as unknown as SVGPathElement).setAttribute('stroke-dasharray', `${(371 * pct).toFixed(1)} 371`);
+  g.classList.toggle('full', pct >= 1);
+  const label = pct >= 1 ? T.gaugeFull : T.gauge(Math.round(pct * 100));
+  if ($('gaugeLabel').textContent !== label) $('gaugeLabel').textContent = label;
+  // 가짜 사용자들도 가끔 응원 (보이기만)
+  if (t - lastBotSpark > 2400 && bots.count) { lastBotSpark = t; const ps = bots.positions(); spark(ps[Math.floor(Math.random() * ps.length)]); }
+}
+$('cheerBtn').onclick = () => {
+  const w = cheerWindow(); if (!w) return;
+  const mine = myCheers[w.key] ?? 0; if (mine >= CHEER_MAX) return;
+  myCheers = { [w.key]: mine + 1 };
+  me.emote = 'stretch'; me.emoteT = 0.6; spark(me.root.position);
+  if (connected) net.emit('cheer', w.key);
+  else { if (cheer.key !== w.key) cheer = { key: w.key, total: 0, people: 1 }; cheer.total++; }
+  track('cheer', { place: place.id, n: mine + 1 });
+};
+net.on('cheer', (key, total, people, from) => {
+  cheer = { key, total, people };
+  if (from && from !== myId) { const r = remotes.get(from); if (r) { r.c.emote = 'stretch'; r.c.emoteT = 0.6; spark(r.c.root.position); } }
+});
+/** 해가 지평선을 넘는 순간: 게이지가 찼으면 금빛 해돋이, 편지가 있으면 배달 */
+let lastWindowKey = '';
+function sunRoseNow() {
+  const key = lastWindowKey;
+  if (key) {
+    const k = Math.min(1, ((cheer.key === key ? cheer.total : 0) + BOT_CHEER) / CHEER_GOAL);
+    if (k >= 1) {
+      goldT = 40; world.setGolden(1);
+      const n = cheer.key === key ? cheer.people : 1;
+      $('goldenText').textContent = T.golden(n); $('goldenCard').hidden = false;
+      setTimeout(() => { $('goldenCard').hidden = true; }, 7000);
+      for (let i = 0; i < 14; i++) setTimeout(() => spark(me.root.position), i * 90);
+      track('golden_sunrise', { place: place.id, people: n });
+    } else if ((myCheers[key] ?? 0) > 0) setTimeout(() => toast(T.notGolden(Math.round(k * 100))), 2500);
+  }
+  setTimeout(deliverLetter, goldT > 0 ? 7500 : 2500);
+}
+setInterval(() => { const w = cheerWindow(); if (w) lastWindowKey = w.key; }, 500);
+
+// ================= 내일의 해에게 보내는 편지 =================
+// 편지는 이 기기에만 저장. 다음 날 처음 해가 뜰 때 해가 다시 가져다줌.
+const todayKey = () => dateKey(Date.now());
+function updateLetterBtn() { const show = !store.letter && !openSheet; if ($('letterBtn').hidden === show) $('letterBtn').hidden = !show; }
+setInterval(updateLetterBtn, 500);
+$('letterBtn').onclick = () => { ($('letterInput') as HTMLTextAreaElement).value = ''; $('letterCount').textContent = '0 / 60'; open('letterSheet'); track('letter_open'); };
+$('letterInput').addEventListener('input', () => { $('letterCount').textContent = `${($('letterInput') as HTMLTextAreaElement).value.length} / 60`; });
+$('letterGo').onclick = () => {
+  const text = ($('letterInput') as HTMLTextAreaElement).value.trim().slice(0, 60);
+  if (!text) { toast(T.letterEmpty); return; }
+  store.letter = { day: todayKey(), text, at: Date.now() };
+  store.letterDays = [...new Set([...(store.letterDays ?? []), todayKey()])].slice(-60); save();
+  close(); track('letter_sent', { len: text.length });
+  const pl = $('plane'); pl.hidden = true; void pl.offsetWidth; pl.hidden = false;
+  setTimeout(() => { pl.hidden = true; $('letterSent').hidden = false; }, 2300);
+  setTimeout(() => { $('letterSent').hidden = true; }, 16000);
+};
+$('letterAlarm').onclick = () => { $('letterSent').hidden = true; if (!store.alarm.on) $('alarmBtn').click(); else toast(T.alarmToggledOn); };
+$('letterSentClose').onclick = () => { $('letterSent').hidden = true; };
+/** 어제 이전에 쓴 편지가 있으면 해가 가져옴 */
+function deliverLetter() {
+  const L = store.letter;
+  if (!L || L.day >= todayKey() || !$('letterArrive').hidden || !$('letterPaper').hidden) return;
+  $('letterArrive').hidden = false; track('letter_arrived');
+}
+let loadChecked = false;
+/** 진짜 하늘을 보는 중(LIVE 이후·실제 하늘)이면 해가 이미 떠 있을 때 바로 배달 */
+function maybeDeliverOnLoad(alt: number, live: boolean, cyc: boolean) {
+  if (loadChecked || cyc) return;
+  loadChecked = true;
+  if (alt > 0.5 || live) setTimeout(deliverLetter, 4000);
+}
+function letterStreak(day: string) {
+  const days = new Set(store.letterDays ?? []); let n = 0;
+  for (let d = new Date(day + 'T12:00:00'); days.has(dateKey(d.getTime())); d.setDate(d.getDate() - 1)) n++;
+  return Math.max(1, n);
+}
+$('letterOpenBtn').onclick = () => {
+  const L = store.letter; if (!L) { $('letterArrive').hidden = true; return; }
+  $('letterArrive').hidden = true;
+  $('letterFrom').textContent = T.letterFrom(new Date(L.at).toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'en-NZ', { month: 'long', day: 'numeric' }));
+  $('letterText').textContent = L.text;
+  $('letterStreak').textContent = T.letterStreak(letterStreak(L.day));
+  $('letterPaper').hidden = false;
+  store.letter = undefined; save();
+  track('letter_read');
+};
+$('letterPaperClose').onclick = () => { $('letterPaper').hidden = true; };
+$('letterWriteToday').onclick = () => { $('letterPaper').hidden = true; $('letterBtn').click(); };
 
 // ================= 해변 강아지 =================
 // 강아지는 서버가 채널마다 한 마리씩 움직이고, 쓰다듬으면 모두에게 같은 반응이 보인다.
@@ -1712,4 +1855,4 @@ const bots = createBots({
 });
 bots.fill();
 
-Object.assign(window, { __hae: { gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

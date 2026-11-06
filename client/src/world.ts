@@ -212,6 +212,8 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   // ---------- 매 프레임: 해 위치에 맞춰 하늘·바다·조명 갱신 ----------
   const sunDir = new THREE.Vector3(), sunCol = new THREE.Color(), deep = new THREE.Color(), tmp = new THREE.Color();
   const SEA_DEEP = new THREE.Color(0x13567f), SEA_SHALLOW = new THREE.Color(0x3fb0b8);
+  const GOLD_T = new THREE.Color(0x8a5a9a), GOLD_M = new THREE.Color(0xf0a050), GOLD_L = new THREE.Color(0xffd36a);
+  let gold = 0;
   /** wide: 5분 순환처럼 해가 하늘을 한 바퀴 다 돌 때 (해는 앞에서 떠서 뒤쪽으로 짐) */
   function update(now: number, place: Place, refSunrise: number, camera: THREE.Camera, t: number, wide = false) {
     const sp = sunPos(now, place.lat, place.lng);
@@ -220,6 +222,8 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     const alt = sp.alt, daz = clamp(((sp.az - az0 + 540) % 360) - 180, -lim, lim) * rad, ar = alt * rad;
     sunDir.set(Math.sin(daz) * Math.cos(ar), Math.sin(ar), -Math.cos(daz) * Math.cos(ar)).normalize();
     skyAt(alt);
+    // 금빛 해돋이: 하늘 전체가 금색으로 물듦
+    if (gold > 0.001) { top.lerp(GOLD_T, gold * 0.5); mid.lerp(GOLD_M, gold * 0.6); low.lerp(GOLD_L, gold * 0.55); }
     skyU.top.value.copy(top); skyU.mid.value.copy(mid); skyU.low.value.copy(low); skyU.sunDir.value.copy(sunDir);
     const glow = clamp((alt + 9) / 10, 0, 1);
     skyU.glow.value = glow;
@@ -239,10 +243,10 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     const up = clamp((alt + 1.2) / 3, 0, 1), nearH = 1 - clamp((alt - 6) / 20, 0, 0.6);
     for (const [s, sc, op] of glare) {
       s.position.copy(sunMesh.position); s.visible = up > 0.01;
-      s.scale.set(sc, sc, 1); s.material.opacity = op * up * nearH;
+      s.scale.set(sc * (1 + gold * 0.9), sc * (1 + gold * 0.9), 1); s.material.opacity = Math.min(1, op * up * nearH * (1 + gold * 0.6));
     }
     rays.position.copy(sunMesh.position); rays.visible = up > 0.01;
-    rays.material.opacity = 0.3 * up * nearH; rays.material.rotation = t / 9000;
+    rays.material.opacity = (0.3 + gold * 0.45) * up * nearH; rays.material.rotation = t / 9000;
     rays.scale.set(400, 400, 1);
 
     // 낮일수록 하늘색 대신 바다 고유의 파란색 (회색 흙탕물처럼 보이지 않게)
@@ -267,5 +271,5 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     return alt;
   }
 
-  return { seats, buildLandmark, update, setGround, skyLow: low, sunDir };
+  return { seats, buildLandmark, update, setGround, skyLow: low, sunDir, setGolden(v: number) { gold = Math.max(0, Math.min(1, v)); } };
 }

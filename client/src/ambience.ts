@@ -39,6 +39,7 @@ export function createAmbience() {
   let ctx: AudioContext | null = null;
   let pinkBuf!: AudioBuffer, fxBus!: GainNode, fireRumble!: GainNode, fireLevel = 0;
   let seaBus!: GainNode, seaOn = true;
+  const samples: Record<string, Promise<AudioBuffer>> = {};
   let master!: GainNode, windGain!: GainNode, windFilter!: BiquadFilterNode, rainGain!: GainNode, birdBus!: GainNode;
   let on = true, alt = -20;
   let weather: Weather = { windKmh: 10, precipMm: 0 };
@@ -193,6 +194,23 @@ export function createAmbience() {
   }
 
   return {
+    /** 녹음된 소리를 메아리와 함께 재생 (파일이 없거나 실패하면 false) */
+    async playEcho(url: string, vol: number) {
+      if (!ctx || ctx.state !== 'running' || vol < 0.03) return false;
+      try {
+        if (!samples[url]) samples[url] = fetch(url).then(r => { if (!r.ok) throw new Error('no file'); return r.arrayBuffer(); }).then(b => ctx!.decodeAudioData(b));
+        const buf = await samples[url];
+        const t = ctx.currentTime + 0.02;
+        // 원래 목소리 + 점점 작고 먹먹해지는 메아리 3번
+        [[0, 1, 9000], [0.75, 0.42, 2600], [1.45, 0.2, 1500], [2.1, 0.09, 1000]].forEach(([d, g, f]) => {
+          const s = ctx!.createBufferSource(); s.buffer = buf;
+          const lp = ctx!.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = f;
+          const gn = ctx!.createGain(); gn.gain.value = g * vol;
+          s.connect(lp).connect(gn).connect(fxBus); s.start(t + d);
+        });
+        return true;
+      } catch { delete samples[url]; return false; }
+    },
     /** 바다 소리 (서울 시내에서는 끔) */
     setSea(v: boolean) {
       seaOn = v;

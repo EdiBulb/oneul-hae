@@ -27,6 +27,9 @@ interface Saved {
   replayPillOff?: string;
   /** 5분 순환 대신 실제 하늘 보기 */
   realSky?: boolean;
+  /** 내일의 해에게 보내는 편지: 아직 안 받은 편지 하나 + 편지를 쓴 날들 */
+  letter?: { day: string; text: string; at: number };
+  letterDays?: string[];
   /** 오늘 강아지 쓰다듬은 횟수: key = 장소|현지날짜 */
   pets?: { key: string; n: number };
   /** 직접 쓴 소원을 다른 사람에게도 보여줄지 (기본: 보여줌) */
@@ -51,7 +54,9 @@ function load(): Partial<Saved> {
   try { return JSON.parse(localStorage.getItem(KEY) ?? '{}'); } catch { return {}; }
 }
 const raw = load();
+// 저장된 값은 모두 그대로 살리고(...raw), 없는 것만 기본값으로 채움
 export const store: Saved = {
+  ...raw,
   days: raw.days ?? {},
   alarm: raw.alarm ?? { on: false },
   hinted: raw.hinted,

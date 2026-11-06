@@ -46,6 +46,8 @@ interface Channel {
   dirty: Set<string>;
   /** 이 채널의 해변 강아지 */
   dog: Dog;
+  /** 같이 해 띄우기: 지금 해돋이의 응원 (uid별 횟수) */
+  cheer: { key: string; per: Map<string, number>; total: number };
 }
 interface SocketData {
   channel?: Channel;
@@ -56,6 +58,7 @@ interface SocketData {
   /** 짠을 누르고 아직 상대를 못 찾은 시각 (0 = 없음) */
   cheersAt: number;
   lastBlanket: number;
+  lastCheer: number;
 }
 type IO = Server<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
 type Sock = Socket<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
@@ -118,7 +121,7 @@ function pickChannel(place: PlaceId): Channel {
     const key = `${place}:${n}`;
     let c = channels.get(key);
     if (!c) {
-      c = { key, place, n, players: new Map(), seats: new Map(), dirty: new Set(), dog: newDog(place) };
+      c = { key, place, n, players: new Map(), seats: new Map(), dirty: new Set(), dog: newDog(place), cheer: { key: '', per: new Map(), total: 0 } };
       channels.set(key, c);
     }
     if (c.players.size < CAP) return c;
@@ -222,6 +225,19 @@ io.on('connection', (socket: Sock) => {
       dog: dogPub(c.dog),
     });
     socket.to(c.key).emit('joined', me);
+    if (c.cheer.key) socket.emit('cheer', c.cheer.key, c.cheer.total, c.cheer.per.size, null);
+  });
+
+  // 같이 해 띄우기: 한 사람이 한 번의 해돋이에 10번까지 응원 (빨리 누르기 경쟁이 아니라 사람 수가 중요하게)
+  socket.on('cheer', key => {
+    const c = socket.data.channel, now = Date.now(), uid = socket.data.uid;
+    if (!c || !uid || typeof key !== 'string' || key.length > 32 || now - (socket.data.lastCheer ?? 0) < 150) return;
+    socket.data.lastCheer = now;
+    if (c.cheer.key !== key) c.cheer = { key, per: new Map(), total: 0 };
+    const n = c.cheer.per.get(uid) ?? 0;
+    if (n >= 10) return;
+    c.cheer.per.set(uid, n + 1); c.cheer.total++;
+    io.to(c.key).emit('cheer', key, c.cheer.total, c.cheer.per.size, socket.id);
   });
 
   socket.on('s', (x, z, ry, st) => {
