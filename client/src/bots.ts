@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { animChar, disposeChar, makeChar, textSprite, type Char } from './character';
+import { animChar, disposeChar, makeChar, setOutfit, textSprite, wearSet, type Char } from './character';
 import { ADJ, BODY_COLORS, HAT_COLORS, NOUN, localizeNick, pick } from './places';
 import { canStand, floorY } from './beach-extras';
 import type { Seat } from './world';
@@ -49,6 +49,14 @@ export function createBots(opts: {
     const idx = standing ? -1 : freeSeat();
     if (idx === null) return;
     const c = makeChar(pick(BODY_COLORS), pick(HAT_COLORS));
+    // 해돋이 보러 온 사람들답게 대부분 패딩 차림 (옷장에 뭐가 있는지 자연스럽게 보여 줌)
+    let w = 0;
+    const r = Math.random();
+    if (r < 0.45) w = wearSet(w, 'outer', 1 + Math.floor(Math.random() * 3)); else if (r < 0.65) w = wearSet(w, 'outer', 4);
+    if (Math.random() < 0.3) w = wearSet(w, 'hat', 1 + Math.floor(Math.random() * 2));
+    if (Math.random() < 0.25) w = wearSet(w, 'scarf', 1);
+    if (Math.random() < 0.2) w = wearSet(w, 'hand', 1 + Math.floor(Math.random() * 2));
+    if (w) setOutfit(c, w);
     const nick = localizeNick(`${pick(ADJ)} ${pick(NOUN)}`);
     const label = textSprite(nick, 0.6); label.position.y = 1.85; c.root.add(label);
     scene.add(c.root);

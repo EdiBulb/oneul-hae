@@ -52,7 +52,7 @@
 <div id="scene"></div>
 <section class="sr-only">
   <h1>오늘의 해, 온라인 해돋이</h1>
-  <p>오늘의 해는 매일 아침 실제 일출 시각에 맞춰 지리산 천왕봉 정상과 정동진, 제주 성산일출봉·섭지코지, 포항 호미곶에서 해가 뜨는 모습을 다른 사람들과 함께 보는 3D 웹 서비스예요. 캐릭터로 해변을 걷고, 방석에 앉고, 소원을 적은 풍등을 올릴 수 있어요. 해 뜨기 5분 전 알람과 연속 기록으로 매일 아침 해 보는 습관을 만들어 보세요.</p>
+  <p>오늘의 해는 매일 아침 실제 일출 시각에 맞춰 지리산 천왕봉 정상과 강릉 정동진에서 해가 뜨는 모습을 다른 사람들과 함께 보는 3D 웹 서비스예요. 캐릭터로 해변을 걷고, 방석에 앉고, 소원을 적은 풍등을 올릴 수 있어요. 해 뜨기 5분 전 알람과 연속 기록으로 매일 아침 해 보는 습관을 만들어 보세요.</p>
 </section>
 <noscript>오늘의 해는 3D 화면을 쓰기 때문에 자바스크립트가 필요해요.</noscript>
 
@@ -97,6 +97,7 @@
       <button class="act primary" data-ic="🍜" id="ramenBtn" hidden data-i18n="ramenBtn">라면 끓이기</button>
       <button class="act route-act" data-ic="📍" id="routeBtn" hidden data-i18n="routeBtn">실제로 가 보기</button>
       <button class="act sand-act" data-ic="🏖️" id="sandBtn" hidden data-i18n="sandOpen">모래 게시판</button>
+      <button class="act" id="wearBtn" data-ic="🧥"><span data-i18n="wearBtn">옷</span></button>
       <button class="act more" id="actMore" aria-expanded="false" aria-controls="actTray" data-i18n-aria="actAria" aria-label="다른 행동 더 보기" data-ic="✨"><span data-i18n="actMore">행동</span></button>
       <button class="act primary" data-ic="🏮" id="lanternBtn" data-i18n="lantern">풍등 올리기</button>
     </div>
@@ -109,7 +110,7 @@
       <button class="tile" id="lieBtn" role="menuitem"><i>🌌</i><span data-i18n="lie">누워서 별 보기</span></button>
       <button class="tile" id="castleBtn" role="menuitem"><i>🏰</i><span data-i18n="castle">모래성 쌓기</span></button>
       <button class="tile" id="dexBtn" role="menuitem"><i>🐚</i><span data-i18n="dex">조개 도감</span></button>
-      <button class="tile" id="outfitBtn" role="menuitem"><i>🧣</i><span data-i18n="props">소품</span></button>
+      <button class="tile" id="outfitBtn" role="menuitem" hidden><i>🧣</i><span data-i18n="props">소품</span></button>
     </div>
   </div>
 </div>
@@ -128,13 +129,9 @@
 <div class="flash" id="flash"></div>
 <button class="star-wish pe" id="starWish" hidden data-i18n="starWish">🌠 별똥별! 소원 빌기</button>
 <div class="sheet" id="outfitSheet" role="dialog" aria-labelledby="outfitTitle">
-  <h2 id="outfitTitle" data-i18n="propsTitle">소품 고르기</h2>
-  <p class="lead" data-i18n="propsLead">겹쳐 입을 수 있어요. 다른 사람에게도 보여요.</p>
-  <div class="outfit-grid">
-    <button class="tile" id="ofSweat" aria-pressed="false"><i>👕</i><span data-i18n="sweat">회색 맨투맨·검은 슬랙스</span></button>
-    <button class="tile" id="ofScarf" aria-pressed="false"><i>🧣</i><span data-i18n="redScarf">빨간 목도리</span></button>
-    <button class="tile" id="ofFlowers" aria-pressed="false"><i>💐</i><span data-i18n="flowers">메밀꽃 다발</span></button>
-  </div>
+  <h2 id="outfitTitle" data-i18n="wearTitle">옷 입기</h2>
+  <p class="lead" data-i18n="wearLead">새벽 바다·산 정상은 추워요. 칸마다 하나씩 골라 보세요. 다른 사람에게도 보여요.</p>
+  <div id="wardrobe"></div>
 </div>
 <div class="sheet" id="routeSheet" role="dialog" aria-labelledby="routeTitle">
   <h2 id="routeTitle"></h2>

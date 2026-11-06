@@ -324,7 +324,7 @@ io.on('connection', (socket: Sock) => {
   socket.on('outfit', mask => {
     const c = socket.data.channel, me = c?.players.get(socket.id);
     if (!c || !me) return;
-    me.outfit = Math.floor(num(mask, 0, 15));
+    me.outfit = Math.floor(num(mask, 0, 8191)); // 소품 4비트 + 옷장 9비트
     socket.to(c.key).emit('outfit', socket.id, me.outfit);
   });
 

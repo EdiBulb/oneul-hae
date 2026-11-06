@@ -353,3 +353,11 @@
   .act[data-ic]::before{width:38px;height:38px;font-size:17px}
   .actions .cheer-btn{flex-basis:auto;order:0;font-size:12.5px;padding:6px 12px}
 }
+/* 옷장 */
+.wear-h{margin:16px 0 0;font-size:13px;font-weight:700;color:var(--ink-dim);letter-spacing:.02em}
+.wear-grid{margin-top:8px}
+.wear-grid .tile{padding:11px 4px 9px;font-size:12.5px;line-height:1.25;word-break:keep-all;position:relative}
+.wear-grid .tile i{position:relative}
+.wear-grid .sw{position:absolute;right:-6px;bottom:-2px;width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(255,255,255,.75)}
+.wear-grid .tile.locked{opacity:.5}
+.wear-grid .tile small{font-size:10px;color:var(--ink-dim);line-height:1.2}

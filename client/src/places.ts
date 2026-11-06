@@ -15,14 +15,14 @@ export interface Place {
 }
 export type PlaceGroup = 'sunrise' | 'kcontent';
 
-// 사람이 적을 땐 장소를 줄여 한곳에 모이게 (기스본·K콘텐츠 촬영지는 잠시 내림, 코드는 그대로)
+// 사람이 적을 땐 장소를 줄여 한곳에 모이게 — 지금은 지리산·정동진만. 주석 풀면 다시 열림. (기스본·K콘텐츠 촬영지는 잠시 내림, 코드는 그대로)
 export const PLACES: Place[] = [
   { id: 'jirisan', name: '지리산 천왕봉', region: '산청', nameEn: 'Jirisan Cheonwangbong', regionEn: 'Sancheong', lat: 35.3369, lng: 127.7306, tz: 'Asia/Seoul', group: 'sunrise' },
-  { id: 'hallasan', name: '한라산 백록담', region: '제주', nameEn: 'Hallasan Baengnokdam', regionEn: 'Jeju', lat: 33.3617, lng: 126.5292, tz: 'Asia/Seoul', group: 'sunrise' },
+  // { id: 'hallasan', name: '한라산 백록담', region: '제주', nameEn: 'Hallasan Baengnokdam', regionEn: 'Jeju', lat: 33.3617, lng: 126.5292, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'jeongdongjin', name: '정동진', region: '강릉', nameEn: 'Jeongdongjin', regionEn: 'Gangneung', lat: 37.6906, lng: 129.0336, tz: 'Asia/Seoul', group: 'sunrise' },
-  { id: 'seongsan', name: '성산일출봉', region: '제주', nameEn: 'Seongsan Ilchulbong', regionEn: 'Jeju', lat: 33.458, lng: 126.9425, tz: 'Asia/Seoul', group: 'sunrise' },
-  { id: 'seopjikoji', name: '섭지코지', region: '제주', nameEn: 'Seopjikoji', regionEn: 'Jeju', lat: 33.4240, lng: 126.9310, tz: 'Asia/Seoul', group: 'sunrise' },
-  { id: 'homigot', name: '호미곶', region: '포항', nameEn: 'Homigot', regionEn: 'Pohang', lat: 36.0767, lng: 129.5689, tz: 'Asia/Seoul', group: 'sunrise' },
+  // { id: 'seongsan', name: '성산일출봉', region: '제주', nameEn: 'Seongsan Ilchulbong', regionEn: 'Jeju', lat: 33.458, lng: 126.9425, tz: 'Asia/Seoul', group: 'sunrise' },
+  // { id: 'seopjikoji', name: '섭지코지', region: '제주', nameEn: 'Seopjikoji', regionEn: 'Jeju', lat: 33.4240, lng: 126.9310, tz: 'Asia/Seoul', group: 'sunrise' },
+  // { id: 'homigot', name: '호미곶', region: '포항', nameEn: 'Homigot', regionEn: 'Pohang', lat: 36.0767, lng: 129.5689, tz: 'Asia/Seoul', group: 'sunrise' },
 ];
 
 const WISHES_KO = ['오늘도 무사히', '건강하게', '합격 기원', '월급 들어와라', '좋은 하루', '다 잘 될 거야', '사랑하는 사람들 행복하게', '퇴근 빨리'];

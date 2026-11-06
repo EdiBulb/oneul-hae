@@ -41,6 +41,26 @@
       "source": "/hangang",
       "destination": "/",
       "permanent": false
+    },
+    {
+      "source": "/hallasan",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/seongsan",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/seopjikoji",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/homigot",
+      "destination": "/",
+      "permanent": false
     }
   ]
 }

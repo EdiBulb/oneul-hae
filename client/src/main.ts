@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, setOutfit, outfitOf, showLeftFlowers } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, setOutfit, outfitOf, showLeftFlowers } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
@@ -22,6 +22,7 @@ import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place, placeBlurb, placeRoute, type PlaceGroup } from './places';
 import { T, applyHtml, lang, num, setLang } from './i18n';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
+import { ITEMS, SLOT_NAME, itemName, needText, unlocked } from './wardrobe';
 import { dayName, dur, hm, mmss, sunPos, sunriseInfo, sunrises } from './sun';
 import { createWorld, glowTexture, groundY } from './world';
 
@@ -176,7 +177,7 @@ const virtualNow = () => {
 };
 
 // 예전 서울 투어에서 입은 한복 표시(16)는 지움
-if (store.outfit) store.outfit &= 15;
+if (store.outfit) store.outfit &= OUTFIT_MAX & ~HELD;
 // ================= 나 =================
 const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
 const spawn = () => { const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z); };
@@ -1536,18 +1537,34 @@ function applyTerrain(p: Place) {
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
   if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
 }
-const OUTFIT_BTNS: [string, number][] = [['ofSweat', OUTFIT.sweat], ['ofScarf', OUTFIT.scarf], ['ofFlowers', OUTFIT.flowers]];
-function renderOutfit() { OUTFIT_BTNS.forEach(([id, bit]) => $(id).setAttribute('aria-pressed', String(!!((store.outfit ?? 0) & bit)))); }
-setOutfit(me, store.outfit ?? 0);
-OUTFIT_BTNS.forEach(([id, bit]) => {
-  $(id).onclick = () => {
-    store.outfit = (store.outfit ?? 0) ^ bit; save();
-    setOutfit(me, store.outfit | (outfitOf(me) & HELD)); renderOutfit();
-    if (connected) net.emit('outfit', outfitOf(me));
-    track('outfit', { place: place.id, mask: store.outfit });
-  };
+// ================= 옷장 =================
+function setWear(mask: number) {
+  store.outfit = mask & ~HELD; save();
+  setOutfit(me, store.outfit | (outfitOf(me) & HELD));
+  if (connected) net.emit('outfit', outfitOf(me));
+}
+function renderWardrobe() {
+  const cur = store.outfit ?? 0;
+  $('wardrobe').innerHTML = (Object.keys(SLOT_NAME) as (keyof typeof SLOT_NAME)[]).map(slot => {
+    const tiles = ITEMS.filter(it => it.slot === slot).map(it => {
+      const open_ = unlocked(it), on = it.get(cur);
+      const dot = it.color ? `<em class="sw" style="background:${it.color}"></em>` : '';
+      return `<button class="tile wear${open_ ? '' : ' locked'}" data-w="${it.id}" aria-pressed="${on}"><i>${it.icon}${dot}</i><span>${itemName(it)}</span>${open_ ? '' : `<small>🔒 ${needText(it)}</small>`}</button>`;
+    }).join('');
+    return `<h3 class="wear-h">${SLOT_NAME[slot][lang === 'ko' ? 0 : 1]}</h3><div class="outfit-grid wear-grid">${tiles}</div>`;
+  }).join('');
+}
+$('wardrobe').addEventListener('click', e => {
+  const btn = (e.target as HTMLElement).closest('[data-w]') as HTMLElement | null; if (!btn) return;
+  const it = ITEMS.find(x => x.id === btn.dataset.w); if (!it) return;
+  if (!unlocked(it)) { toast(`🔒 ${needText(it)}`); return; }
+  setWear(it.set(store.outfit ?? 0)); renderWardrobe();
+  track('wear', { slot: it.slot, item: it.id });
 });
-$('outfitBtn').onclick = () => { renderOutfit(); open('outfitSheet'); };
+setOutfit(me, store.outfit ?? 0);
+const openWardrobe = () => { renderWardrobe(); open('outfitSheet'); track('wardrobe_open'); };
+$('wearBtn').onclick = openWardrobe;
+$('outfitBtn').onclick = openWardrobe;
 $('routeBtn').onclick = () => {
   const r = placeRoute(place);
   if (!r) return;
@@ -1796,6 +1813,7 @@ function sunRoseNow() {
     const k = Math.min(1, ((cheer.key === key ? cheer.total : 0) + BOT_CHEER) / CHEER_GOAL);
     if (k >= 1) {
       goldT = 40; world.setGolden(1);
+      if (!store.golden) { store.golden = true; save(); setTimeout(() => toast(lang === 'ko' ? '🎁 보온병이 옷장에 생겼어요' : '🎁 Thermos unlocked in your wardrobe'), 8000); }
       const n = cheer.key === key ? cheer.people : 1;
       $('goldenText').textContent = T.golden(n); $('goldenCard').hidden = false;
       setTimeout(() => { $('goldenCard').hidden = true; }, 7000);
