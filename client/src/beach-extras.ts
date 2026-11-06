@@ -17,23 +17,42 @@ export const BONFIRE = { x: 11, z: 10 };
 const LOG = { r: 2.1, len: 1.3, rad: 0.2, n: 4 };
 const logAngle = (i: number) => (i / LOG.n) * Math.PI * 2 + Math.PI / 4;
 
-interface HighSeat { x: number; z: number; ry: number; y: number; bench: true; kind: 'log' | 'pier' | 'bus'; sx: number; sz: number; places: PlaceId[] }
+interface HighSeat { x: number; z: number; ry: number; y: number; bench: true; kind: 'log' | 'pier' | 'bus' | 'rock'; sx: number; sz: number; places: PlaceId[] }
 /** 해변마다 있는 것 */
 const SUNRISE: PlaceId[] = ['jeongdongjin', 'seongsan', 'homigot', 'gisborne'];
-const ALL: PlaceId[] = [...SUNRISE, 'jumunjin', 'hyangho', 'hangang'];
+const ALL: PlaceId[] = [...SUNRISE, 'jumunjin', 'hyangho', 'hangang', 'jirisan'];
+/** 바다가 아니라 산 정상인 곳 */
+const PEAK: PlaceId[] = ['jirisan'];
 export const has = {
   pier: (id: PlaceId) => SUNRISE.includes(id),
-  bonfire: (id: PlaceId) => id !== 'hangang',
-  shells: (id: PlaceId) => id !== 'hangang',
-  castles: (id: PlaceId) => id !== 'hangang',
-  wading: (id: PlaceId) => id !== 'hangang',
+  bonfire: (id: PlaceId) => id !== 'hangang' && !PEAK.includes(id),
+  shells: (id: PlaceId) => id !== 'hangang' && !PEAK.includes(id),
+  castles: (id: PlaceId) => id !== 'hangang' && !PEAK.includes(id),
+  wading: (id: PlaceId) => id !== 'hangang' && !PEAK.includes(id),
   /** 물가가 있는지 (물수제비) */
-  water: (_id: PlaceId) => true,
+  water: (id: PlaceId) => !PEAK.includes(id),
   /** 해변 방석(돗자리)이 있는지 */
-  mats: (_id: PlaceId) => true,
+  mats: (id: PlaceId) => !PEAK.includes(id),
+  /** 산 정상 */
+  peak: (id: PlaceId) => PEAK.includes(id),
 };
 /** 향호 버스정류장: 바다를 등지고 육지 쪽을 보는 정류장 */
 export const BUS_STOP = { x: -12, z: 1.2 };
+/** 지리산 천왕봉: 정상 직전 능선(z 11~14)에 나타나서, 바위 언덕(z 3)을 넘으면 절벽 끝 전망대(z 0~1.6) */
+export const SUMMIT = { edgeZ: -0.05, deckY: 1.6, crestZ: 3, stone: { x: -4.4, z: 2.4 } };
+const ss = (a: number, b: number, v: number) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+/** 천왕봉 땅 높이: 뒤쪽 길은 내려가고, 앞으로 갈수록 올라가다 언덕을 넘으면 평평한 전망대 */
+export function mountainY(x: number, z: number) {
+  let y: number;
+  if (z >= 14) y = -(z - 14) * 0.12;
+  else if (z >= SUMMIT.crestZ) y = 3.0 * ss(14, SUMMIT.crestZ, z);
+  // 언덕(3m)을 넘으면 1.4m 아래 전망대: 도착 자리에서는 난간과 발아래 풍경이 안 보임
+  else y = 3.0 - 1.4 * ss(SUMMIT.crestZ, 1.4, z);
+  const ax = Math.abs(x);
+  y += Math.max(0, ax - 8) * 0.45 + Math.sin(x * 0.9 + z * 0.4) * 0.06;
+  if (z < SUMMIT.crestZ) y += Math.max(0, ax - 5) * 0.8;
+  return y;
+}
 /** 한강 편의점과 라면 기계 */
 export const STORE = { x: -11, z: 12, w: 5, d: 3.2 };
 export const RAMEN_MACHINE = { x: -8.1, z: 13.4 };
@@ -58,6 +77,11 @@ export function benchSeats() {
   for (const dx of [-0.6, 0, 0.6]) {
     const x = BUS_STOP.x + dx, z = BUS_STOP.z + 0.05;
     out.push({ x, z, ry: Math.PI, y: groundY(z) + 0.44, bench: true, kind: 'bus', sx: x, sz: z + 0.75, places: ['hyangho'] });
+  }
+  // 36~41: 천왕봉 절벽 끝 바위 6자리, 해 뜨는 쪽(-z)을 바라봄 → 일어나면 뒤로 한 걸음
+  for (let i = 0; i < 6; i++) {
+    const x = -3.75 + i * 1.5, z = 0.75;
+    out.push({ x, z, ry: 0, y: SUMMIT.deckY + 0.42, bench: true, kind: 'rock', sx: x, sz: 1.7, places: ['jirisan'] });
   }
   return out;
 }
@@ -85,6 +109,7 @@ const onJetty = (x: number, z: number) => jetties().find(j => Math.abs(x - j.x) 
 export const onPier = (x: number, z: number) => (pierHere() && Math.abs(x - PIER.x) < PIER.half && z <= PIER.start && z >= PIER.end) || !!onJetty(x, z);
 export type Surface = 'sand' | 'water' | 'wood' | 'grass';
 export function surfaceAt(x: number, z: number): Surface {
+  if (PEAK.includes(terrain)) return 'grass';
   if (terrain === 'hangang') return z < -1.8 ? 'water' : 'grass';
   if (onPier(x, z) && z < -1.2) return 'wood';
   return z < -1.8 ? 'water' : 'sand';
@@ -96,6 +121,7 @@ export function floorY(x: number, z: number) {
     const k = clamp((j.start - z) / 1.6, 0, 1); // 콘크리트 계단 경사
     return groundY(z) * (1 - k) + j.top * k;
   }
+  if (PEAK.includes(terrain)) return mountainY(x, z);
   if (onPier(x, z)) {
     const k = clamp((PIER.start - z) / 2, 0, 1); // 처음 2m는 경사로
     return groundY(z) * (1 - k) + PIER.top * k;
@@ -105,6 +131,8 @@ export function floorY(x: number, z: number) {
 }
 /** 카메라가 있어도 되는 곳인지 (건물 안이면 false). 높이 4.5m 위는 자유 */
 export function camOpen(x: number, y: number, z: number) {
+  // 산: 카메라가 바위 언덕 속으로 들어가지 않게
+  if (PEAK.includes(terrain)) return y > mountainY(x, z) + 0.5;
   if (y > 4.5) return true;
   switch (terrain) {
     case 'hangang':
@@ -114,6 +142,13 @@ export function camOpen(x: number, y: number, z: number) {
 }
 export function canStand(x: number, z: number) {
   if (onPier(x, z)) return true;
+  if (PEAK.includes(terrain)) {
+    // 난간 너머(절벽)·양옆 바위·표지석에는 못 감
+    if (z < SUMMIT.edgeZ || z > 30 || Math.abs(x) > 13) return false;
+    if (z < SUMMIT.crestZ - 0.5 && Math.abs(x) > 5.2) return false;
+    if (Math.hypot(x - SUMMIT.stone.x, z - SUMMIT.stone.z) < 0.6) return false;
+    return true;
+  }
   if (Math.abs(x) > BEACH_X || z > 17 || z < (has.wading(terrain) ? WADE_MIN_Z : -1.3)) return false;
   // 정류장 지붕 기둥·뒷벽, 한강 편의점 건물 안으로는 못 들어감
   if (terrain === 'hyangho' && Math.abs(x - BUS_STOP.x) < 1.25 && z > BUS_STOP.z - 0.45 && z < BUS_STOP.z - 0.05) return false;

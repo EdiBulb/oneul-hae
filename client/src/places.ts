@@ -17,6 +17,7 @@ export type PlaceGroup = 'sunrise' | 'kcontent';
 
 export const PLACES: Place[] = [
   { id: 'jeongdongjin', name: '정동진', region: '강릉', nameEn: 'Jeongdongjin', regionEn: 'Gangneung', lat: 37.6906, lng: 129.0336, tz: 'Asia/Seoul', group: 'sunrise' },
+  { id: 'jirisan', name: '지리산 천왕봉', region: '산청', nameEn: 'Jirisan Cheonwangbong', regionEn: 'Sancheong', lat: 35.3369, lng: 127.7306, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'seongsan', name: '성산일출봉', region: '제주', nameEn: 'Seongsan Ilchulbong', regionEn: 'Jeju', lat: 33.458, lng: 126.9425, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'homigot', name: '호미곶', region: '포항', nameEn: 'Homigot', regionEn: 'Pohang', lat: 36.0767, lng: 129.5689, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'gisborne', name: '기스본', region: '뉴질랜드', nameEn: 'Gisborne', regionEn: 'New Zealand', lat: -38.6623, lng: 178.0176, tz: 'Pacific/Auckland', group: 'sunrise' },
@@ -66,6 +67,19 @@ export const pick = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)];
 interface PlaceInfo { blurb: [string, string]; route?: { title: [string, string]; lead: [string, string]; steps: [string, string][]; map: string } }
 const INFO: Partial<Record<PlaceId, PlaceInfo>> = {
   jeongdongjin: { blurb: ['기차역 바로 앞 해돋이 명소', 'Sunrise right by the train station'] },
+  jirisan: {
+    blurb: ['정상 끝에 서면 운해 위로 해가 떠요', 'Walk to the summit edge, the sun rises over a sea of clouds'],
+    route: {
+      title: ['진짜 천왕봉 일출 보러 가기', 'See the real Cheonwangbong sunrise'],
+      lead: ['지리산 최고봉(1,915m)이에요. 구름 바다 위로 뜨는 해는 &lsquo;천왕일출&rsquo;이라 불리는 지리산 10경 중 하나인데, 날씨 때문에 &ldquo;삼대가 덕을 쌓아야 볼 수 있다&rdquo;는 말이 있어요.', "The highest peak of Jirisan (1,915 m). The sunrise over a sea of clouds, called Cheonwang-ilchul, is one of Jirisan's ten great sights. Koreans say it takes three generations of good deeds to see it, because the weather rarely allows it."],
+      steps: [
+        ['<b>당일 산행</b> · 중산리 탐방지원센터에서 천왕봉까지 약 5.4km, 오르는 데 4시간쯤', '<b>Day hike</b> · About 5.4 km from Jungsan-ri Visitor Center to the summit, roughly 4 hours up'],
+        ['<b>일출 보기</b> · 많은 사람이 장터목대피소에서 자고, 새벽에 1.7km(약 1시간)를 올라가 해를 봐요', '<b>For sunrise</b> · Most hikers stay at Jangteomok Shelter and climb the last 1.7 km (about an hour) before dawn'],
+        ['<b>꼭 확인</b> · 대피소 예약과 입산 가능 시간은 국립공원공단 누리집에서 미리 확인해요. 정상은 한여름에도 추워요', '<b>Check first</b> · Book shelters and check trail opening hours on the Korea National Park Service site. The summit is cold even in summer'],
+      ],
+      map: '지리산 천왕봉',
+    },
+  },
   seongsan: { blurb: ['화산 분화구 옆에서 보는 해', 'Sunrise beside a volcanic crater'] },
   homigot: { blurb: ['바다 위 커다란 손 조형물', 'A giant hand rising from the sea'] },
   gisborne: { blurb: ['세계에서 가장 먼저 뜨는 해 중 하나', 'One of the first sunrises on Earth'] },

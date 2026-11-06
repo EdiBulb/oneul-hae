@@ -21,12 +21,13 @@ const PLACES: Record<PlaceId, { tz: string }> = {
   jumunjin: { tz: 'Asia/Seoul' },
   hyangho: { tz: 'Asia/Seoul' },
   hangang: { tz: 'Asia/Seoul' },
+  jirisan: { tz: 'Asia/Seoul' },
   seongsan: { tz: 'Asia/Seoul' },
   homigot: { tz: 'Asia/Seoul' },
   gisborne: { tz: 'Pacific/Auckland' },
 };
 /** 방석 22개 + 모닥불 통나무 4개 × 2자리 + 데크 끝 3자리 */
-const SEAT_COUNT = 36;
+const SEAT_COUNT = 42;
 // 해변 + 얕은 물 + 바다로 뻗은 데크(z -26까지). 세부 모양은 클라이언트가 막는다
 const BOUNDS = { minX: -22, maxX: 22, minZ: -26, maxZ: 17 };
 /** 짠: 이 거리(m) 안에서, 이 시간(ms) 안에 둘 다 눌러야 컵이 부딪친다 */
@@ -145,7 +146,7 @@ function countWoke(place: PlaceId, uid: string) {
 }
 
 function stats(): Stats {
-  const online = { jeongdongjin: 0, seongsan: 0, homigot: 0, gisborne: 0, jumunjin: 0, hyangho: 0, hangang: 0 } as Record<PlaceId, number>;
+  const online = { jeongdongjin: 0, seongsan: 0, homigot: 0, gisborne: 0, jumunjin: 0, hyangho: 0, hangang: 0, jirisan: 0 } as Record<PlaceId, number>;
   const woke = { ...online }, today = { ...online };
   for (const c of channels.values()) online[c.place] += c.players.size;
   for (const p of Object.keys(PLACES) as PlaceId[]) {

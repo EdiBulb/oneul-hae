@@ -203,6 +203,8 @@ export function createBeachLife(scene: THREE.Scene) {
     heartBurst,
     /** 낚시하는 주민은 물가가 있는 곳에만 */
     setFisher(on: boolean) { fisher.root.visible = on; },
+    /** 산 정상에는 갈매기가 없음 */
+    setGulls(on: boolean) { for (const gl of gulls) gl.g.visible = on; },
     get dogPos() { return dog.position; },
   };
 }

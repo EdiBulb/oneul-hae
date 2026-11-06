@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 const SITE = 'https://hae.abracadelulu.com';
 const PAGES = {
   jeongdongjin: { lang: 'ko', title: '정동진 · 오늘의 해, 온라인 해돋이', desc: '강릉 정동진 해변에서 사람들과 함께 실시간 해돋이를 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.' },
+  jirisan: { lang: 'ko', title: '지리산 천왕봉 · 오늘의 해, 온라인 해돋이', desc: '지리산 천왕봉 정상 끝까지 걸어가 운해 위로 떠오르는 해를 사람들과 함께 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.', image: 'og-jirisan.png', alt: '산 정상 난간 앞에서 구름 바다 위로 떠오르는 해를 바라보는 캐릭터들' },
   seongsan: { lang: 'ko', title: '성산일출봉 · 오늘의 해, 온라인 해돋이', desc: '제주 성산일출봉 앞바다에서 사람들과 함께 실시간 해돋이를 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.' },
   homigot: { lang: 'ko', title: '호미곶 · 오늘의 해, 온라인 해돋이', desc: '포항 호미곶 상생의 손 앞에서 사람들과 함께 실시간 해돋이를 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.' },
   gisborne: { lang: 'ko', title: '기스본 · 오늘의 해, 온라인 해돋이', desc: '세계에서 가장 먼저 해가 뜨는 도시 중 하나, 뉴질랜드 기스본에서 함께 실시간 해돋이를 봐요.' },

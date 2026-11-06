@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { PlaceId } from '../../server/src/protocol';
 import { BUS_STOP, RAMEN_MACHINE, STORE } from './beach-extras';
 import { textSprite } from './character';
+import { createMountain } from './mountain-scenery';
 import { groundY } from './world';
 
 // 장소마다 다른 풍경
@@ -161,14 +162,15 @@ function hangang(scene: THREE.Scene, GLOW: THREE.Texture) {
 }
 
 export function createPlaceScenery(scene: THREE.Scene, GLOW: THREE.Texture) {
-  const bus = busStop(scene), han = hangang(scene, GLOW);
+  const bus = busStop(scene), han = hangang(scene, GLOW), peak = createMountain(scene);
   let id: PlaceId = 'jeongdongjin';
   return {
     setPlace(p: PlaceId) {
-      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang';
+      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang'; peak.group.visible = p === 'jirisan';
     },
     cook: () => han.cook(),
-    update(dt: number, t: number, night: number) {
+    update(dt: number, t: number, night: number, low: THREE.Color) {
+      if (id === 'jirisan') peak.update(dt, night, low);
       if (id === 'hyangho') bus.update(dt);
       if (id === 'hangang') han.update(dt, t, night);
     },

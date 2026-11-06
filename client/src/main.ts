@@ -8,7 +8,7 @@ import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
@@ -57,7 +57,7 @@ const life = createBeachLife(scene);
 // 해변 강아지 이름 (해변마다 한 마리)
 const DOG_NAMES: Record<string, [string, string]> = {
   jeongdongjin: ['해피', 'Happy'], seongsan: ['감귤', 'Gamgyul'], homigot: ['호두', 'Hodu'], gisborne: ['키위', 'Kiwi'],
-  jumunjin: ['메밀', 'Memil'], hyangho: ['보리', 'Bori'], hangang: ['라면', 'Ramyeon'],
+  jumunjin: ['메밀', 'Memil'], hyangho: ['보리', 'Bori'], hangang: ['라면', 'Ramyeon'], jirisan: ['반달', 'Bandal'],
 };
 let lastDogMode = 'wander';
 const dogName = () => (DOG_NAMES[place?.id] ?? ['댕댕이', 'Pup'])[lang === 'ko' ? 0 : 1];
@@ -93,6 +93,8 @@ const pathPlace = location.pathname.split('/').filter(Boolean)[0];
 let place: Place = PLACES.find(p => p.id === pathPlace) ?? PLACES.find(p => p.id === query.get('place')) ?? PLACES[0];
 let replay: { sr: number; start: number; duration: number; from: number; span: number } | null = null;
 let watchStart = 0, seenFlag = false;
+/** 산 정상: 절벽 끝에 닿았는지 (장소를 옮기면 초기화) */
+let summitReached = false;
 const virtualNow = () => {
   if (!replay) return Date.now();
   const k = Math.min(1, (Date.now() - replay.start) / replay.duration);
@@ -488,7 +490,7 @@ function updateMe(dt: number) {
   bl.textContent = me.blanket.visible ? T.blanketOff : T.blanketOn;
   updateGiveBtn();
   updatePetBtn();
-  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : T.sitDown) : T.findSeat;
+  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : seats[near].kind === 'rock' ? T.sitRock : T.sitDown) : T.findSeat;
 }
 
 // ================= 상단 문구 =================
@@ -560,7 +562,7 @@ function updateUI(now: number, alt: number, t: number) {
   }
   // 해가 안 떠 있는 시간에는 '오늘 해돋이 20초 만에 보기'를 늘 보여 줌 (해돋이 앱인데 해가 없으면 안 되니까)
   // ✕로 닫으면 오늘은 다시 안 보임 (메뉴의 '오늘 해돋이 다시보기'는 그대로)
-  const pill = !live && !replay && !!info.next && store.replayPillOff !== dateKey(Date.now());
+  const pill = !live && !replay && !!info.next && store.replayPillOff !== dateKey(Date.now()) && (!has.peak(place.id) || summitReached);
   if ($('replayWrap').hidden === pill) $('replayWrap').hidden = !pill;
   const expanded = Date.now() < expandedUntil;
   $('center').classList.toggle('collapsed', !expanded);
@@ -610,7 +612,8 @@ function loop(t: number) {
   castles.update(dt, t);
   jetties.update(t, night);
   updateHandoff(dt);
-  scenery.update(dt, t, night);
+  scenery.update(dt, t, night, world.skyLow);
+  updateSummit();
   updateRamen(t);
   updateSparkles(dt);
   if (sky.update(dt, t, alt, camera, lying)) showStarWish();
@@ -630,7 +633,7 @@ function loop(t: number) {
 // ================= 장소 고르기 =================
 // 상단에는 지금 장소 하나만 두고, 누르면 묶음별 목록이 열린다 (장소가 늘어도 화면이 지저분해지지 않게)
 const GROUPS: [PlaceGroup, () => string][] = [['sunrise', () => T.groupSunrise], ['kcontent', () => T.groupKcontent]];
-const ICON: Record<string, string> = { jeongdongjin: '🚉', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜' };
+const ICON: Record<string, string> = { jeongdongjin: '🚉', jirisan: '⛰️', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜' };
 function renderPlaceList() {
   $('placeList').innerHTML = GROUPS.map(([g, label]) => {
     const rows = PLACES.filter(p => p.group === g).map(p => {
@@ -662,6 +665,7 @@ function switchPlace(p: Place) {
   if (connected) join();
   expandBanner();
   toast(T.arrived(placeName(p), p.id === 'gisborne'));
+  if (has.peak(p.id)) setTimeout(() => toast(T.summitWalk), 2600);
   applyDogName(); life.setDog(null);
 }
 
@@ -872,7 +876,7 @@ function startReplay(quick: boolean) {
   replay = quick ? { sr, start: now, duration: 20000, from: -6 * 60000, span: 16 * 60000 } : { sr, start: now, duration: 45000, from: -30 * 60000, span: 55 * 60000 };
   watchStart = 0; expandBanner(quick ? 22000 : 4000);
   // 바다(해 뜨는 쪽)를 바라보게
-  if (!lying) setView(Math.max(cam.tDist, 6.4), 0.22, 0);
+  if (!lying) setView(Math.max(cam.tDist, 6.4), has.peak(place.id) ? 0.46 : 0.22, 0);
   track('replay_started', { place: place.id, quick });
 }
 $('replayBtn').onclick = () => { close(); startReplay(false); };
@@ -1344,7 +1348,8 @@ $('hintBtn').onclick = () => {
   $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner();
   // 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌
   const live = !!sunriseInfo(place, Date.now()).windowSR;
-  if (!live) setTimeout(() => startReplay(true), 700);
+  if (has.peak(place.id)) setTimeout(() => toast(T.summitWalk), 700);
+  else if (!live) setTimeout(() => startReplay(true), 700);
 };
 // 메뉴에서 처음 화면 다시 보기 (시작하기를 누르면 첫 방문처럼 해돋이 다시보기까지)
 $('introBtn').onclick = () => { close(); setTimeout(() => $('hint').classList.add('open'), 250); track('intro_reopened'); };
@@ -1419,7 +1424,9 @@ $('castleBtn').onclick = () => {
 // ================= 해변별 지형 · 소품 · 실제로 가 보기 =================
 function applyTerrain(p: Place) {
   setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id); bonfire.setPlace(p.id); scenery.setPlace(p.id); world.setGround(p.id);
-  life.setFisher(has.water(p.id)); amb.setSea(has.water(p.id));
+  life.setFisher(has.water(p.id)); life.setGulls(!has.peak(p.id)); amb.setSea(has.water(p.id));
+  sandBoard.setShown(!has.peak(p.id));
+  summitReached = false;
   $('routeBtn').hidden = !placeRoute(p);
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
   if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
@@ -1540,6 +1547,19 @@ $('ramenBtn').onclick = () => {
   track('ramen_cook', { place: place.id });
   setTimeout(() => { ramenCooking = false; if (place.id !== 'hangang') return; setRamen(true); nextBite = 0; toast(T.ramenDone); }, 4000);
 };
+
+// ================= 산 정상: 언덕을 넘어 절벽 끝에 닿으면 해돋이 =================
+// 정상 직전에 나타나서 몇 걸음 걸어야 풍경이 열린다. 해돋이 시간이 아니면 끝에 닿는 순간 다시보기를 틀어 줌.
+function updateSummit() {
+  if (!has.peak(place.id) || summitReached) return;
+  if (me.root.position.z > SUMMIT.crestZ - 0.6) return;
+  summitReached = true;
+  track('summit_reached', { place: place.id });
+  // 뒤쪽 언덕에 가리지 않게 카메라를 조금 높여서 발아래 절벽과 운해를 내려다봄
+  if (!lying) setView(Math.max(cam.tDist, 7), 0.46, 0);
+  const live = !!sunriseInfo(place, Date.now()).windowSR;
+  if (!live && !replay) { toast(T.summitReach); setTimeout(() => startReplay(true), 900); }
+}
 
 // ================= 해변 강아지 =================
 // 강아지는 서버가 채널마다 한 마리씩 움직이고, 쓰다듬으면 모두에게 같은 반응이 보인다.

@@ -12,6 +12,7 @@ const SPEED = 1.4, FOLLOW_SPEED = 2.2;
 const AREA: Record<string, { minX: number; maxX: number; minZ: number; maxZ: number }> = {
   default: { minX: -16, maxX: 14, minZ: -1.4, maxZ: 6 },
   hangang: { minX: -6, maxX: 14, minZ: 0, maxZ: 9 },
+  jirisan: { minX: -4, maxX: 4, minZ: 3, maxZ: 12 },
 };
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const area = (p: PlaceId) => AREA[p] ?? AREA.default;

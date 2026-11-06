@@ -49,7 +49,7 @@ const ko = {
   viewAll: '전체 보기', view3rd: '3인칭', viewMine: '내 시점',
   // 방석
   blanketOn: '담요 덮기 🧣', blanketOff: '담요 벗기',
-  standUp: '일어나기', sitDown: '방석에 앉기', sitLog: '통나무에 앉기', sitPier: '데크 끝에 앉기', findSeat: '앉을 곳 찾기',
+  standUp: '일어나기', sitDown: '방석에 앉기', sitRock: '바위에 앉기', sitLog: '통나무에 앉기', sitPier: '데크 끝에 앉기', findSeat: '앉을 곳 찾기',
   seatHint: '방석, 모닥불 통나무, 데크 끝 가까이 가면 앉을 수 있어요',
   seatTaken: '방금 다른 사람이 앉았어요',
   // 행동
@@ -110,6 +110,8 @@ const ko = {
   nextSunrise: (d: string, t: string, left: string) => `다음 해돋이 ${d} ${t} · ${left} 남음`,
   replaySeen: '다시보기로 오늘의 해를 봤어요',
   realNext: (t: string) => `🌅 진짜 해돋이는 ${t} · 알람 켜면 깨워 드려요`,
+  summitWalk: '⛰️ 앞으로 조금만 걸어가 보세요 · 정상 끝에서 해가 보여요',
+  summitReach: '⛰️ 천왕봉 정상이에요 · 해가 떠오르는 걸 보여 드릴게요',
   liveSeen: (n: number) => `오늘의 해를 봤어요 · ${n}일째`,
   wokeCount: (n: number) => `오늘 알람을 끄고 나온 사람 ${num(n)}명`,
   // 장소
@@ -219,7 +221,7 @@ const en: Dict = {
   me: 'Me',
   viewAll: 'Overview', view3rd: '3rd person', viewMine: 'My view',
   blanketOn: 'Wrap blanket 🧣', blanketOff: 'Take off blanket',
-  standUp: 'Stand up', sitDown: 'Sit on cushion', sitLog: 'Sit on log', sitPier: 'Sit at pier end', findSeat: 'Find a seat',
+  standUp: 'Stand up', sitDown: 'Sit on cushion', sitRock: 'Sit on the rock', sitLog: 'Sit on log', sitPier: 'Sit at pier end', findSeat: 'Find a seat',
   seatHint: 'Walk up to a cushion, a log by the fire or the end of the pier to sit',
   seatTaken: 'Someone just took that seat',
   actMore: 'Actions', actClose: 'Close',
@@ -278,6 +280,8 @@ const en: Dict = {
   nextSunrise: (d: string, t: string, left: string) => `Next sunrise ${d} ${t} · ${left} to go`,
   replaySeen: "You watched today's sunrise on replay",
   realNext: (t: string) => `🌅 Real sunrise at ${t} · set an alarm and we'll wake you`,
+  summitWalk: '⛰️ Walk a little further ahead · the sun appears at the summit edge',
+  summitReach: "⛰️ You're on the summit · here comes the sunrise",
   liveSeen: (n: number) => `You saw today's sunrise · day ${n}`,
   wokeCount: (n: number) => `${people(n)} turned off their alarm and came out today`,
   arrived: (p: string, first: boolean) => `Welcome to ${p}${first ? ' · one of the first places on Earth to see the sun' : ''}`,
