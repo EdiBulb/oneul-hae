@@ -147,6 +147,24 @@ export function floorY(x: number, z: number) {
   if (z < -1.8) return -Math.min(0.4, (-1.8 - z) * 0.15);
   return groundY(z);
 }
+/** 카메라가 있어도 되는 곳인지 (가게·건물·벽 안이면 false). 높이 4.5m 위는 지붕·간판 위라 자유 */
+export function camOpen(x: number, y: number, z: number) {
+  if (y > 4.5) return true;
+  switch (terrain) {
+    case 'gwangjang':
+      if (z < MARKET.front + 0.3) return z > MARKET.back + 0.4 && Math.abs(x) < 1.95;
+      return !(Math.abs(x) > 5.2 && z < 14.3);
+    case 'myeongdong':
+      return z > MYEONGDONG.front - 2.8 || Math.abs(x) < MYEONGDONG.half + 0.3;
+    case 'hongdae':
+      return z > STAGE.z - STAGE.d / 2 - 1.0;
+    case 'gyeongbokgung':
+      return z > PALACE.gateZ + 2.6;
+    case 'hangang':
+      return !(x > STORE.x - STORE.w / 2 - 0.2 && x < STORE.x + STORE.w / 2 + 0.2 && z > STORE.z - STORE.d / 2 - 0.2 && z < STORE.z + STORE.d / 2 + 0.2);
+  }
+  return true;
+}
 export function canStand(x: number, z: number) {
   if (onPier(x, z)) return true;
   if (SEOUL_LAND.includes(terrain)) {

@@ -8,7 +8,7 @@ import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL, MARKET_STALLS, TTEOK_CART, STAGE } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL, camOpen, MARKET_STALLS, TTEOK_CART, STAGE } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
@@ -337,8 +337,21 @@ function setView(d: number, pitch?: number, yaw?: number) {
 }
 const camLook = new THREE.Vector3(0, 1.5, 0), target = new THREE.Vector3(), want = new THREE.Vector3();
 const eye = { yaw: 0, pitch: 0.95, tYaw: 0, tPitch: 0.95 };
-let eyeK = 0;
+let eyeK = 0, camPull = 1;
 const eyePos = new THREE.Vector3(), eyeLook = new THREE.Vector3(), lookTmp = new THREE.Vector3();
+let meFade = 1;
+/** 내 캐릭터 반투명 (1 = 그대로) */
+function fadeMe(k: number) {
+  k = Math.round(k * 20) / 20;
+  if (k === meFade) return;
+  meFade = k;
+  me.root.traverse(o => {
+    const m = (o as THREE.Mesh).material as THREE.Material | undefined;
+    if (!m || (o as THREE.Sprite).isSprite) return;
+    if (m.userData.op0 === undefined) { m.userData.op0 = m.opacity; m.userData.tr0 = m.transparent; }
+    m.transparent = k < 1 || m.userData.tr0; m.opacity = m.userData.op0 * k; m.needsUpdate = true;
+  });
+}
 function updateCamera(dt: number) {
   const e = 1 - Math.pow(0.004, dt);
   cam.yaw += (cam.tYaw - cam.yaw) * e; cam.pitch += (cam.tPitch - cam.pitch) * e; cam.dist += (cam.tDist - cam.dist) * e;
@@ -349,6 +362,23 @@ function updateCamera(dt: number) {
     target.x + Math.sin(cam.yaw) * cp * cam.dist,
     Math.max(0.6, target.y + Math.sin(cam.pitch) * cam.dist),
     target.z + Math.cos(cam.yaw) * cp * cam.dist);
+  // 카메라 충돌: 등 뒤에 가게·벽이 있으면 카메라를 내 쪽으로 당겨서 늘 열린 곳에 둠
+  let open = 1;
+  if (!camOpen(camera.position.x, camera.position.y, camera.position.z)) {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 7; i++) {
+      const m = (lo + hi) / 2;
+      if (camOpen(target.x + (camera.position.x - target.x) * m, target.y + (camera.position.y - target.y) * m, target.z + (camera.position.z - target.z) * m)) lo = m; else hi = m;
+    }
+    open = Math.max(0.12, lo - 0.25 / Math.max(1, cam.dist));
+  }
+  // 당길 때는 빠르게, 다시 물러날 때는 천천히 (덜컹거림 방지)
+  camPull += (open - camPull) * (open < camPull ? 1 - Math.pow(0.0001, dt) : 1 - Math.pow(0.05, dt));
+  if (camPull < 0.999) camera.position.lerpVectors(target, camera.position, camPull);
+  // 바짝 당겨졌을 때: 카메라를 살짝 올려 어깨너머로 보고, 내 캐릭터는 반투명하게 (앞이 가리지 않게)
+  const near = Math.max(clamp((3.2 - cam.dist * camPull) / 2.4, 0, 1), clamp((0.85 - camPull) / 0.45, 0, 1));
+  if (near > 0) camera.position.y = Math.min(4.4, camera.position.y + near * 1.4);
+  fadeMe(eyeK > 0.5 ? 1 : 1 - near * 0.7);
   // 가까이에선 수평선을, 멀리선 앞쪽 해변 전체를 바라봄
   const close = clamp((12 - cam.dist) / 9, 0, 1), far = clamp((cam.dist - 9) / 18, 0, 1);
   const ahead = 9 * close + cam.dist * 0.75 * far;
@@ -376,7 +406,7 @@ function updateCamera(dt: number) {
     lookTmp.copy(camLook).lerp(eyeLook, k);
     camera.lookAt(lookTmp);
   }
-  meLabel.visible = meRing.visible = eyeK < 0.4 && !shotMode;
+  meLabel.visible = meRing.visible = eyeK < 0.4 && !shotMode && meFade > 0.6;
   const k = clamp(cam.dist / 10, 1, 2.2);
   meLabel.scale.set(meLabelBase.x * k, meLabelBase.y * k, 1);
   meLabel.position.y = 1.9 + (k - 1) * 0.12;
