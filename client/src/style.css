@@ -317,11 +317,32 @@
 .letter-paper .btn:last-child{color:#6b4a2a;border-color:#d9bf96;background:transparent}
 /* 가로 화면(폰을 눕혔을 때): 버튼을 작게, 행동 버튼은 두 줄로 펼쳐 화면 밖으로 안 넘치게, 확대 버튼은 왼쪽 위로 */
 @media (orientation: landscape) and (max-height: 520px) {
-  .act{font-size:12.5px;padding:6px 12px;min-width:0}
-  .actions{flex-direction:row;flex-wrap:wrap-reverse;justify-content:flex-end;max-width:60vw;gap:5px}
   .joy{width:96px;height:96px}
   .joy i{width:42px;height:42px;margin:-21px 0 0 -21px}
   .view{left:12px;right:auto;top:118px;transform:none;flex-direction:row}
   .zbtn{width:38px;height:38px;font-size:17px}
   .view .zbtn.small{width:auto;padding:2px 8px}
+}
+
+/* 행동 버튼 = 아이콘 독: 동그란 아이콘 + 아래 짧은 글씨. 오른쪽 세로 기둥 대신 조이스틱 옆 아래쪽에 줄지어 */
+.actions{flex-direction:row;flex-wrap:wrap-reverse;justify-content:flex-end;align-items:flex-end;gap:4px 0;max-width:calc(100vw - 150px)}
+.act[data-ic]{flex-direction:column;gap:3px;width:56px;min-width:0;padding:0;background:none;border:none;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;
+  font-size:10.5px;font-weight:700;line-height:1.15;color:var(--ink);text-shadow:0 1px 4px rgba(0,0,0,.75);text-align:center;word-break:keep-all;overflow-wrap:anywhere}
+.act[data-ic]::before{content:attr(data-ic);display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;font-size:21px;text-shadow:none;
+  background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.act[data-ic].primary::before{background:linear-gradient(180deg,#ffc070,#ff8a3d);border:none;box-shadow:0 6px 18px rgba(255,138,61,.35)}
+.act[data-ic].route-act::before{background:rgba(255,248,239,.9);border:none}
+.act[data-ic].more[aria-expanded="true"]::before{background:rgba(255,248,239,.28)}
+.act[data-ic]:active::before{transform:scale(.94)}
+.act[data-ic][hidden]{display:none}
+/* 응원(해야 솟아라)은 잠깐만 뜨는 주인공 버튼이라 알약 모양 그대로, 독 맨 위 한 줄 전체 */
+.actions .cheer-btn{order:99;flex-basis:100%;justify-content:center;margin-bottom:4px}
+.actions .cheer-btn[hidden]{display:none}
+.view{top:40%}
+@media (orientation: landscape) and (max-height: 520px){
+  .view{top:118px}
+  .actions{max-width:70vw}
+  .act[data-ic]{width:56px;font-size:9.5px}
+  .act[data-ic]::before{width:38px;height:38px;font-size:17px}
+  .actions .cheer-btn{flex-basis:auto;order:0;font-size:12.5px;padding:6px 12px}
 }

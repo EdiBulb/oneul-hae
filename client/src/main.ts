@@ -83,7 +83,8 @@ const life = createBeachLife(scene);
 const fireflies = createFireflies(scene, GLOW), flock = createFlock(scene), leaves = createLeaves(scene);
 const echo = createEcho(scene), late = createLateSleeper(scene, floorY);
 /** 가을(한국 9~11월)에 나무가 있는 곳(산·한강공원)에만 낙엽 */
-const leavesHere = (id: string) => (id === 'jirisan' || id === 'hallasan' || id === 'hangang') && [8, 9, 10].includes(new Date().getMonth());
+// 낙엽은 사용자 피드백으로 잠시 끔 (모델 품질이 받쳐줄 때 다시)
+const leavesHere = (_id: string) => false;
 // 해변 강아지 이름 (해변마다 한 마리)
 const DOG_NAMES: Record<string, [string, string]> = {
   jeongdongjin: ['해피', 'Happy'], seongsan: ['감귤', 'Gamgyul'], homigot: ['호두', 'Hodu'], gisborne: ['키위', 'Kiwi'],

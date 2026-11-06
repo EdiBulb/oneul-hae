@@ -87,18 +87,18 @@
   <div class="controls">
     <div class="joy pe" id="joy" aria-label="이동 조이스틱" data-i18n-aria="joyAria"><i id="knob"></i></div>
     <div class="actions pe">
-      <button class="act" id="sitBtn" data-i18n="sit">방석에 앉기</button>
-      <button class="act" id="blanketBtn" hidden>담요 덮기</button>
-      <button class="act primary give-act" id="giveBtn" hidden data-i18n="giveBtn">💐 꽃 건네주기</button>
-      <button class="act primary" id="petBtn" hidden>🐶</button>
+      <button class="act" data-ic="🪑" id="sitBtn" data-i18n="sit">방석에 앉기</button>
+      <button class="act" data-ic="🧣" id="blanketBtn" hidden>담요 덮기</button>
+      <button class="act primary give-act" data-ic="💐" id="giveBtn" hidden data-i18n="giveBtn">꽃 건네주기</button>
+      <button class="act primary" data-ic="🐶" id="petBtn" hidden></button>
       <button class="act primary cheer-btn" id="cheerBtn" hidden><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span id="cheerLabel">해야 솟아라!</span><b id="cheerLeft">10</b></button>
-      <button class="act" id="yahoBtn" hidden data-i18n="yahoBtn">⛰️ 야호!</button>
-      <button class="act" id="letterBtn" hidden><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span data-i18n="letterBtn">내일의 해에게</span></button>
-      <button class="act primary" id="ramenBtn" hidden data-i18n="ramenBtn">🍜 라면 끓이기</button>
-      <button class="act route-act" id="routeBtn" hidden data-i18n="routeBtn">📍 실제로 가 보기</button>
-      <button class="act sand-act" id="sandBtn" hidden data-i18n="sandOpen">모래 게시판 보기</button>
-      <button class="act more" id="actMore" aria-expanded="false" aria-controls="actTray" data-i18n-aria="actAria" aria-label="다른 행동 더 보기">✨ <span data-i18n="actMore">행동</span></button>
-      <button class="act primary" id="lanternBtn" data-i18n="lantern">풍등 올리기</button>
+      <button class="act" data-ic="⛰️" id="yahoBtn" hidden data-i18n="yahoBtn">야호!</button>
+      <button class="act" data-ic="✉️" id="letterBtn" hidden><span data-i18n="letterBtn">내일의 해에게</span></button>
+      <button class="act primary" data-ic="🍜" id="ramenBtn" hidden data-i18n="ramenBtn">라면 끓이기</button>
+      <button class="act route-act" data-ic="📍" id="routeBtn" hidden data-i18n="routeBtn">실제로 가 보기</button>
+      <button class="act sand-act" data-ic="🏖️" id="sandBtn" hidden data-i18n="sandOpen">모래 게시판</button>
+      <button class="act more" id="actMore" aria-expanded="false" aria-controls="actTray" data-i18n-aria="actAria" aria-label="다른 행동 더 보기" data-ic="✨"><span data-i18n="actMore">행동</span></button>
+      <button class="act primary" data-ic="🏮" id="lanternBtn" data-i18n="lantern">풍등 올리기</button>
     </div>
     <div class="act-tray pe" id="actTray" role="menu" aria-label="해를 기다리며 할 수 있는 것" data-i18n-aria="actTrayAria" hidden>
       <button class="tile" id="waveBtn" role="menuitem"><i>👋</i><span data-i18n="wave">손 흔들기</span></button>
