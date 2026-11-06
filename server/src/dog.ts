@@ -13,7 +13,7 @@ const AREA: Record<string, { minX: number; maxX: number; minZ: number; maxZ: num
   default: { minX: -16, maxX: 14, minZ: -1.4, maxZ: 6 },
   hangang: { minX: -6, maxX: 14, minZ: 0, maxZ: 9 },
   gyeongbokgung: { minX: -14, maxX: 14, minZ: -6, maxZ: 10 },
-  gwangjang: { minX: -1.5, maxX: 1.5, minZ: -8, maxZ: 9 },
+  gwangjang: { minX: -2.6, maxX: 2.6, minZ: -8, maxZ: 9 },
   myeongdong: { minX: -6, maxX: 6, minZ: -10, maxZ: 10 },
   hongdae: { minX: -12, maxX: 12, minZ: -2, maxZ: 10 },
 };

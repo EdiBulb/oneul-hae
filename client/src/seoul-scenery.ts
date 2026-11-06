@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CARTS, MARKET, MARKET_STALLS, MYEONGDONG, STAGE } from './beach-extras';
+import { CARTS, MARKET, MARKET_STALLS, STALL_X, STOOL_X, MYEONGDONG, STAGE } from './beach-extras';
 import { textSprite } from './character';
 
 // 서울 지하철역 장소들: 광장시장(종로5가), 명동, 홍대입구
@@ -216,24 +216,24 @@ function counterFood(food: number, s: THREE.Group, side: number, GLOW: THREE.Tex
 function market(scene: THREE.Scene, GLOW: THREE.Texture) {
   const g = new THREE.Group(); scene.add(g);
   farGround(g, 0x6f6a62);
-  const L = MARKET.front - MARKET.back, zc = (MARKET.front + MARKET.back) / 2;
+  const L = MARKET.front - MARKET.back, zc = (MARKET.front + MARKET.back) / 2, ROOF_R = STALL_X + 1.85;
   // 바닥: 젖은 듯한 타일 줄 + 가운데 배수로
-  for (let z = MARKET.back; z < MARKET.front; z += 1.0) { const l = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.03), M(0x6a655d)); l.rotation.x = -Math.PI / 2; l.position.set(0, 0.015, z); g.add(l); }
+  for (let z = MARKET.back; z < MARKET.front; z += 1.0) { const l = new THREE.Mesh(new THREE.PlaneGeometry(MARKET.half * 2 + 0.2, 0.03), M(0x6a655d)); l.rotation.x = -Math.PI / 2; l.position.set(0, 0.015, z); g.add(l); }
   const drain = new THREE.Mesh(new THREE.PlaneGeometry(0.3, L), M(0x3e3b37)); drain.rotation.x = -Math.PI / 2; drain.position.set(0, 0.018, zc); g.add(drain);
   for (let z = MARKET.back; z < MARKET.front; z += 0.25) { const gr = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.04), M(0x5c5852)); gr.rotation.x = -Math.PI / 2; gr.position.set(0, 0.02, z); g.add(gr); }
   // 아치 지붕과 철골
-  const roof = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, L, 24, 1, true, -Math.PI / 2, Math.PI),
+  const roof = new THREE.Mesh(new THREE.CylinderGeometry(ROOF_R, ROOF_R, L, 28, 1, true, -Math.PI / 2, Math.PI),
     M(0xdfe8e0, { transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
   roof.rotation.x = Math.PI / 2; roof.position.set(0, 3.2, zc); g.add(roof);
   const steel = M(0x51606a);
   for (let z = MARKET.back; z <= MARKET.front; z += 3.2) {
-    const rib = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.06, 4, 20, Math.PI), steel); rib.position.set(0, 3.2, z); g.add(rib);
+    const rib = new THREE.Mesh(new THREE.TorusGeometry(ROOF_R, 0.06, 4, 24, Math.PI), steel); rib.position.set(0, 3.2, z); g.add(rib);
   }
-  const ridge = box(0.12, 0.12, L, steel, 0, 7.8, zc, g); void ridge;
+  const ridge = box(0.12, 0.12, L, steel, 0, 3.2 + ROOF_R, zc, g); void ridge;
   // 골목 끝 벽 + 현수막, 바깥 건물
-  box(9, 7, 0.4, M(0x8a7e70), 0, 3.5, MARKET.back - 0.2, g);
+  box(ROOF_R * 2, 7, 0.4, M(0x8a7e70), 0, 3.5, MARKET.back - 0.2, g);
   const endBanner = sign2('광장시장 먹자골목', 'Gwangjang Market Food Alley', '#f4ead2', '#a8302a', 5, 1.1); endBanner.position.set(0, 4.2, MARKET.back + 0.02); g.add(endBanner);
-  for (const sx of [-1, 1]) for (let z = MARKET.back; z < MARKET.front; z += 6) building(6, 7 + ((z * 7) & 3), 6, pick([0x9a8f82, 0x8b8c8f, 0xa59585], z), sx * 8.4, z + 3, g);
+  for (const sx of [-1, 1]) for (let z = MARKET.back; z < MARKET.front; z += 6) building(6, 7 + ((z * 7) & 3), 6, pick([0x9a8f82, 0x8b8c8f, 0xa59585], z), sx * (STALL_X + 5.65), z + 3, g);
   for (let x = -40; x <= 40; x += 9) if (Math.abs(x) > 12) building(8, 8 + (x & 5), 8, pick([0x9d958a, 0x878a90, 0xb3a796], x), x, MARKET.back - 14, g);
   // 노점
   const steam: ReturnType<typeof steamPuffs> = [];
@@ -244,7 +244,7 @@ function market(scene: THREE.Scene, GLOW: THREE.Texture) {
   const stoolM = [M(0xd8392b), M(0x2f6fd0)];
   MARKET_STALLS.forEach((sl, i) => {
     const side = sl.side, z = sl.z;
-    const s = new THREE.Group(); s.position.set(side * 2.75, 0, z); g.add(s);
+    const s = new THREE.Group(); s.position.set(side * STALL_X, 0, z); g.add(s);
     // 카운터 (앞면 타일) + 뒤 벽 + 선반
     box(1.0, 0.9, 2.9, M(0xb9b0a2), 0, 0.45, 0, s);
     box(0.02, 0.6, 2.8, M(i % 2 ? 0x8fb5c4 : 0xc4b28f), -side * 0.51, 0.45, 0, s);
@@ -266,7 +266,7 @@ function market(scene: THREE.Scene, GLOW: THREE.Texture) {
     const sg = sign2(`${sl.emoji} ${sl.ko}`, sl.en, hex(sl.aw), '#fffaf0', 2.2, 0.75);
     sg.position.set(-side * 0.85, 3.15, 0); sg.rotation.y = -side * Math.PI / 4; s.add(sg);
     // 어느 방향에서 봐도 읽히는 이름표 (카메라를 늘 바라봄)
-    const tag = textSprite(`${sl.emoji} ${sl.ko} · ${sl.en}`, 0.5); tag.position.set(side * 1.95, 2.2, z); g.add(tag); tags.push(tag);
+    const tag = textSprite(`${sl.emoji} ${sl.ko} · ${sl.en}`, 0.5); tag.position.set(side * (MARKET.half - 0.15), 2.2, z); g.add(tag); tags.push(tag);
     // 가게를 탭하면 살 수 있게: 화면에 보이는 가게 물체 자체로 판정
     s.userData.food = sl.food; tag.userData.food = sl.food; hits.push(s, tag);
     // 골목 쪽으로 튀어나온 작은 세로 간판 (입구에서 줄지어 보임)
@@ -281,30 +281,30 @@ function market(scene: THREE.Scene, GLOW: THREE.Texture) {
     box(0.01, 0.4, 0.01, M(0x222222), -side * 0.1, 2.38, 0, s);
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffe0a0 })); bulb.position.set(-side * 0.1, 2.02, 0); s.add(bulb);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffc870, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.3 }));
-    glow.scale.setScalar(1.6); glow.position.set(side * 2.65, 1.95, z); g.add(glow); lamps.push(glow);
+    glow.scale.setScalar(1.6); glow.position.set(side * (STALL_X - 0.1), 1.95, z); g.add(glow); lamps.push(glow);
     // 주인
     const v = figure(pick([0xf3efe6, 0x9fb6d1, 0xe7c7a0, 0xd8a9b8], i), pick([0xf4f1ea, 0xd3423a, 0x3c5a7a, 0x5a8a5a], i + 1), 0xe9e4d8);
     v.position.set(side * 0.85, 0, 0.3); v.rotation.y = side * Math.PI / 2; s.add(v); vendors.push(v);
     // 음식
-    counterFood(sl.food, s, side, GLOW, steam, g, side * 2.75, z);
+    counterFood(sl.food, s, side, GLOW, steam, g, side * STALL_X, z);
     if (sl.food === 1) { flip = cyl(0.2, 0.2, 0.04, M(0xd9a441), 0.05 * side + 0.2, 1.03, -0.85, s, 16); }
     // 의자 (beach-extras 좌석과 같은 자리)
     for (const dz of i === 0 ? [-1.2, -0.4, 0.4, 1.2] : [-0.6, 0.6]) {
-      cyl(0.2, 0.2, 0.06, stoolM[(i + (dz > 0 ? 1 : 0)) % 2], side * 1.75, 0.44, z + dz, g, 12);
-      cyl(0.04, 0.05, 0.42, M(0x8a8f94), side * 1.75, 0.21, z + dz, g, 6);
+      cyl(0.2, 0.2, 0.06, stoolM[(i + (dz > 0 ? 1 : 0)) % 2], side * STOOL_X, 0.44, z + dz, g, 12);
+      cyl(0.04, 0.05, 0.42, M(0x8a8f94), side * STOOL_X, 0.21, z + dz, g, 6);
     }
   });
   // 골목 위 전구 줄과 붉은 초롱
   const pts: [number, number, number][] = [];
-  for (let z = MARKET.back + 1; z < MARKET.front; z += 1.6) { pts.push([-0.9, 4.4, z]); pts.push([0.9, 4.4, z]); }
+  for (let z = MARKET.back + 1; z < MARKET.front; z += 1.6) { pts.push([-1.6, 5.0, z]); pts.push([1.6, 5.0, z]); }
   const lights = bulbs(g, GLOW, pts);
-  for (let z = MARKET.back + 2; z < MARKET.front; z += 4) for (const x of [-0.5, 0.5]) {
-    const ln = cyl(0.18, 0.18, 0.4, M(x < 0 ? 0xd8392b : 0xf0c040, { emissive: x < 0 ? 0x5a1010 : 0x5a4010 }), x, 5.2, z, g, 12);
-    box(0.01, 0.6, 0.01, M(0x222222), x, 5.7, z, g); void ln;
+  for (let z = MARKET.back + 2; z < MARKET.front; z += 4) for (const x of [-0.9, 0.9]) {
+    const ln = cyl(0.18, 0.18, 0.4, M(x < 0 ? 0xd8392b : 0xf0c040, { emissive: x < 0 ? 0x5a1010 : 0x5a4010 }), x, 5.9, z, g, 12);
+    box(0.01, 0.6, 0.01, M(0x222222), x, 6.4, z, g); void ln;
   }
   // 입구: 붉은 기둥과 큰 간판, 안쪽에 먹자골목 현수막
-  for (const sx of [-1, 1]) box(0.22, 4.6, 0.22, M(0x7a2b22), sx * 2.45, 2.3, MARKET.front + 0.1, g);
-  const gate = sign('광장시장 · Gwangjang Market', '#a8302a', '#fff3d6', 4.8, 0.7); gate.position.set(0, 4.5, MARKET.front + 0.15); g.add(gate);
+  for (const sx of [-1, 1]) box(0.22, 4.6, 0.22, M(0x7a2b22), sx * (MARKET.half + 0.35), 2.3, MARKET.front + 0.1, g);
+  const gate = sign('광장시장 · Gwangjang Market', '#a8302a', '#fff3d6', 6.4, 0.85); gate.position.set(0, 4.6, MARKET.front + 0.15); g.add(gate);
   const back = gate.clone(); back.rotation.y = Math.PI; back.position.z = MARKET.front + 0.05; g.add(back);
   const inner = sign2('먹자골목', 'Food Alley · 12 stalls', '#2f5a3a', '#fff3d6', 2.0, 0.55); inner.position.set(0, 5.6, MARKET.front - 2.5); g.add(inner);
   const innerB = inner.clone(); innerB.rotation.y = Math.PI; innerB.position.z = MARKET.front - 2.51; g.add(innerB);

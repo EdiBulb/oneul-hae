@@ -43,7 +43,9 @@ export const PORTAL = { x: 8.5, z: 14 };
 export const PALACE = { gateZ: -12, x: 0 };
 /** 한강 편의점과 라면 기계 */
 /** 광장시장: 지붕 덮인 먹자골목 (가운데 통로 |x|<2.1), 빈대떡 가게는 왼쪽 */
-export const MARKET = { half: 2.1, back: -16, front: 9 };
+export const MARKET = { half: 3.4, back: -16, front: 9 };
+/** 노점 카운터 중심 x, 의자 x (골목 폭에 맞춰 계산) */
+export const STALL_X = MARKET.half + 0.65, STOOL_X = MARKET.half - 0.35;
 export const BINDAE_STALL = { x: -2.7, z: 2 };
 /** 광장시장 노점 12곳. z = 2 + k×3.2, side -1은 왼쪽(-x), 1은 오른쪽.
  *  food는 손에 드는 음식 번호 (character.ts FOOD와 같음) */
@@ -97,7 +99,7 @@ export function benchSeats() {
   // 36~61: 광장시장 노점 앞 동그란 의자 (가게를 바라봄). 빈대떡 가게 4개, 나머지 가게 2개씩
   for (const [i, sl] of MARKET_STALLS.entries()) {
     for (const dz of i === 0 ? [-1.2, -0.4, 0.4, 1.2] : [-0.6, 0.6]) {
-      const x = sl.side * 1.75, z = sl.z + dz;
+      const x = sl.side * STOOL_X, z = sl.z + dz;
       out.push({ x, z, ry: -sl.side * Math.PI / 2, y: groundY(z) + 0.46, bench: true, kind: 'stool', sx: x - sl.side * 0.7, sz: z, places: ['gwangjang'] });
     }
   }
@@ -152,8 +154,8 @@ export function camOpen(x: number, y: number, z: number) {
   if (y > 4.5) return true;
   switch (terrain) {
     case 'gwangjang':
-      if (z < MARKET.front + 0.3) return z > MARKET.back + 0.4 && Math.abs(x) < 1.95;
-      return !(Math.abs(x) > 5.2 && z < 14.3);
+      if (z < MARKET.front + 0.3) return z > MARKET.back + 0.4 && Math.abs(x) < MARKET.half - 0.15;
+      return !(Math.abs(x) > STALL_X + 2.45 && z < 14.3);
     case 'myeongdong':
       return z > MYEONGDONG.front - 2.8 || Math.abs(x) < MYEONGDONG.half + 0.3;
     case 'hongdae':

@@ -8,7 +8,7 @@ import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL, camOpen, MARKET_STALLS, TTEOK_CART, STAGE } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL, camOpen, MARKET_STALLS, MARKET, STALL_X, TTEOK_CART, STAGE } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
@@ -618,7 +618,7 @@ function loop(t: number) {
   if (place.id === 'gwangjang') {
     const p = me.root.position, inAlley = p.z < 10 ? 1 : clamp(1 - (p.z - 10) / 8, 0.2, 1);
     let siz = 0;
-    for (const sl of MARKET_STALLS) if (sl.food === 1 || sl.food === 2 || sl.food === 4 || sl.food === 9) siz = Math.max(siz, clamp(1.2 - Math.hypot(p.x - sl.side * 2.75, p.z - sl.z) / 4, 0, 1));
+    for (const sl of MARKET_STALLS) if (sl.food === 1 || sl.food === 2 || sl.food === 4 || sl.food === 9) siz = Math.max(siz, clamp(1.2 - Math.hypot(p.x - sl.side * STALL_X, p.z - sl.z) / 4, 0, 1));
     amb.setMarket(inAlley, siz);
   } else amb.setMarket(0, 0);
   prints.update(dt);
@@ -1554,7 +1554,7 @@ $('ramenBtn').onclick = () => {
 // 다른 가게에서 또 사면 들고 있던 걸 바꿔 듦. 광장시장 12가지를 다 먹으면 도장 완성.
 interface Shop { food: number; x: number; z: number; fx: number; r: number; emoji: string; ko: string; en: string; taste: [string, string]; wait: number }
 const SHOPS: Record<string, Shop[]> = {
-  gwangjang: MARKET_STALLS.map(sl => ({ ...sl, x: sl.side * 1.55, z: sl.z, fx: sl.side * 2.75, r: 1.25 })),
+  gwangjang: MARKET_STALLS.map(sl => ({ ...sl, x: sl.side * (MARKET.half - 0.55), z: sl.z, fx: sl.side * STALL_X, r: 1.25 })),
   myeongdong: [{ food: FOOD.tteokbokki, x: TTEOK_CART.x + 1.4, z: TTEOK_CART.z, fx: TTEOK_CART.x, r: 1.6, emoji: '🌶', ko: '떡볶이', en: 'Tteokbokki', taste: ['매콤달콤!', 'Sweet and spicy!'], wait: 2200 }],
 };
 const MARKET_FOODS = MARKET_STALLS.length;
