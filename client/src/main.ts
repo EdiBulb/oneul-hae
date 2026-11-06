@@ -1691,7 +1691,8 @@ $('yahoBtn').onclick = () => {
 
 // ================= 같이 해 띄우기 (금빛 해돋이) =================
 // 해 뜨기 전 잠깐 '해야 솟아라!'로 응원. 한 사람 10번까지. 게이지가 차면 금빛 해돋이 (못 채워도 해는 그냥 뜸).
-const CHEER_GOAL = 30, CHEER_MAX = 10, BOT_CHEER = 8;
+// 지금은 혼자서도 금빛 해돋이가 되도록 목표 16 (내 응원 10 + 가짜 사용자 8). 여럿이 모여야 되게 하려면 30으로
+const CHEER_GOAL = 16, CHEER_MAX = 10, BOT_CHEER = 8;
 let cheer = { key: '', total: 0, people: 0 }, myCheers: Record<string, number> = {}, cheerHinted = '', goldT = 0, lastBotSpark = 0;
 /** 지금이 응원 시간이면 이번 해돋이의 이름(key)과 진행률(0~1), 아니면 null */
 function cheerWindow(): { key: string; k: number } | null {
