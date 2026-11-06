@@ -2031,8 +2031,6 @@ function renderSunSheet() {
     ['wear', '🧥', SL('옷', 'Clothes'), SL('새 옷을 입어 보고 사기', 'Try on and buy'), true],
     ['lantern', '🏮', SL('풍등 꾸미기', 'Lantern style'), SL('색·무늬 바꾸기', 'Colours and patterns'), true],
     ['jwibul', '🔥', SL('쥐불놀이', 'Fire spin'), night ? SL('무료 · 지금 할 수 있어요', 'Free · available now') : SL('무료 · 밤에만', 'Free · night only'), night],
-    ['star', '🌠', SL('별똥별 띄우기', 'Shooting star'), `${SL('햇살', 'Sun')} ${PRICE.star} · ${night ? SL('모두에게 보여요', 'everyone sees it') : SL('밤에만', 'night only')}`, night],
-    ['fire', '🎆', SL('불꽃 쏘기', 'Firework'), `${SL('햇살', 'Sun')} ${PRICE.fire} · ${night ? SL('모두에게 보여요', 'everyone sees it') : SL('밤에만', 'night only')}`, night],
     ['shield', '🛡️', SL('연속 기록 지키기', 'Streak saver'), `${SL('햇살', 'Sun')} ${PRICE.shield} · ${SL(`하루를 놓친 다음 날 · 이번 달 ${shieldsLeft()}번 남음`, `the day after a miss · ${shieldsLeft()} left this month`)}`, false],
   ];
   $('sunUses').innerHTML = uses.map(([id, ic, t, d, on]) => `<button class="use-row${on ? '' : ' off'}" data-use="${id}"><i>${ic}</i><span><b>${t}</b><small>${d}</small></span><em>›</em></button>`).join('');
@@ -2141,7 +2139,8 @@ function emitEmbers(c: Char) {
 }
 function updateNight(dt: number) {
   const night = isNight(), show = night && !openSheet && !lying && sandK < 0.01;
-  for (const id of ['starBtn', 'fireBtn', 'jwibulBtn']) { const el = $(id); if (el.hidden === show) el.hidden = !show; }
+  // 별똥별·불꽃은 피드백으로 뺌 (해돋이 보러 가서 불꽃놀이는 안 하니까) — 밤엔 쥐불놀이만
+  { const el = $('jwibulBtn'); if (el.hidden === show) el.hidden = !show; }
   if (jwOn && !night) { setJwibul(false); }
   if (jwOn) { jwSpeed += (7 - jwSpeed) * Math.min(1, dt * 0.35); me.inner.userData.jwSpeed = jwSpeed; }
   emitEmbers(me);
