@@ -1,7 +1,7 @@
 // 서버와 클라이언트가 함께 쓰는 실시간 이벤트 타입.
 // 클라이언트는 `import type`으로만 가져가므로 이 파일에는 타입만 둔다.
 
-export type PlaceId = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin' | 'hyangho' | 'hangang' | 'jirisan';
+export type PlaceId = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin' | 'hyangho' | 'hangang' | 'jirisan' | 'hallasan' | 'seopjikoji';
 
 /** 캐릭터 겉모습: 색상 팔레트의 인덱스 */
 export interface Look { body: number; hat: number }

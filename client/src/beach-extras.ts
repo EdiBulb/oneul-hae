@@ -20,14 +20,14 @@ const logAngle = (i: number) => (i / LOG.n) * Math.PI * 2 + Math.PI / 4;
 interface HighSeat { x: number; z: number; ry: number; y: number; bench: true; kind: 'log' | 'pier' | 'bus' | 'rock'; sx: number; sz: number; places: PlaceId[] }
 /** 해변마다 있는 것 */
 const SUNRISE: PlaceId[] = ['jeongdongjin', 'seongsan', 'homigot', 'gisborne'];
-const ALL: PlaceId[] = [...SUNRISE, 'jumunjin', 'hyangho', 'hangang', 'jirisan'];
+const ALL: PlaceId[] = [...SUNRISE, 'jumunjin', 'hyangho', 'hangang', 'jirisan', 'hallasan', 'seopjikoji'];
 /** 바다가 아니라 산 정상인 곳 */
-const PEAK: PlaceId[] = ['jirisan'];
+const PEAK: PlaceId[] = ['jirisan', 'hallasan'];
 export const has = {
   pier: (id: PlaceId) => SUNRISE.includes(id),
   bonfire: (id: PlaceId) => id !== 'hangang' && !PEAK.includes(id),
   shells: (id: PlaceId) => id !== 'hangang' && !PEAK.includes(id),
-  castles: (id: PlaceId) => id !== 'hangang' && !PEAK.includes(id),
+  castles: (id: PlaceId) => id !== 'hangang' && id !== 'seopjikoji' && !PEAK.includes(id),
   wading: (id: PlaceId) => id !== 'hangang' && !PEAK.includes(id),
   /** 물가가 있는지 (물수제비) */
   water: (id: PlaceId) => !PEAK.includes(id),
@@ -42,7 +42,9 @@ export const BUS_STOP = { x: -12, z: 1.2 };
 export const SUMMIT = { edgeZ: -0.05, deckY: 1.6, crestZ: 3, stone: { x: -4.4, z: 2.4 } };
 const ss = (a: number, b: number, v: number) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 /** 천왕봉 땅 높이: 뒤쪽 길은 내려가고, 앞으로 갈수록 올라가다 언덕을 넘으면 평평한 전망대 */
-export function mountainY(x: number, z: number) {
+/** 한라산 백록담 분화구 (걷는 길 왼쪽 위) */
+export const CRATER = { x: -17, z: 13, r: 7, depth: 4.5 };
+export function mountainY(x: number, z: number, id: PlaceId = terrain) {
   let y: number;
   if (z >= 14) y = -(z - 14) * 0.12;
   else if (z >= SUMMIT.crestZ) y = 3.0 * ss(14, SUMMIT.crestZ, z);
@@ -51,6 +53,11 @@ export function mountainY(x: number, z: number) {
   const ax = Math.abs(x);
   y += Math.max(0, ax - 8) * 0.45 + Math.sin(x * 0.9 + z * 0.4) * 0.06;
   if (z < SUMMIT.crestZ) y += Math.max(0, ax - 5) * 0.8;
+  if (id === 'hallasan') {
+    // 분화구: 가장자리는 둥글게 솟고, 안쪽은 움푹 꺼짐
+    const d = Math.hypot(x - CRATER.x, z - CRATER.z) / CRATER.r;
+    if (d < 1.35) y += d < 1 ? 1.2 - CRATER.depth * (1 - d * d) : 1.2 * (1 - (d - 1) / 0.35);
+  }
   return y;
 }
 /** 한강 편의점과 라면 기계 */
@@ -81,7 +88,7 @@ export function benchSeats() {
   // 36~41: 천왕봉 절벽 끝 바위 6자리, 해 뜨는 쪽(-z)을 바라봄 → 일어나면 뒤로 한 걸음
   for (let i = 0; i < 6; i++) {
     const x = -3.75 + i * 1.5, z = 0.75;
-    out.push({ x, z, ry: 0, y: SUMMIT.deckY + 0.42, bench: true, kind: 'rock', sx: x, sz: 1.7, places: ['jirisan'] });
+    out.push({ x, z, ry: 0, y: SUMMIT.deckY + 0.42, bench: true, kind: 'rock', sx: x, sz: 1.7, places: [...PEAK] });
   }
   return out;
 }
@@ -147,6 +154,7 @@ export function canStand(x: number, z: number) {
     if (z < SUMMIT.edgeZ || z > 30 || Math.abs(x) > 13) return false;
     if (z < SUMMIT.crestZ - 0.5 && Math.abs(x) > 5.2) return false;
     if (Math.hypot(x - SUMMIT.stone.x, z - SUMMIT.stone.z) < 0.6) return false;
+    if (terrain === 'hallasan' && Math.hypot(x - CRATER.x, z - CRATER.z) < CRATER.r * 1.1) return false;
     return true;
   }
   if (Math.abs(x) > BEACH_X || z > 17 || z < (has.wading(terrain) ? WADE_MIN_Z : -1.3)) return false;

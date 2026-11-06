@@ -59,11 +59,11 @@ const life = createBeachLife(scene);
 const fireflies = createFireflies(scene, GLOW), flock = createFlock(scene), leaves = createLeaves(scene);
 const echo = createEcho(scene), late = createLateSleeper(scene, floorY);
 /** 가을(한국 9~11월)에 나무가 있는 곳(산·한강공원)에만 낙엽 */
-const leavesHere = (id: string) => (id === 'jirisan' || id === 'hangang') && [8, 9, 10].includes(new Date().getMonth());
+const leavesHere = (id: string) => (id === 'jirisan' || id === 'hallasan' || id === 'hangang') && [8, 9, 10].includes(new Date().getMonth());
 // 해변 강아지 이름 (해변마다 한 마리)
 const DOG_NAMES: Record<string, [string, string]> = {
   jeongdongjin: ['해피', 'Happy'], seongsan: ['감귤', 'Gamgyul'], homigot: ['호두', 'Hodu'], gisborne: ['키위', 'Kiwi'],
-  jumunjin: ['메밀', 'Memil'], hyangho: ['보리', 'Bori'], hangang: ['라면', 'Ramyeon'], jirisan: ['반달', 'Bandal'],
+  jumunjin: ['메밀', 'Memil'], hyangho: ['보리', 'Bori'], hangang: ['라면', 'Ramyeon'], jirisan: ['반달', 'Bandal'], hallasan: ['노루', 'Noru'], seopjikoji: ['유채', 'Yuchae'],
 };
 let lastDogMode = 'wander';
 const dogName = () => (DOG_NAMES[place?.id] ?? ['댕댕이', 'Pup'])[lang === 'ko' ? 0 : 1];
@@ -699,7 +699,7 @@ function loop(t: number) {
 // ================= 장소 고르기 =================
 // 상단에는 지금 장소 하나만 두고, 누르면 묶음별 목록이 열린다 (장소가 늘어도 화면이 지저분해지지 않게)
 const GROUPS: [PlaceGroup, () => string][] = [['sunrise', () => T.groupSunrise], ['kcontent', () => T.groupKcontent]];
-const ICON: Record<string, string> = { jeongdongjin: '🚉', jirisan: '⛰️', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜' };
+const ICON: Record<string, string> = { jeongdongjin: '🚉', jirisan: '⛰️', hallasan: '🏔️', seongsan: '🌋', seopjikoji: '🗿', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜' };
 function renderPlaceList() {
   $('placeList').innerHTML = GROUPS.map(([g, label]) => {
     const rows = PLACES.filter(p => p.group === g).map(p => {

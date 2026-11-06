@@ -161,16 +161,75 @@ function hangang(scene: THREE.Scene, GLOW: THREE.Texture) {
   };
 }
 
+// ---------- 섭지코지 ----------
+// 검은 현무암 해안, 바다에 우뚝 선 촛대바위(선돌), 부서지는 파도, 언덕 위 하얀 등대, 멀리 성산일출봉
+function seopjikoji(scene: THREE.Scene, GLOW: THREE.Texture) {
+  const g = new THREE.Group(); scene.add(g);
+  const rockM = [M(0x2a2624, { flatShading: true }), M(0x34302d, { flatShading: true }), M(0x1f1c1b, { flatShading: true })];
+  let seed = 3; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const rock = (x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), rockM[Math.floor(rnd() * 3)]);
+    m.scale.set(sx, sy, sz); m.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3); m.position.set(x, y, z); g.add(m); return m;
+  };
+  // 촛대바위: 위로 갈수록 가늘어지며 비뚤게 쌓인 바위 기둥
+  const stack = (x: number, z: number, h: number, w: number) => {
+    for (let y = 0, i = 0; y < h; y += w * 0.9, i++) { const k = 1 - y / h * 0.55; rock(x + Math.sin(i * 1.7) * 0.5, y, z, w * k * (0.9 + rnd() * 0.3), w * 0.75, w * k); }
+  };
+  stack(-12, -19, 15, 2.6);
+  // 오른쪽 바위섬 두 개와 가운데 작은 바위
+  for (const [x, z, s] of [[11, -24, 5], [19, -18, 4], [3, -30, 2.2]] as const) { rock(x, s * 0.4, z, s * 1.4, s, s); rock(x + s * 0.8, s * 0.2, z + 1, s * 0.8, s * 0.6, s * 0.7); }
+  // 물가를 따라 깔린 검은 현무암 덩어리
+  for (let i = 0; i < 34; i++) { const x = -21 + i * 1.3 + rnd(), z = -3.2 + rnd() * 2.2; rock(x, 0, z, 0.5 + rnd() * 0.9, 0.3 + rnd() * 0.5, 0.5 + rnd() * 0.8); }
+  // 파도가 바위에 부딪혀 튀는 물보라
+  const sprays: { s: THREE.Sprite; x: number; z: number; ph: number }[] = [];
+  for (const [x, z] of [[-12, -17.5], [11, -22], [19, -16], [-6, -3.5], [6, -3.2], [15, -3.5]] as const) {
+    for (let k = 0; k < 3; k++) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffffff, transparent: true, depthWrite: false, opacity: 0 }));
+      g.add(sp); sprays.push({ s: sp, x: x + (k - 1) * 0.8, z, ph: rnd() * 6 });
+    }
+  }
+  // 언덕 위 하얀 등대
+  const hill = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), M(0x5c6b3a, { flatShading: true }));
+  hill.scale.set(9, 3.5, 7); hill.position.set(18, 0, 13); g.add(hill);
+  const lh = new THREE.Group(); lh.position.set(18, 3.2, 13); g.add(lh);
+  box(1.4, 4.2, 1.4, M(0xf4f2ec), 0, 2.1, 0, lh);
+  box(1.8, 0.25, 1.8, M(0xd23a2e), 0, 4.3, 0, lh);
+  box(1.1, 0.8, 1.1, M(0xbfe6ff, { transparent: true, opacity: 0.7 }), 0, 4.8, 0, lh);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.9, 0.7, 4), M(0xd23a2e)); cap.position.y = 5.55; cap.rotation.y = Math.PI / 4; lh.add(cap);
+  const beam = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xfff2c0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+  beam.scale.setScalar(5); beam.position.set(18, 8, 13); g.add(beam);
+  const lhTag = textSprite('섭지코지 등대 · Lighthouse', 0.5); lhTag.position.set(18, 10, 13); g.add(lhTag);
+  const stTag = textSprite('촛대바위 · Seondol rock', 0.55); stTag.position.set(-12, 17, -19); g.add(stTag);
+  // 멀리 왼쪽 성산일출봉
+  const seong = new THREE.Mesh(new THREE.CylinderGeometry(40, 62, 26, 18), M(0x3a4a38, { flatShading: true })); seong.position.set(-170, 8, -230); g.add(seong);
+  return {
+    group: g,
+    update(t: number, night: number) {
+      const ts = t / 1000;
+      for (const p of sprays) {
+        const k = (ts * 0.35 + p.ph) % 1;
+        // 파도가 칠 때 잠깐 하얗게 솟았다가 흩어짐
+        const burst = k < 0.25 ? k / 0.25 : Math.max(0, 1 - (k - 0.25) / 0.35);
+        p.s.position.set(p.x, 0.4 + burst * 2.2, p.z); p.s.scale.set(1.5 + burst * 2.5, 1 + burst * 2.5, 1);
+        p.s.material.opacity = burst * (0.55 - night * 0.3);
+      }
+      beam.material.opacity = night * (0.6 + 0.4 * Math.max(0, Math.sin(ts * 1.5)));
+    },
+  };
+}
+
 export function createPlaceScenery(scene: THREE.Scene, GLOW: THREE.Texture) {
-  const bus = busStop(scene), han = hangang(scene, GLOW), peak = createMountain(scene);
+  const bus = busStop(scene), han = hangang(scene, GLOW), peak = createMountain(scene, 'jirisan'), halla = createMountain(scene, 'hallasan'), seop = seopjikoji(scene, GLOW);
   let id: PlaceId = 'jeongdongjin';
   return {
     setPlace(p: PlaceId) {
-      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang'; peak.group.visible = p === 'jirisan';
+      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang'; peak.group.visible = p === 'jirisan'; halla.group.visible = p === 'hallasan'; seop.group.visible = p === 'seopjikoji';
     },
     cook: () => han.cook(),
     update(dt: number, t: number, night: number, low: THREE.Color) {
       if (id === 'jirisan') peak.update(dt, night, low);
+      if (id === 'hallasan') halla.update(dt, night, low);
+      if (id === 'seopjikoji') seop.update(t, night);
       if (id === 'hyangho') bus.update(dt);
       if (id === 'hangang') han.update(dt, t, night);
     },

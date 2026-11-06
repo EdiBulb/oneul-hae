@@ -17,8 +17,10 @@ export type PlaceGroup = 'sunrise' | 'kcontent';
 
 export const PLACES: Place[] = [
   { id: 'jirisan', name: '지리산 천왕봉', region: '산청', nameEn: 'Jirisan Cheonwangbong', regionEn: 'Sancheong', lat: 35.3369, lng: 127.7306, tz: 'Asia/Seoul', group: 'sunrise' },
+  { id: 'hallasan', name: '한라산 백록담', region: '제주', nameEn: 'Hallasan Baengnokdam', regionEn: 'Jeju', lat: 33.3617, lng: 126.5292, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'jeongdongjin', name: '정동진', region: '강릉', nameEn: 'Jeongdongjin', regionEn: 'Gangneung', lat: 37.6906, lng: 129.0336, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'seongsan', name: '성산일출봉', region: '제주', nameEn: 'Seongsan Ilchulbong', regionEn: 'Jeju', lat: 33.458, lng: 126.9425, tz: 'Asia/Seoul', group: 'sunrise' },
+  { id: 'seopjikoji', name: '섭지코지', region: '제주', nameEn: 'Seopjikoji', regionEn: 'Jeju', lat: 33.4240, lng: 126.9310, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'homigot', name: '호미곶', region: '포항', nameEn: 'Homigot', regionEn: 'Pohang', lat: 36.0767, lng: 129.5689, tz: 'Asia/Seoul', group: 'sunrise' },
   { id: 'gisborne', name: '기스본', region: '뉴질랜드', nameEn: 'Gisborne', regionEn: 'New Zealand', lat: -38.6623, lng: 178.0176, tz: 'Pacific/Auckland', group: 'sunrise' },
   { id: 'jumunjin', name: '주문진 방파제', region: '강릉', nameEn: 'Jumunjin Breakwater', regionEn: 'Gangneung', lat: 37.885, lng: 128.831, tz: 'Asia/Seoul', group: 'kcontent' },
@@ -67,6 +69,32 @@ export const pick = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)];
 interface PlaceInfo { blurb: [string, string]; route?: { title: [string, string]; lead: [string, string]; steps: [string, string][]; map: string } }
 const INFO: Partial<Record<PlaceId, PlaceInfo>> = {
   jeongdongjin: { blurb: ['기차역 바로 앞 해돋이 명소', 'Sunrise right by the train station'] },
+  hallasan: {
+    blurb: ['남한에서 가장 높은 곳, 끝없는 운해 위 해돋이', 'The highest point in South Korea, sunrise over endless clouds'],
+    route: {
+      title: ['진짜 한라산 백록담 일출 보러 가기', 'See the real sunrise at Hallasan'],
+      lead: ['제주 한라산 정상(1,947m)이에요. 정상의 분화구 호수 백록담 옆에서 섬을 덮은 구름 바다 위로 해가 떠요.', "The summit of Hallasan on Jeju (1,947 m). Beside Baengnokdam, the crater lake at the top, the sun rises over a sea of clouds covering the island."],
+      steps: [
+        ['<b>코스</b> · 정상까지는 성판악(약 9.6km)과 관음사(약 8.7km) 코스만 올라갈 수 있어요', '<b>Trails</b> · Only the Seongpanak (about 9.6 km) and Gwaneumsa (about 8.7 km) trails reach the summit'],
+        ['<b>예약</b> · 정상 탐방은 미리 온라인 예약을 해야 해요', '<b>Booking</b> · Summit hikes must be reserved online in advance'],
+        ['<b>꼭 확인</b> · 입산 시간과 일출 산행 가능 여부는 한라산국립공원 누리집에서 미리 확인해요', '<b>Check first</b> · Check trail hours and whether sunrise hikes are allowed on the Hallasan National Park site'],
+      ],
+      map: '한라산 백록담',
+    },
+  },
+  seopjikoji: {
+    blurb: ['검은 바위와 촛대바위 사이로 떠오르는 해', 'The sun rises between black lava rocks and a sea stack'],
+    route: {
+      title: ['진짜 섭지코지에 가 보기', 'Visit the real Seopjikoji'],
+      lead: ['제주 동쪽 끝 바다로 튀어나온 곶이에요. 검은 현무암 해안과 바다에 우뚝 선 선돌(촛대바위), 언덕 위 하얀 등대가 있고, 건너편으로 성산일출봉이 보여요.', "A headland on Jeju's east coast. Black lava-rock shores, a tall sea stack called Seondol, a white lighthouse on the hill, and Seongsan Ilchulbong across the bay."],
+      steps: [
+        ['<b>가는 길</b> · 제주공항에서 차로 약 1시간 10분, 성산일출봉에서 차로 약 10분', '<b>Getting there</b> · About 1 h 10 min by car from Jeju Airport, about 10 min from Seongsan Ilchulbong'],
+        ['<b>걷기</b> · 주차장에서 등대 언덕까지 산책로로 20~30분이면 돌아볼 수 있어요', '<b>Walk</b> · A 20–30 minute trail loops from the car park up to the lighthouse hill'],
+        ['<b>팁</b> · 바람이 세고 바위가 미끄러우니 물가 바위에는 조심해서 다가가요', '<b>Tip</b> · It gets very windy and the rocks are slippery, so take care near the water'],
+      ],
+      map: '섭지코지',
+    },
+  },
   jirisan: {
     blurb: ['정상 끝에 서면 운해 위로 해가 떠요', 'Walk to the summit edge, the sun rises over a sea of clouds'],
     route: {

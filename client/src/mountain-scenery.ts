@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { SUMMIT, mountainY } from './beach-extras';
+import { textSprite } from './character';
+import { CRATER, SUMMIT, mountainY as mY } from './beach-extras';
 
 // 지리산 천왕봉: 정상 직전 바위 능선에 도착 → 언덕을 넘으면 절벽 끝 전망대.
 // 발아래는 운해(구름 바다), 그 위로 겹겹이 이어진 능선이 봉우리만 내밀고 있다.
@@ -22,37 +23,45 @@ function ridge(dist: number, top: number, amp: number, color: number, seed: numb
 }
 
 /** 표지석 글씨 */
-function stoneFace() {
+function stoneFace(chars: string[], height: string) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 512;
   const g = c.getContext('2d')!;
   g.fillStyle = '#6b6660'; g.fillRect(0, 0, 256, 512);
   for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '255,255,255' : '0,0,0'},${rnd() * 0.08})`; g.fillRect(rnd() * 256, rnd() * 512, 3, 3); }
   g.fillStyle = '#f4efe2'; g.textAlign = 'center'; g.font = '900 64px "Noto Sans KR", sans-serif';
-  ['지', '리', '산', '천', '왕', '봉'].forEach((ch, i) => g.fillText(ch, 128, 80 + i * 66));
-  g.font = '800 34px "Noto Sans KR", sans-serif'; g.fillText('1,915m', 128, 486);
+  chars.forEach((ch, i) => g.fillText(ch, 128, 80 + i * (396 / chars.length)));
+  g.font = '800 34px "Noto Sans KR", sans-serif'; g.fillText(height, 128, 486);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
 /** 나무 안내판 */
-function trailSign() {
+function trailSign(name: string) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 192;
   const g = c.getContext('2d')!;
   g.fillStyle = '#7a5532'; g.fillRect(0, 0, 512, 192);
   g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 3; for (let y = 20; y < 192; y += 26) { g.beginPath(); g.moveTo(0, y); g.lineTo(512, y + 6); g.stroke(); }
   g.fillStyle = '#fff6e0'; g.textAlign = 'center';
-  g.font = '900 64px "Noto Sans KR", sans-serif'; g.fillText('↑ 천왕봉 정상', 256, 92);
+  g.font = '900 64px "Noto Sans KR", sans-serif'; g.fillText(`↑ ${name} 정상`, 256, 92);
   g.font = '700 38px "Noto Sans KR", sans-serif'; g.fillText('Summit · 50 m', 256, 156);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
-export function createMountain(scene: THREE.Scene) {
+/** 산마다 다른 점: 땅 색, 나무, 표지석 글자, 먼 능선 (한라산은 섬이라 사방이 운해) */
+const VARIANTS = {
+  jirisan: { grass: 0x6d7a45, dry: 0x8c8456, stone: 0x7d786f, path: 0x9b9180, rock: [0x5b5752, 0x6a655e, 0x4c4843], trees: 34, dead: 0.22, stoneText: ['지', '리', '산', '천', '왕', '봉'], height: '1,915m', sign: '천왕봉', ridges: 4, crater: false },
+  hallasan: { grass: 0x6f7340, dry: 0x8a6e4c, stone: 0x5a4a42, path: 0x7a5e4e, rock: [0x3e3532, 0x4a3f3a, 0x2f2a28], trees: 16, dead: 0.45, stoneText: ['한', '라', '산', '백', '록', '담'], height: '1,947m', sign: '백록담', ridges: 1, crater: true },
+} as const;
+export type MountainId = keyof typeof VARIANTS;
+export function createMountain(scene: THREE.Scene, id: MountainId = 'jirisan') {
+  const V = VARIANTS[id];
+  const mountainY = (x: number, z: number) => mY(x, z, id);
   const g = new THREE.Group(); scene.add(g); g.visible = false;
 
   // ---------- 정상 땅 (바위와 풀이 섞인 능선) ----------
   const W = 64, D = 46, geo = new THREE.PlaneGeometry(W, D, 64, 46);
   geo.rotateX(-Math.PI / 2); geo.translate(0, 0, D / 2 - 1.2);
   const p = geo.attributes.position, col: number[] = [];
-  const grass = new THREE.Color(0x6d7a45), dry = new THREE.Color(0x8c8456), stone = new THREE.Color(0x7d786f), path = new THREE.Color(0x9b9180), c = new THREE.Color();
+  const grass = new THREE.Color(V.grass), dry = new THREE.Color(V.dry), stone = new THREE.Color(V.stone), path = new THREE.Color(V.path), c = new THREE.Color();
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), z = p.getZ(i);
     // 난간 앞쪽 가장자리는 아래로 뚝 떨어지는 절벽
@@ -68,7 +77,7 @@ export function createMountain(scene: THREE.Scene) {
   g.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
 
   // ---------- 절벽과 양옆 바위 ----------
-  const rockM = [lam(0x5b5752), lam(0x6a655e), lam(0x4c4843)];
+  const rockM = V.rock.map(c => lam(c));
   const boulder = (x: number, y: number, z: number, s: number, sy = 0.8) => {
     const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), rockM[Math.floor(rnd() * 3)]);
     m.scale.set(s * (1 + rnd() * 0.4), s * sy, s * (0.8 + rnd() * 0.4)); m.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
@@ -85,9 +94,9 @@ export function createMountain(scene: THREE.Scene) {
 
   // ---------- 나무: 키 작은 구상나무와 하얗게 말라 죽은 고사목 ----------
   const pineM = lam(0x2f4a32), pineM2 = lam(0x3b5a3a), deadM = lam(0xcfc7b8);
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < V.trees; i++) {
     const sx = rnd() < 0.5 ? -1 : 1, x = sx * (7 + rnd() * 10), z = 4 + rnd() * 24, y = mountainY(x, z);
-    if (rnd() < 0.22) {
+    if (rnd() < V.dead) {
       // 고사목
       const t = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 2.6, 5), deadM); t.position.set(x, y + 1.3, z); t.rotation.z = (rnd() - 0.5) * 0.3; g.add(t);
       for (let k = 0; k < 3; k++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.9, 4), deadM); b.position.set(x, y + 1.4 + k * 0.4, z); b.rotation.z = (k % 2 ? 1 : -1) * (0.9 + rnd() * 0.4); g.add(b); }
@@ -114,11 +123,11 @@ export function createMountain(scene: THREE.Scene) {
   }
 
   // ---------- 정상 표지석과 안내판 ----------
-  const st = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.7, 0.45), [lam(0x625d57), lam(0x625d57), lam(0x625d57), lam(0x625d57), new THREE.MeshLambertMaterial({ map: stoneFace() }), lam(0x625d57)]);
+  const st = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.7, 0.45), [lam(0x625d57), lam(0x625d57), lam(0x625d57), lam(0x625d57), new THREE.MeshLambertMaterial({ map: stoneFace([...V.stoneText], V.height) }), lam(0x625d57)]);
   st.position.set(SUMMIT.stone.x, mountainY(SUMMIT.stone.x, SUMMIT.stone.z) + 0.85, SUMMIT.stone.z); st.rotation.y = 0.25; g.add(st);
   const sign = new THREE.Group(); sign.position.set(2.6, mountainY(2.6, 12.5), 12.5); g.add(sign);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.8, 6), postM); pole.position.y = 0.9; sign.add(pole);
-  const board = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.56, 0.06), [postM, postM, postM, postM, new THREE.MeshLambertMaterial({ map: trailSign() }), postM]);
+  const board = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.56, 0.06), [postM, postM, postM, postM, new THREE.MeshLambertMaterial({ map: trailSign(V.sign) }), postM]);
   board.position.y = 1.6; sign.add(board);
 
   // ---------- 운해: 발아래 넓게 깔린 구름 두 겹 (천천히 흐름) ----------
@@ -152,9 +161,16 @@ export function createMountain(scene: THREE.Scene) {
   const ridges = [
     ridge(160, -24, 16, 0x4e5d70, 1.2), ridge(300, -24, 20, 0x5f7187, 3.1),
     ridge(470, -28, 26, 0x72859b, 5.7), ridge(700, -34, 32, 0x8798ad, 8.4),
-  ];
+  ].slice(-V.ridges);
   // 양옆으로도 둘러싸게
   for (const [i, r] of ridges.entries()) { g.add(r); if (i < 2) { const side = r.clone(); side.rotation.y = (i ? -1 : 1) * Math.PI / 2.4; g.add(side); } }
+  // 한라산 백록담: 왼쪽 뒤로 보이는 분화구와 그 안의 작은 호수
+  if (V.crater) {
+    // 백록담 호수 (분화구 바닥) + 안내 글씨
+    const lake = new THREE.Mesh(new THREE.CircleGeometry(CRATER.r * 0.55, 24), new THREE.MeshLambertMaterial({ color: 0x3f6f78 }));
+    lake.rotation.x = -Math.PI / 2; lake.position.set(CRATER.x, mountainY(CRATER.x, CRATER.z) + 0.25, CRATER.z); g.add(lake);
+    const tag = textSprite('백록담 · Baengnokdam', 0.6); tag.position.set(CRATER.x, mountainY(CRATER.x, CRATER.z) + 6, CRATER.z); g.add(tag);
+  }
   const ridgeBase = ridges.map(r => (r.material as THREE.MeshBasicMaterial).color.clone());
 
   const cDay = new THREE.Color(0xf6f8fb), cNight = new THREE.Color(0x2a3352), tmp = new THREE.Color(), dark = new THREE.Color(0x10141f);

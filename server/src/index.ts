@@ -22,6 +22,8 @@ const PLACES: Record<PlaceId, { tz: string }> = {
   hyangho: { tz: 'Asia/Seoul' },
   hangang: { tz: 'Asia/Seoul' },
   jirisan: { tz: 'Asia/Seoul' },
+  hallasan: { tz: 'Asia/Seoul' },
+  seopjikoji: { tz: 'Asia/Seoul' },
   seongsan: { tz: 'Asia/Seoul' },
   homigot: { tz: 'Asia/Seoul' },
   gisborne: { tz: 'Pacific/Auckland' },
@@ -146,7 +148,7 @@ function countWoke(place: PlaceId, uid: string) {
 }
 
 function stats(): Stats {
-  const online = { jeongdongjin: 0, seongsan: 0, homigot: 0, gisborne: 0, jumunjin: 0, hyangho: 0, hangang: 0, jirisan: 0 } as Record<PlaceId, number>;
+  const online = { jeongdongjin: 0, seongsan: 0, homigot: 0, gisborne: 0, jumunjin: 0, hyangho: 0, hangang: 0, jirisan: 0, hallasan: 0, seopjikoji: 0 } as Record<PlaceId, number>;
   const woke = { ...online }, today = { ...online };
   for (const c of channels.values()) online[c.place] += c.players.size;
   for (const p of Object.keys(PLACES) as PlaceId[]) {

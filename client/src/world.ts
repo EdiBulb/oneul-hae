@@ -145,9 +145,10 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   function setGround(id: string) {
     // 경복궁: 바다 대신 돌 광장, 해변 방석은 치움
     // 산 정상: 바다·모래·방석 대신 산 지형 (mountain-scenery)
-    const peak = id === 'jirisan';
+    const peak = id === 'jirisan' || id === 'hallasan';
     sea.visible = !peak; wet.visible = !peak; matGroup.visible = !peak; sandMesh.visible = !peak;
-    sandMat.color.setHex(id === 'hangang' ? 0x6f8b56 : 0xcdb28a);
+    // 섭지코지는 검은 현무암 해안
+    sandMat.color.setHex(id === 'hangang' ? 0x6f8b56 : id === 'seopjikoji' ? 0x4a4442 : 0xcdb28a);
     (wet.material as THREE.MeshLambertMaterial).color.setHex(id === 'hangang' ? 0x9a9a94 : 0x8f7a5e);
     (wet.material as THREE.MeshLambertMaterial).opacity = id === 'hangang' ? 1 : 0.7;
   }
@@ -184,7 +185,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   };
   function buildLandmark(place: Place) {
     landmark.clear();
-    if (place.id === 'jirisan') return;
+    if (place.id === 'jirisan' || place.id === 'hallasan' || place.id === 'seopjikoji') return;
     if (place.id !== 'hangang') { rock(-15, -1.5, 1.6); rock(-17.5, 0.5, 1.1); rock(16, -1, 1.4); rock(18.5, 2, 0.9); }
     if (place.id === 'seongsan') {
       dome(0x3d5640, 80, 38, 60, -150, -4, -260);
