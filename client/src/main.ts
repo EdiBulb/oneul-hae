@@ -2,18 +2,18 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, FOOD, FOOD_MASK, foodBits, foodOf, setOutfit, outfitOf, showLeftFlowers } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, setOutfit, outfitOf, showLeftFlowers } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, PORTAL, camOpen, MARKET_STALLS, MARKET, STALL_X, TTEOK_CART, STAGE } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
-import { createPlaceScenery, HANBOK_SHOP } from './place-scenery';
+import { createPlaceScenery } from './place-scenery';
 import { createBots } from './bots';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
@@ -53,27 +53,11 @@ const GLOW = glowTexture();
 const world = createWorld(scene, renderer, GLOW);
 const lanterns = createLanterns(scene, GLOW);
 // 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
-// 서울 지하철 노선도의 역 (장소가 있는 역만 열림)
-interface Station { id: string; ko: string; en: string; x: number; y: number; line: string; place?: string }
-const LINES: Record<string, string> = { l1: '#1f3f8f', l2: '#3aa83a', l3: '#f07a1d', l4: '#2f9ee0', l5: '#8a3fc0', beach: '#e9b23c' };
-const STATIONS: Station[] = [
-  { id: 'gyeongbokgung', ko: '경복궁', en: 'Gyeongbokgung', x: 150, y: 52, line: 'l3', place: 'gyeongbokgung' },
-  { id: 'jongno5', ko: '종로5가', en: 'Jongno 5-ga', x: 240, y: 104, line: 'l1', place: 'gwangjang' },
-  { id: 'myeongdong', ko: '명동', en: 'Myeongdong', x: 196, y: 158, line: 'l4', place: 'myeongdong' },
-  { id: 'hongik', ko: '홍대입구', en: 'Hongik Univ.', x: 58, y: 132, line: 'l2', place: 'hongdae' },
-  { id: 'yeouinaru', ko: '여의나루', en: 'Yeouinaru', x: 104, y: 226, line: 'l5', place: 'hangang' },
-  { id: 'beach', ko: '오늘의 해 해변', en: "Today's Sun beach", x: 300, y: 246, line: 'beach' },
-];
-const stationName = (p: Place) => {
-  const st = STATIONS.find(s => s.place === p.id);
-  return st ? (lang === 'ko' ? st.ko : st.en) : placeName(p);
-};
 const life = createBeachLife(scene);
 // 해변 강아지 이름 (해변마다 한 마리)
 const DOG_NAMES: Record<string, [string, string]> = {
   jeongdongjin: ['해피', 'Happy'], seongsan: ['감귤', 'Gamgyul'], homigot: ['호두', 'Hodu'], gisborne: ['키위', 'Kiwi'],
   jumunjin: ['메밀', 'Memil'], hyangho: ['보리', 'Bori'], hangang: ['라면', 'Ramyeon'],
-  gyeongbokgung: ['대감', 'Daegam'], gwangjang: ['부침이', 'Buchimi'], myeongdong: ['떡이', 'Tteoki'], hongdae: ['비트', 'Beat'],
 };
 let lastDogMode = 'wander';
 const dogName = () => (DOG_NAMES[place?.id] ?? ['댕댕이', 'Pup'])[lang === 'ko' ? 0 : 1];
@@ -115,6 +99,8 @@ const virtualNow = () => {
   return replay.sr + replay.from + k * replay.span;
 };
 
+// 예전 서울 투어에서 입은 한복 표시(16)는 지움
+if (store.outfit) store.outfit &= 15;
 // ================= 나 =================
 const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
 const spawn = () => { const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z); };
@@ -290,7 +276,6 @@ function renderCounts() {
   $('viewerCount').textContent = connected ? num(online) : T.connecting;
   $('viewerUnit').textContent = connected ? T.unitPeople : '';
   $('placeBtnName').textContent = `📍 ${placeName(place)}`;
-  $('placeBtnCount').textContent = connected ? `· ${T.hereNow(online)}` : '';
   if (openSheet?.id === 'placeSheet') renderPlaceList();
 }
 
@@ -418,10 +403,8 @@ function updateCamera(dt: number) {
 // 화면 드래그 = 둘러보기, 두 손가락/휠 = 줌
 const cvs = renderer.domElement, ptrs = new Map<number, { x: number; y: number }>();
 let pinch0 = 0, dist0 = 0;
-let tap0: { x: number; y: number; t: number } | null = null;
 cvs.addEventListener('pointerdown', e => {
   cvs.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  tap0 = ptrs.size === 1 ? { x: e.clientX, y: e.clientY, t: performance.now() } : null;
   if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); dist0 = cam.tDist; }
 });
 cvs.addEventListener('pointermove', e => {
@@ -437,9 +420,6 @@ cvs.addEventListener('pointermove', e => {
   }
 });
 const ptrEnd = (e: PointerEvent) => {
-  // 거의 움직이지 않은 짧은 터치 = 탭
-  if (e.type === 'pointerup' && tap0 && ptrs.size === 1 && Math.hypot(e.clientX - tap0.x, e.clientY - tap0.y) < 10 && performance.now() - tap0.t < 450) tapStall(e);
-  tap0 = null;
   ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch0 = 0;
 };
 cvs.addEventListener('pointerup', ptrEnd); cvs.addEventListener('pointercancel', ptrEnd);
@@ -508,9 +488,7 @@ function updateMe(dt: number) {
   bl.textContent = me.blanket.visible ? T.blanketOff : T.blanketOn;
   updateGiveBtn();
   updatePetBtn();
-  updatePortal();
-  updateHanbokBtn();
-  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : seats[near].kind === 'stool' ? T.sitStool : T.sitDown) : T.findSeat;
+  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : T.sitDown) : T.findSeat;
 }
 
 // ================= 상단 문구 =================
@@ -581,8 +559,9 @@ function updateUI(now: number, alt: number, t: number) {
     }
   }
   // 해가 안 떠 있는 시간에는 '오늘 해돋이 20초 만에 보기'를 늘 보여 줌 (해돋이 앱인데 해가 없으면 안 되니까)
-  const pill = !live && !replay && !!info.next && place.group !== 'seoul';
-  if ($('replayPill').hidden === pill) $('replayPill').hidden = !pill;
+  // ✕로 닫으면 오늘은 다시 안 보임 (메뉴의 '오늘 해돋이 다시보기'는 그대로)
+  const pill = !live && !replay && !!info.next && store.replayPillOff !== dateKey(Date.now());
+  if ($('replayWrap').hidden === pill) $('replayWrap').hidden = !pill;
   const expanded = Date.now() < expandedUntil;
   $('center').classList.toggle('collapsed', !expanded);
   $('status').innerHTML = expanded ? full : `${compact}<span class="chev">▾</span>`;
@@ -626,12 +605,6 @@ function loop(t: number) {
   bonfire.update(dt, t, night);
   const fireDist = Math.hypot(me.root.position.x - BONFIRE.x, me.root.position.z - BONFIRE.z);
   amb.setFire(bonfire.level * clamp(1.15 - fireDist / 14, 0, 1));
-  if (place.id === 'gwangjang') {
-    const p = me.root.position, inAlley = p.z < 10 ? 1 : clamp(1 - (p.z - 10) / 8, 0.2, 1);
-    let siz = 0;
-    for (const sl of MARKET_STALLS) if (sl.food === 1 || sl.food === 2 || sl.food === 4 || sl.food === 9) siz = Math.max(siz, clamp(1.2 - Math.hypot(p.x - sl.side * STALL_X, p.z - sl.z) / 4, 0, 1));
-    amb.setMarket(inAlley, siz);
-  } else amb.setMarket(0, 0);
   prints.update(dt);
   stones.update(dt);
   castles.update(dt, t);
@@ -639,8 +612,6 @@ function loop(t: number) {
   updateHandoff(dt);
   scenery.update(dt, t, night);
   updateRamen(t);
-  updateSnack(t);
-  updateBusking(t);
   updateSparkles(dt);
   if (sky.update(dt, t, alt, camera, lying)) showStarWish();
   const shell = shells.update(dt, t, me.root.position);
@@ -658,8 +629,8 @@ function loop(t: number) {
 
 // ================= 장소 고르기 =================
 // 상단에는 지금 장소 하나만 두고, 누르면 묶음별 목록이 열린다 (장소가 늘어도 화면이 지저분해지지 않게)
-const GROUPS: [PlaceGroup, () => string][] = [['sunrise', () => T.groupSunrise], ['kcontent', () => T.groupKcontent], ['seoul', () => T.groupSeoul]];
-const ICON: Record<string, string> = { jeongdongjin: '🚉', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜', gyeongbokgung: '👘', gwangjang: '🥞', myeongdong: '🍢', hongdae: '🎸' };
+const GROUPS: [PlaceGroup, () => string][] = [['sunrise', () => T.groupSunrise], ['kcontent', () => T.groupKcontent]];
+const ICON: Record<string, string> = { jeongdongjin: '🚉', seongsan: '🌋', homigot: '✋', gisborne: '🌏', jumunjin: '💐', hyangho: '🚏', hangang: '🍜' };
 function renderPlaceList() {
   $('placeList').innerHTML = GROUPS.map(([g, label]) => {
     const rows = PLACES.filter(p => p.group === g).map(p => {
@@ -677,7 +648,7 @@ $('placeList').addEventListener('click', e => {
   close();
   switchPlace(p);
 });
-function switchPlace(p: Place, arrive: 'random' | 'portal' = 'random') {
+function switchPlace(p: Place) {
   if (place === p) return;
   place = p; replay = null; seenFlag = false; watchStart = 0;
   track('channel_changed', { place: p.id });
@@ -687,15 +658,10 @@ function switchPlace(p: Place, arrive: 'random' | 'portal' = 'random') {
   closeSand(); sandPosts = []; renderSandLabel();
   clearRemotes(); bots.clear(); lanterns.clear(); traces.clear(); prints.clear(); castles.clear(); world.buildLandmark(p); applyTerrain(p); bots.fill();
   history.replaceState(history.state, '', `/${p.id}${location.search}`); placeShells(); renderAlarm(); renderCounts(); refreshWeather();
-  if (arrive === 'portal') {
-    // 역 출구(또는 서울로 가는 문) 바로 앞에서 나옴
-    me.root.position.set(PORTAL.x, floorY(PORTAL.x, PORTAL.z + 1.6), PORTAL.z + 1.6); me.root.rotation.y = Math.PI;
-    portalCooldown = true;
-  } else spawn();
+  spawn();
   if (connected) join();
   expandBanner();
-  if (arrive === 'portal') toast(has.station(p.id) ? T.arrivedStation(stationName(p)) : T.backToBeach);
-  else toast(T.arrived(placeName(p), p.id === 'gisborne'));
+  toast(T.arrived(placeName(p), p.id === 'gisborne'));
   applyDogName(); life.setDog(null);
 }
 
@@ -911,6 +877,7 @@ function startReplay(quick: boolean) {
 }
 $('replayBtn').onclick = () => { close(); startReplay(false); };
 $('replayPill').onclick = () => startReplay(true);
+$('replayX').onclick = () => { store.replayPillOff = dateKey(Date.now()); save(); $('replayWrap').hidden = true; track('replay_pill_closed'); };
 async function copy(text: string, done: string) {
   try { await navigator.clipboard.writeText(text); toast(done); } catch { toast(text); }
 }
@@ -1375,13 +1342,12 @@ if (!store.hinted) $('hint').classList.add('open');
 else { if (installReady()) setTimeout(() => { if (!openSheet) showInstall(false); }, 4000); expandBanner(); }
 $('hintBtn').onclick = () => {
   $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner();
-  // 첫 방문: 조이스틱 위치를 손가락으로 알려 주고, 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌
-  $('joyCoach').hidden = false; coachFrom.copy(me.root.position);
+  // 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌
   const live = !!sunriseInfo(place, Date.now()).windowSR;
-  if (!live && place.group !== 'seoul') setTimeout(() => startReplay(true), 700);
+  if (!live) setTimeout(() => startReplay(true), 700);
 };
-const coachFrom = new THREE.Vector3();
-setInterval(() => { if (!$('joyCoach').hidden && me.root.position.distanceTo(coachFrom) > 1.5) $('joyCoach').hidden = true; }, 300);
+// 메뉴에서 처음 화면 다시 보기 (시작하기를 누르면 첫 방문처럼 해돋이 다시보기까지)
+$('introBtn').onclick = () => { close(); setTimeout(() => $('hint').classList.add('open'), 250); track('intro_reopened'); };
 world.buildLandmark(place);
 applyTerrain(place);
 renderStreak(); renderAlarm(); renderCounts();
@@ -1452,13 +1418,11 @@ $('castleBtn').onclick = () => {
 
 // ================= 해변별 지형 · 소품 · 실제로 가 보기 =================
 function applyTerrain(p: Place) {
-  setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id); bonfire.setPlace(p.id); scenery.setPlace(p.id, has.station(p.id), stationName(p)); world.setGround(p.id);
+  setTerrain(p.id); pier.setPlace(p.id); jetties.setPlace(p.id); bonfire.setPlace(p.id); scenery.setPlace(p.id); world.setGround(p.id);
   life.setFisher(has.water(p.id)); amb.setSea(has.water(p.id));
-  sandBoard.setShown(p.id !== 'gwangjang' && p.id !== 'myeongdong');
   $('routeBtn').hidden = !placeRoute(p);
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
   if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
-  if (foodOf(outfitOf(me))) setSnack(0);
 }
 const OUTFIT_BTNS: [string, number][] = [['ofSweat', OUTFIT.sweat], ['ofScarf', OUTFIT.scarf], ['ofFlowers', OUTFIT.flowers]];
 function renderOutfit() { OUTFIT_BTNS.forEach(([id, bit]) => $(id).setAttribute('aria-pressed', String(!!((store.outfit ?? 0) & bit)))); }
@@ -1577,120 +1541,6 @@ $('ramenBtn').onclick = () => {
   setTimeout(() => { ramenCooking = false; if (place.id !== 'hangang') return; setRamen(true); nextBite = 0; toast(T.ramenDone); }, 4000);
 };
 
-// ================= 시장 음식 (광장시장 12가지 · 명동 떡볶이) =================
-// 가게 앞에 서면 '○○ 사기' → 잠깐 뒤 손에 들고, 걷지 않고 가만히 있으면 몇 초마다 한 입 (앉아도 서도 됨).
-// 다른 가게에서 또 사면 들고 있던 걸 바꿔 듦. 광장시장 12가지를 다 먹으면 도장 완성.
-interface Shop { food: number; x: number; z: number; fx: number; r: number; emoji: string; ko: string; en: string; taste: [string, string]; wait: number }
-const SHOPS: Record<string, Shop[]> = {
-  gwangjang: MARKET_STALLS.map(sl => ({ ...sl, x: sl.side * (MARKET.half - 0.55), z: sl.z, fx: sl.side * STALL_X, r: 1.25 })),
-  myeongdong: [{ food: FOOD.tteokbokki, x: TTEOK_CART.x + 1.4, z: TTEOK_CART.z, fx: TTEOK_CART.x, r: 1.6, emoji: '🌶', ko: '떡볶이', en: 'Tteokbokki', taste: ['매콤달콤!', 'Sweet and spicy!'], wait: 2200 }],
-};
-const MARKET_FOODS = MARKET_STALLS.length;
-let buying = false, snackBites = 0, nextSnackBite = 0, nearShop: Shop | null = null;
-const foodName = (s: Shop) => (lang === 'ko' ? s.ko : s.en);
-function setSnack(food: number) {
-  const mask = (outfitOf(me) & ~FOOD_MASK) | foodBits(food);
-  setOutfit(me, mask);
-  if (connected) net.emit('outfit', mask);
-  snackBites = 0;
-}
-function shopNear(): Shop | null {
-  const p = me.root.position;
-  if (place.id === 'gwangjang') {
-    // 골목 반쪽(그 가게 쪽)에 서서 가게 앞 3m 안이면 됨. 한가운데 줄에서는 바라보는 쪽 가게
-    let best: Shop | null = null, bd = Infinity;
-    const fx = -Math.sin(me.root.rotation.y);
-    for (const s of SHOPS.gwangjang) {
-      const side = Math.sign(s.fx), dz = Math.abs(p.z - s.z);
-      // 골목 한가운데(x=0)에서는 오른쪽 가게
-      const onSide = p.x * side > 0 || (p.x === 0 && side > 0) || (Math.abs(p.x) < 0.3 && fx * side > 0.5);
-      if (onSide && dz < 1.6 && dz < bd) { best = s; bd = dz; }
-    }
-    return best;
-  }
-  let best: Shop | null = null, bd = Infinity;
-  for (const s of SHOPS[place.id] ?? []) {
-    const d = Math.hypot(p.x - s.x, (p.z - s.z) * 0.8);
-    if (d < s.r && d < bd) { best = s; bd = d; }
-  }
-  return best;
-}
-function updateSnack(t: number) {
-  const b = $('snackBtn'), held = foodOf(outfitOf(me));
-  nearShop = buying ? null : shopNear();
-  const show = !!nearShop && nearShop.food !== held;
-  if (b.hidden === show) b.hidden = !show;
-  if (show) { const txt = T.buyFood(nearShop!.emoji, foodName(nearShop!)); if (b.textContent !== txt) b.textContent = txt; }
-  if (!held || me.state === 'walk' || me.emote || t < nextSnackBite) return;
-  const shop = (SHOPS[place.id] ?? []).find(s => s.food === held);
-  if (!shop) return;
-  nextSnackBite = t + 3200;
-  me.emote = 'eat'; me.emoteT = 0; if (connected) net.emit('emote', 'eat');
-  if (++snackBites < 6) return;
-  nextSnackBite = t + 1e9;
-  setTimeout(() => {
-    setSnack(0);
-    toast(T.foodAte(shop.emoji, shop.taste[lang === 'ko' ? 0 : 1]));
-    track('snack_eaten', { place: place.id, food: shop.food });
-    if (place.id !== 'gwangjang') return;
-    const got = new Set(store.foods ?? []); const before = got.size; got.add(shop.food);
-    store.foods = [...got]; save();
-    if (got.size > before) setTimeout(() => toast(got.size === MARKET_FOODS ? T.stampAll(MARKET_FOODS) : T.stamp(got.size, MARKET_FOODS)), 2600);
-    if (got.size === MARKET_FOODS && before < MARKET_FOODS) { life.heartBurst(0); track('market_complete'); }
-  }, 1600);
-}
-$('snackBtn').onclick = () => { if (nearShop) buyFood(nearShop); };
-/** 광장시장 가게를 화면에서 탭: 가까우면 바로 사고, 멀면 다가가라고 알려 줌 */
-function tapStall(e: PointerEvent): boolean {
-  const hits = scenery.stallHits;
-  if (!hits.length) return false;
-  const r = cvs.getBoundingClientRect();
-  const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-  tapRay.setFromCamera(ndc, camera);
-  const hit = tapRay.intersectObjects(hits, true)[0];
-  if (!hit) return false;
-  let o: THREE.Object3D | null = hit.object;
-  while (o && o.userData.food === undefined) o = o.parent;
-  const shop = o && SHOPS.gwangjang.find(s => s.food === o!.userData.food);
-  if (!shop) return false;
-  const d = Math.hypot(me.root.position.x - shop.x, me.root.position.z - shop.z);
-  if (d > 6) { toast(T.walkCloser(shop.emoji, foodName(shop))); return true; }
-  if (buying) return true;
-  if (foodOf(outfitOf(me)) === shop.food) { toast(T.alreadyHave(shop.emoji, foodName(shop))); return true; }
-  buyFood(shop);
-  return true;
-}
-const tapRay = new THREE.Raycaster();
-function buyFood(s: Shop) {
-  buying = true; $('snackBtn').hidden = true;
-  toast(T.foodCooking(s.emoji, foodName(s)));
-  turnTo(me, Math.atan2(-(s.fx - me.root.position.x), -(s.z - me.root.position.z)), 1);
-  track('snack_buy', { place: place.id, food: s.food });
-  const here = place.id;
-  setTimeout(() => {
-    buying = false; if (place.id !== here) return;
-    setSnack(s.food); nextSnackBite = performance.now() + 1500;
-    toast(T.foodDone(s.emoji, foodName(s)));
-  }, s.wait);
-};
-
-// ================= 홍대 버스킹 =================
-// 버스커가 연주하는 동안 무대 앞에 가면 '같이 춤추기'. 노래는 가까울수록 크게.
-let wasBusking = false;
-function updateBusking(t: number) {
-  const playing = scenery.busking;
-  const d = Math.hypot(me.root.position.x - STAGE.x, me.root.position.z - STAGE.z);
-  amb.setBusk(playing ? clamp(1.15 - d / 16, 0, 1) : 0);
-  if (playing !== wasBusking) { wasBusking = playing; if (place.id === 'hongdae' && d < 16) ticker(playing ? T.buskStart : T.buskBreak); }
-  const b = $('danceBtn'), show = playing && d < 9 && mySeat === null && !lying;
-  if (b.hidden === show) b.hidden = !show;
-  void t;
-}
-$('danceBtn').onclick = () => {
-  me.emote = 'dance'; me.emoteT = 0; if (connected) net.emit('emote', 'dance');
-  track('dance', { place: place.id });
-};
-
 // ================= 해변 강아지 =================
 // 강아지는 서버가 채널마다 한 마리씩 움직이고, 쓰다듬으면 모두에게 같은 반응이 보인다.
 function applyDogName() { life.setName(dogName()); ($('petBtn') as HTMLButtonElement).textContent = T.petBtn(dogName()); }
@@ -1721,87 +1571,4 @@ const bots = createBots({
 });
 bots.fill();
 
-// ================= 서울 지하철 여행 =================
-// 해변의 '서울로 가는 문'이나 서울의 역 출구에 다가가면 노선도가 열리고, 역을 누르면 열차를 타고 가서 그 역 출구로 나온다.
-let lastBeach: Place = PLACES.find(p => !has.station(p.id) && p.group === 'sunrise') ?? PLACES[0];
-let portalCooldown = false, riding = false;
-function renderMetro() {
-  const here = STATIONS.find(s => s.place === place.id)?.id ?? 'beach';
-  const path = (pts: [number, number][], color: string, dash = '') =>
-    `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" ${dash}/>`;
-  const lines = [
-    path([[20, 104], [240, 104], [320, 104]], LINES.l1),
-    path([[30, 132], [58, 132], [110, 170], [196, 186], [270, 170], [300, 132]], LINES.l2),
-    path([[150, 20], [150, 52], [170, 104], [210, 200], [230, 270]], LINES.l3),
-    path([[196, 60], [196, 158], [180, 250]], LINES.l4),
-    path([[20, 226], [104, 226], [170, 214], [240, 104]], LINES.l5),
-    path([[104, 226], [200, 260], [300, 246]], LINES.beach, 'stroke-dasharray="2 12"'),
-  ].join('');
-  const sts = STATIONS.map(st => {
-    const open = !!st.place || st.id === 'beach';
-    const label = lang === 'ko' ? st.ko : st.en;
-    const tx = st.x > 250 ? -8 : 10, anchor = st.x > 250 ? 'end' : 'start';
-    return `<g class="st${open ? '' : ' off'}${st.id === here ? ' here' : ''}" data-id="${st.id}" role="button" aria-label="${label}">
-      <circle cx="${st.x}" cy="${st.y}" r="22" fill="transparent"/>
-      <circle cx="${st.x}" cy="${st.y}" r="9" fill="#fff" stroke="${open ? LINES[st.line] : '#b9b9b9'}" stroke-width="4"/>
-      <text x="${st.x + tx}" y="${st.y - 12}" text-anchor="${anchor}">${st.id === 'beach' ? '🌅 ' : ''}${label}</text></g>`;
-  }).join('');
-  $('metroMap').innerHTML = `<svg viewBox="0 0 340 290" xmlns="http://www.w3.org/2000/svg">${lines}${sts}</svg>`;
-}
-$('metroMap').addEventListener('click', e => {
-  const g = (e.target as Element).closest('.st') as SVGGElement | null;
-  const st = g && STATIONS.find(s => s.id === g.dataset.id);
-  if (!st) return;
-  const target = st.id === 'beach' ? lastBeach : PLACES.find(p => p.id === st.place);
-  if (!target) { toast(T.stationSoon); return; }
-  if (target === place) { close(); return; }
-  close();
-  ride(target, st);
-});
-function openMetro() { renderMetro(); open('metroSheet'); track('metro_opened', { place: place.id }); }
-/** 열차 타고 가기: 창밖 불빛이 지나가고 안내 방송 → 역 출구로 나옴 */
-function ride(target: Place, st: Station) {
-  if (riding) return;
-  riding = true;
-  if (!has.station(place.id)) lastBeach = place;
-  const name = lang === 'ko' ? st.ko : st.en;
-  $('rideNext').textContent = st.id === 'beach' ? T.backToBeach : T.nextStop(lang === 'ko' ? st.ko : st.en);
-  $('rideNextEn').textContent = st.id === 'beach' ? '' : lang === 'ko' ? `This stop is ${st.en}` : '';
-  const ov = $('metroRide'); ov.classList.remove('arrive'); ov.hidden = false;
-  chime();
-  try {
-    if (st.id !== 'beach' && 'speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(lang === 'ko' ? `이번 역은 ${st.ko}, ${st.ko}역입니다.` : `This stop is ${st.en}.`);
-      u.lang = lang === 'ko' ? 'ko-KR' : 'en-US'; u.rate = 0.95; speechSynthesis.speak(u);
-    }
-  } catch { /* 안내 방송은 없어도 됨 */ }
-  track('metro_ride', { from: place.id, to: target.id });
-  setTimeout(() => ov.classList.add('arrive'), 2200);
-  setTimeout(() => { switchPlace(target, 'portal'); void name; }, 3000);
-  setTimeout(() => { ov.hidden = true; riding = false; }, 3400);
-}
-// 문 앞에 가면 버튼만 나타남. 노선도는 버튼을 눌러야 열림 (갑자기 뜨지 않게)
-function updatePortal() {
-  const d = Math.hypot(me.root.position.x - PORTAL.x, me.root.position.z - PORTAL.z);
-  const show = d < 2.4 && !riding;
-  if ($('metroBtn').hidden === show) $('metroBtn').hidden = !show;
-  void portalCooldown;
-}
-$('metroBtn').onclick = () => { if (!riding && !openSheet) openMetro(); };
-// 한복 대여소
-function updateHanbokBtn() {
-  const b = $('hanbokBtn');
-  const near = place.id === 'gyeongbokgung' && Math.hypot(me.root.position.x - HANBOK_SHOP.x, me.root.position.z - HANBOK_SHOP.z) < 2.8;
-  if (b.hidden === near) b.hidden = !near;
-  if (near) { const t = (outfitOf(me) & OUTFIT.hanbok) ? T.hanbokOff : T.hanbokOn; if (b.textContent !== t) b.textContent = t; }
-}
-$('hanbokBtn').onclick = () => {
-  const on = !(outfitOf(me) & OUTFIT.hanbok);
-  store.outfit = ((store.outfit ?? 0) & ~OUTFIT.hanbok) | (on ? OUTFIT.hanbok : 0); save();
-  setOutfit(me, store.outfit | (outfitOf(me) & HELD));
-  if (connected) net.emit('outfit', outfitOf(me));
-  if (on) { toast(T.hanbokWorn); life.heartBurst(0); }
-  track('hanbok', { on });
-};
-
-Object.assign(window, { __hae: { project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, meState: () => [me.state, me.emote, foodOf(outfitOf(me)), snackBites, nextSnackBite, performance.now()], metro: () => openMetro(), bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

@@ -17,62 +17,24 @@ export const BONFIRE = { x: 11, z: 10 };
 const LOG = { r: 2.1, len: 1.3, rad: 0.2, n: 4 };
 const logAngle = (i: number) => (i / LOG.n) * Math.PI * 2 + Math.PI / 4;
 
-interface HighSeat { x: number; z: number; ry: number; y: number; bench: true; kind: 'log' | 'pier' | 'bus' | 'stool'; sx: number; sz: number; places: PlaceId[] }
+interface HighSeat { x: number; z: number; ry: number; y: number; bench: true; kind: 'log' | 'pier' | 'bus'; sx: number; sz: number; places: PlaceId[] }
 /** 해변마다 있는 것 */
 const SUNRISE: PlaceId[] = ['jeongdongjin', 'seongsan', 'homigot', 'gisborne'];
-export const SEOUL_LAND: PlaceId[] = ['gyeongbokgung', 'gwangjang', 'myeongdong', 'hongdae'];
-const ALL: PlaceId[] = [...SUNRISE, 'jumunjin', 'hyangho', 'hangang', ...SEOUL_LAND];
+const ALL: PlaceId[] = [...SUNRISE, 'jumunjin', 'hyangho', 'hangang'];
 export const has = {
   pier: (id: PlaceId) => SUNRISE.includes(id),
-  bonfire: (id: PlaceId) => id !== 'hangang' && !SEOUL_LAND.includes(id),
-  shells: (id: PlaceId) => id !== 'hangang' && !SEOUL_LAND.includes(id),
-  castles: (id: PlaceId) => id !== 'hangang' && !SEOUL_LAND.includes(id),
-  wading: (id: PlaceId) => id !== 'hangang' && !SEOUL_LAND.includes(id),
+  bonfire: (id: PlaceId) => id !== 'hangang',
+  shells: (id: PlaceId) => id !== 'hangang',
+  castles: (id: PlaceId) => id !== 'hangang',
+  wading: (id: PlaceId) => id !== 'hangang',
   /** 물가가 있는지 (물수제비) */
-  water: (id: PlaceId) => !SEOUL_LAND.includes(id),
+  water: (_id: PlaceId) => true,
   /** 해변 방석(돗자리)이 있는지 */
-  mats: (id: PlaceId) => !SEOUL_LAND.includes(id),
-  /** 서울 지하철 역 출구가 있는 곳 (없으면 해변 포탈) */
-  station: (id: PlaceId) => id === 'hangang' || SEOUL_LAND.includes(id),
+  mats: (_id: PlaceId) => true,
 };
 /** 향호 버스정류장: 바다를 등지고 육지 쪽을 보는 정류장 */
 export const BUS_STOP = { x: -12, z: 1.2 };
-/** 서울로 가는 문 (해변) / 지하철 역 출구 (서울) — 같은 자리 */
-/** 서울로 가는 문: 처음 생기는 자리(해변 앞쪽 가운데)에서 멀리, 오른쪽 끝에 둠 */
-export const PORTAL = { x: 16, z: 15.5 };
-/** 경복궁: 정문과 담장 위치 */
-export const PALACE = { gateZ: -12, x: 0 };
 /** 한강 편의점과 라면 기계 */
-/** 광장시장: 지붕 덮인 먹자골목 (가운데 통로 |x|<2.1), 빈대떡 가게는 왼쪽 */
-export const MARKET = { half: 3.4, back: -16, front: 9 };
-/** 노점 카운터 중심 x, 의자 x (골목 폭에 맞춰 계산) */
-export const STALL_X = MARKET.half + 0.65, STOOL_X = MARKET.half - 0.35;
-export const BINDAE_STALL = { x: -2.7, z: 2 };
-/** 광장시장 노점 12곳. z = 2 + k×3.2, side -1은 왼쪽(-x), 1은 오른쪽.
- *  food는 손에 드는 음식 번호 (character.ts FOOD와 같음) */
-export interface Stall { side: -1 | 1; z: number; food: number; emoji: string; ko: string; en: string; aw: number; menu: string[]; taste: [string, string]; wait: number }
-const st = (side: -1 | 1, k: number, food: number, emoji: string, ko: string, en: string, aw: number, menu: string[], taste: [string, string], wait = 2500): Stall =>
-  ({ side, z: BINDAE_STALL.z + k * 3.2, food, emoji, ko, en, aw, menu, taste, wait });
-export const MARKET_STALLS: Stall[] = [
-  st(-1, 0, 1, '🥞', '빈대떡', 'Bindaetteok', 0xe2672a, ['녹두빈대떡', '고기완자', '김치전'], ['겉은 바삭, 속은 고소!', 'Crispy outside, nutty inside!'], 3500),
-  st(-1, -4, 7, '🌭', '순대', 'Sundae', 0x7b5bc4, ['찹쌀순대', '머리고기', '간·허파'], ['쫀득쫀득해요!', 'Chewy and savory!']),
-  st(-1, -3, 5, '🍜', '칼국수', 'Kalguksu', 0x3a9a5b, ['손칼국수', '수제비', '보리비빔밥'], ['국물이 시원해요!', 'Such a warming broth!'], 3500),
-  st(-1, -2, 4, '🍳', '모둠전', 'Assorted jeon', 0x3c7dd9, ['동그랑땡', '호박전', '동태전'], ['하나씩 골라 먹는 재미!', 'A little of everything!']),
-  st(-1, -1, 3, '🍙', '마약김밥', 'Mayak gimbap', 0xd9533c, ['마약김밥', '참치김밥', '겨자소스'], ['자꾸 손이 가요!', "Can't stop at one!"], 1800),
-  st(-1, 1, 9, '🥨', '꽈배기', 'Kkwabaegi', 0xd6a23a, ['찹쌀꽈배기', '팥도넛', '찹쌀도넛'], ['설탕이 반짝, 달콤해요!', 'Sugary and sweet!'], 2000),
-  st(1, -4, 6, '🥩', '육회', 'Yukhoe', 0xb03a5e, ['육회', '육회비빔밥', '낙지탕탕이'], ['고소한 참기름 향!', 'Silky with sesame oil!']),
-  st(1, -3, 8, '🍡', '꿀떡', 'Kkultteok', 0xe0a336, ['꿀떡', '인절미', '송편'], ['톡 터지는 꿀!', 'A burst of honey!'], 1800),
-  st(1, -2, 11, '🍝', '잡채', 'Japchae', 0x8a5a3a, ['잡채', '떡갈비', '나물'], ['쫄깃한 당면!', 'Bouncy glass noodles!']),
-  st(1, -1, 12, '🍢', '어묵', 'Eomuk', 0x2f7f9a, ['꼬치어묵', '어묵국물', '물떡'], ['따끈한 국물까지!', 'Hot broth included!'], 1800),
-  st(1, 0, 2, '🌶', '떡볶이', 'Tteokbokki', 0xd8392b, ['떡볶이', '튀김', '순대'], ['매콤달콤!', 'Sweet and spicy!']),
-  st(1, 1, 10, '🥤', '식혜', 'Sikhye', 0x5aa0c8, ['식혜', '수정과', '미숫가루'], ['살얼음이 사각사각!', 'Icy and refreshing!'], 1500),
-];
-/** 명동: 양옆 건물 사이 큰길, 가운데 줄에 노점 수레 */
-export const MYEONGDONG = { half: 9, front: 9 };
-export const CARTS = [{ x: 0, z: -9, kind: 'egg' }, { x: 0, z: -3, kind: 'tteok' }, { x: 0, z: 3, kind: 'hotteok' }] as const;
-export const TTEOK_CART = CARTS[1];
-/** 홍대: 버스킹 무대 */
-export const STAGE = { x: 0, z: -6, w: 7, d: 3, h: 0.35 };
 export const STORE = { x: -11, z: 12, w: 5, d: 3.2 };
 export const RAMEN_MACHINE = { x: -8.1, z: 13.4 };
 /** 높은 자리들 (서버 방석 번호 22번부터 이어짐)
@@ -96,13 +58,6 @@ export function benchSeats() {
   for (const dx of [-0.6, 0, 0.6]) {
     const x = BUS_STOP.x + dx, z = BUS_STOP.z + 0.05;
     out.push({ x, z, ry: Math.PI, y: groundY(z) + 0.44, bench: true, kind: 'bus', sx: x, sz: z + 0.75, places: ['hyangho'] });
-  }
-  // 36~61: 광장시장 노점 앞 동그란 의자 (가게를 바라봄). 빈대떡 가게 4개, 나머지 가게 2개씩
-  for (const [i, sl] of MARKET_STALLS.entries()) {
-    for (const dz of i === 0 ? [-1.2, -0.4, 0.4, 1.2] : [-0.6, 0.6]) {
-      const x = sl.side * STOOL_X, z = sl.z + dz;
-      out.push({ x, z, ry: -sl.side * Math.PI / 2, y: groundY(z) + 0.46, bench: true, kind: 'stool', sx: x - sl.side * 0.7, sz: z, places: ['gwangjang'] });
-    }
   }
   return out;
 }
@@ -131,7 +86,6 @@ export const onPier = (x: number, z: number) => (pierHere() && Math.abs(x - PIER
 export type Surface = 'sand' | 'water' | 'wood' | 'grass';
 export function surfaceAt(x: number, z: number): Surface {
   if (terrain === 'hangang') return z < -1.8 ? 'water' : 'grass';
-  if (SEOUL_LAND.includes(terrain)) return 'grass';
   if (onPier(x, z) && z < -1.2) return 'wood';
   return z < -1.8 ? 'water' : 'sand';
 }
@@ -146,23 +100,13 @@ export function floorY(x: number, z: number) {
     const k = clamp((PIER.start - z) / 2, 0, 1); // 처음 2m는 경사로
     return groundY(z) * (1 - k) + PIER.top * k;
   }
-  if (SEOUL_LAND.includes(terrain)) return groundY(z);
   if (z < -1.8) return -Math.min(0.4, (-1.8 - z) * 0.15);
   return groundY(z);
 }
-/** 카메라가 있어도 되는 곳인지 (가게·건물·벽 안이면 false). 높이 4.5m 위는 지붕·간판 위라 자유 */
+/** 카메라가 있어도 되는 곳인지 (건물 안이면 false). 높이 4.5m 위는 자유 */
 export function camOpen(x: number, y: number, z: number) {
   if (y > 4.5) return true;
   switch (terrain) {
-    case 'gwangjang':
-      if (z < MARKET.front + 0.3) return z > MARKET.back + 0.4 && Math.abs(x) < MARKET.half - 0.15;
-      return !(Math.abs(x) > STALL_X + 2.45 && z < 14.3);
-    case 'myeongdong':
-      return z > MYEONGDONG.front - 2.8 || Math.abs(x) < MYEONGDONG.half + 0.3;
-    case 'hongdae':
-      return z > STAGE.z - STAGE.d / 2 - 1.0;
-    case 'gyeongbokgung':
-      return z > PALACE.gateZ + 2.6;
     case 'hangang':
       return !(x > STORE.x - STORE.w / 2 - 0.2 && x < STORE.x + STORE.w / 2 + 0.2 && z > STORE.z - STORE.d / 2 - 0.2 && z < STORE.z + STORE.d / 2 + 0.2);
   }
@@ -170,27 +114,7 @@ export function camOpen(x: number, y: number, z: number) {
 }
 export function canStand(x: number, z: number) {
   if (onPier(x, z)) return true;
-  if (SEOUL_LAND.includes(terrain)) {
-    if (Math.abs(x) > BEACH_X || z > 17) return false;
-    if (terrain === 'gyeongbokgung' && z < PALACE.gateZ + 2.4) return false;
-    if (terrain === 'gwangjang') {
-      // 골목 바깥(가게 안)과 골목 끝 벽은 못 들어감, 시장 앞 광장은 자유
-      if (z < MARKET.back + 0.6) return false;
-      if (z < MARKET.front && Math.abs(x) > MARKET.half) return false;
-      if (z >= MARKET.front && z < MARKET.front + 0.6 && Math.abs(x) > MARKET.half) return false;
-    }
-    if (terrain === 'myeongdong') {
-      if (z < -40) return false;
-      if (z < MYEONGDONG.front && Math.abs(x) > MYEONGDONG.half) return false;
-      if (CARTS.some(c => Math.abs(x - c.x) < 1.05 && Math.abs(z - c.z) < 0.75)) return false;
-    }
-    if (terrain === 'hongdae') {
-      if (z < STAGE.z - STAGE.d / 2 - 1.2) return false;
-      if (Math.abs(x - STAGE.x) < STAGE.w / 2 + 0.1 && Math.abs(z - STAGE.z) < STAGE.d / 2 + 0.1) return false;
-    }
-  } else if (Math.abs(x) > BEACH_X || z > 17 || z < (has.wading(terrain) ? WADE_MIN_Z : -1.3)) return false;
-  // 포탈·역 출구 기둥 안으로는 못 들어감 (가까이 가면 노선도가 열림)
-  if (Math.abs(x - PORTAL.x) < 0.9 && Math.abs(z - PORTAL.z) < 0.35) return false;
+  if (Math.abs(x) > BEACH_X || z > 17 || z < (has.wading(terrain) ? WADE_MIN_Z : -1.3)) return false;
   // 정류장 지붕 기둥·뒷벽, 한강 편의점 건물 안으로는 못 들어감
   if (terrain === 'hyangho' && Math.abs(x - BUS_STOP.x) < 1.25 && z > BUS_STOP.z - 0.45 && z < BUS_STOP.z - 0.05) return false;
   if (terrain === 'hangang' && x > STORE.x - STORE.w / 2 - 0.3 && x < STORE.x + STORE.w / 2 + 0.3 && z > STORE.z - STORE.d / 2 - 0.3 && z < STORE.z + STORE.d / 2) return false;

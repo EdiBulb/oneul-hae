@@ -1,4 +1,26 @@
 {
   "buildCommand": "npm run build",
-  "trailingSlash": false
+  "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/gyeongbokgung",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/gwangjang",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/myeongdong",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/hongdae",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
 }

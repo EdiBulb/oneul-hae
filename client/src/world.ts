@@ -19,7 +19,7 @@ const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
 
 /** 앉을 자리. 방석·데크는 바다(ry 0)를, 통나무는 모닥불을 바라본다.
  *  bench(통나무·데크 끝)면 y가 엉덩이 높이, sx·sz는 일어날 때 내려설 자리 */
-export interface Seat { x: number; z: number; occ: string | null; ry: number; y?: number; bench?: boolean; kind?: 'log' | 'pier' | 'bus' | 'stool'; sx?: number; sz?: number; places?: PlaceId[] }
+export interface Seat { x: number; z: number; occ: string | null; ry: number; y?: number; bench?: boolean; kind?: 'log' | 'pier' | 'bus'; sx?: number; sz?: number; places?: PlaceId[] }
 
 /** 해안선은 z = -3. 뒤로 갈수록 모래사장이 살짝 높아진다 */
 export const groundY = (z: number) => Math.max(0, (z + 3) * 0.05 - 0.06);
@@ -129,10 +129,8 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   /** 땅 색 바꾸기: 한강은 잔디와 콘크리트 강변 */
   function setGround(id: string) {
     // 경복궁: 바다 대신 돌 광장, 해변 방석은 치움
-    const CITY: Record<string, number> = { gyeongbokgung: 0xc9c2b4, gwangjang: 0x7d776d, myeongdong: 0x9d968c, hongdae: 0x86817d };
-    const plaza = id in CITY;
-    sea.visible = !plaza; wet.visible = !plaza; matGroup.visible = !plaza;
-    sandMat.color.setHex(plaza ? CITY[id] : id === 'hangang' ? 0x6f8b56 : 0xcdb28a);
+    sea.visible = true; wet.visible = true; matGroup.visible = true;
+    sandMat.color.setHex(id === 'hangang' ? 0x6f8b56 : 0xcdb28a);
     (wet.material as THREE.MeshLambertMaterial).color.setHex(id === 'hangang' ? 0x9a9a94 : 0x8f7a5e);
     (wet.material as THREE.MeshLambertMaterial).opacity = id === 'hangang' ? 1 : 0.7;
   }

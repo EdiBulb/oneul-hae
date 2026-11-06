@@ -65,7 +65,7 @@
     </div>
     <div class="hright pe">
       <span class="conn" id="conn" data-i18n="connecting">연결 중…</span>
-      <div class="viewers"><span class="dot off" id="liveDot"></span><b id="viewerCount">연결 중…</b><span id="viewerUnit"></span></div>
+      <div class="viewers" hidden><span class="dot off" id="liveDot"></span><b id="viewerCount">연결 중…</b><span id="viewerUnit"></span></div>
       <button class="iconbtn" id="soundBtn" aria-label="소리 끄기">🔊</button>
       <button class="iconbtn" id="langBtn" aria-label="Language / 언어">EN</button>
       <button class="iconbtn" id="menuBtn" data-i18n="menu">기록·알람</button>
@@ -78,24 +78,20 @@
     <h1 class="headline" id="headline">&nbsp;</h1>
     <div class="sub" id="sub">&nbsp;</div>
     <div class="progress" id="progress"><i id="progressBar"></i></div>
-    <button class="replay-pill pe" id="replayPill" type="button" hidden data-i18n="replayPill">▶ 오늘 해돋이 20초 만에 보기</button>
+    <div class="replay-wrap pe" id="replayWrap" hidden><button class="replay-pill" id="replayPill" type="button" data-i18n="replayPill">▶ 오늘 해돋이 20초 만에 보기</button><button class="replay-x" id="replayX" type="button" aria-label="닫기">✕</button></div>
   </section>
 
   <div class="spacer"></div>
   <div class="ticker" id="ticker"></div>
 
   <div class="controls">
-    <div class="joy pe" id="joy" aria-label="이동 조이스틱" data-i18n-aria="joyAria"><i id="knob"></i><span data-i18n="joyHint">밀어서 걷기</span><b class="joy-coach" id="joyCoach" hidden><em>👆</em><strong data-i18n="joyCoach">여기를 밀어서 걸어요</strong></b></div>
+    <div class="joy pe" id="joy" aria-label="이동 조이스틱" data-i18n-aria="joyAria"><i id="knob"></i></div>
     <div class="actions pe">
       <button class="act" id="sitBtn" data-i18n="sit">방석에 앉기</button>
       <button class="act" id="blanketBtn" hidden>담요 덮기</button>
       <button class="act primary give-act" id="giveBtn" hidden data-i18n="giveBtn">💐 꽃 건네주기</button>
       <button class="act primary" id="petBtn" hidden>🐶</button>
-      <button class="act" id="metroBtn" hidden data-i18n="metroBtn">🚇 서울 여행 가기</button>
-      <button class="act primary" id="hanbokBtn" hidden></button>
       <button class="act primary" id="ramenBtn" hidden data-i18n="ramenBtn">🍜 라면 끓이기</button>
-      <button class="act primary" id="snackBtn" hidden></button>
-      <button class="act primary" id="danceBtn" hidden data-i18n="danceBtn">💃 같이 춤추기</button>
       <button class="act route-act" id="routeBtn" hidden data-i18n="routeBtn">📍 실제로 가 보기</button>
       <button class="act sand-act" id="sandBtn" hidden data-i18n="sandOpen">모래 게시판 보기</button>
       <button class="act more" id="actMore" aria-expanded="false" aria-controls="actTray" data-i18n-aria="actAria" aria-label="다른 행동 더 보기">✨ <span data-i18n="actMore">행동</span></button>
@@ -145,15 +141,6 @@
     <a class="btn primary" id="routeMap" target="_blank" rel="noopener" data-i18n="routeMap">지도에서 보기</a>
   </div>
   <p class="note" data-i18n="routeNote">버스 시간과 정류장은 바뀔 수 있어요. 출발 전에 네이버 지도나 카카오맵에서 확인하세요.</p>
-</div>
-<div class="sheet metro-sheet" id="metroSheet" role="dialog" aria-labelledby="metroTitle">
-  <h2 id="metroTitle" data-i18n="metroTitle">🚇 서울 지하철 노선도</h2>
-  <p class="lead" data-i18n="metroLead">역을 누르면 그곳으로 가요. 회색 역은 곧 열려요.</p>
-  <div class="metro-map" id="metroMap"></div>
-</div>
-<div class="metro-ride" id="metroRide" hidden>
-  <div class="ride-window"><div class="ride-lights"></div><div class="ride-lights l2"></div></div>
-  <div class="ride-text"><b id="rideNext"></b><span id="rideNextEn"></span></div>
 </div>
 <div class="sheet" id="placeSheet" role="dialog" aria-labelledby="placeTitle">
   <h2 id="placeTitle" data-i18n="placeTitle">어디로 갈까요?</h2>
@@ -227,6 +214,7 @@
       <button class="switch" id="inviteBtn" data-i18n="inviteBtn">친구 부르기</button>
     </div>
     <button class="link" id="installMenuBtn" data-i18n="installMenuBtn">홈 화면에 앱으로 설치하기</button>
+    <button class="link" id="introBtn" data-i18n="introBtn">처음 화면 다시 보기</button>
   </div>
   <div class="block">
     <div class="row">
@@ -234,7 +222,7 @@
       <button class="switch" id="seeWishesBtn" aria-pressed="true">켜짐</button>
     </div>
   </div>
-  <p class="note" data-i18n="note">해의 위치와 일출 시각은 실제 천문 계산이에요. 위쪽 숫자는 지금 접속한 진짜 사람 수예요. 반투명한 실루엣과 멀리 뜬 풍등은 오늘 실제로 다녀간 사람들의 흔적이에요(이름·소원은 남지 않아요). 공개한 소원은 그 순간 해변에 있는 사람에게만 보이고 저장되지 않아요. 갈매기·강아지·낚시하는 주민은 해변 풍경이라 숫자에 넣지 않아요. 알람은 이 페이지가 열려 있을 때만 울려요.</p>
+  <p class="note" data-i18n="note">해의 위치와 일출 시각은 실제 천문 계산이에요. 장소 목록의 숫자는 지금 접속한 진짜 사람 수예요. 반투명한 실루엣과 멀리 뜬 풍등은 오늘 실제로 다녀간 사람들의 흔적이에요(이름·소원은 남지 않아요). 공개한 소원은 그 순간 해변에 있는 사람에게만 보이고 저장되지 않아요. 갈매기·강아지·낚시하는 주민은 해변 풍경이라 숫자에 넣지 않아요. 알람은 이 페이지가 열려 있을 때만 울려요.</p>
 </div>
 
 <div class="sheet" id="installSheet" role="dialog" aria-labelledby="installTitle">
@@ -283,11 +271,9 @@
 <div class="hint" id="hint">
   <h3 data-i18n="hintTitle">해변에 도착했어요</h3>
   <div class="how">
-    <div class="how-row"><span class="how-ic">🕹️</span><span data-i18n-html="how1"><b>왼쪽 아래 동그라미</b>를 손가락으로 밀면 걸어가요</span></div>
     <div class="how-row"><span class="how-ic">👆</span><span data-i18n-html="how2">화면 아무 데나 <b>쓱 밀면</b> 주변을 둘러봐요</span></div>
     <div class="how-row"><span class="how-ic">🌅</span><span data-i18n-html="how3">해가 안 떠 있는 시간이면 <b>오늘 아침 해돋이</b>를 먼저 보여 드려요</span></div>
   </div>
-  <p class="how-pc" data-i18n="howPc">컴퓨터에서는 키보드 방향키로 걸어요</p>
   <button class="btn primary" id="hintBtn" data-i18n="start">시작하기</button>
 </div>
 

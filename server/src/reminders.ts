@@ -11,7 +11,7 @@ import webpush, { type PushSubscription } from 'web-push';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 type Lang = 'ko' | 'en';
-type PlaceKey = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin' | 'hyangho' | 'hangang' | 'gyeongbokgung' | 'gwangjang' | 'myeongdong' | 'hongdae';
+type PlaceKey = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin' | 'hyangho' | 'hangang';
 
 const PLACE_NAMES: Record<PlaceKey, Record<Lang, string>> = {
   jeongdongjin: { ko: '정동진', en: 'Jeongdongjin' },
@@ -21,13 +21,9 @@ const PLACE_NAMES: Record<PlaceKey, Record<Lang, string>> = {
   jumunjin: { ko: '주문진 방파제', en: 'Jumunjin Breakwater' },
   hyangho: { ko: '향호 버스정류장', en: 'Hyangho Bus Stop' },
   hangang: { ko: '한강공원', en: 'Han River Park' },
-  gyeongbokgung: { ko: '경복궁', en: 'Gyeongbokgung Palace' },
-  gwangjang: { ko: '광장시장', en: 'Gwangjang Market' },
-  myeongdong: { ko: '명동', en: 'Myeongdong' },
-  hongdae: { ko: '홍대', en: 'Hongdae' },
 };
 const TZ: Record<PlaceKey, string> = {
-  jeongdongjin: 'Asia/Seoul', seongsan: 'Asia/Seoul', homigot: 'Asia/Seoul', gisborne: 'Pacific/Auckland', jumunjin: 'Asia/Seoul', hyangho: 'Asia/Seoul', hangang: 'Asia/Seoul', gyeongbokgung: 'Asia/Seoul', gwangjang: 'Asia/Seoul', myeongdong: 'Asia/Seoul', hongdae: 'Asia/Seoul',
+  jeongdongjin: 'Asia/Seoul', seongsan: 'Asia/Seoul', homigot: 'Asia/Seoul', gisborne: 'Pacific/Auckland', jumunjin: 'Asia/Seoul', hyangho: 'Asia/Seoul', hangang: 'Asia/Seoul',
 };
 const SITE = 'https://hae.abracadelulu.com';
 const LEAD = 5 * 60000; // 해 뜨기 5분 전

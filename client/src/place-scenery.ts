@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import type { PlaceId } from '../../server/src/protocol';
-import { BUS_STOP, PALACE, PORTAL, RAMEN_MACHINE, STORE } from './beach-extras';
+import { BUS_STOP, RAMEN_MACHINE, STORE } from './beach-extras';
 import { textSprite } from './character';
 import { groundY } from './world';
-import { createSeoulScenery } from './seoul-scenery';
 
 // 장소마다 다른 풍경
 // - 향호: 모래사장 위 작은 버스정류장(보라색 벤치), 뒤쪽 길로 가끔 지나가는 시골 버스
@@ -161,147 +160,17 @@ function hangang(scene: THREE.Scene, GLOW: THREE.Texture) {
   };
 }
 
-// ---------- 경복궁 ----------
-// 돌 광장, 궁궐 정문(돌 기단에 문 세 개 + 두 겹 기와지붕), 양옆 담장, 뒤로 북쪽 산, 문 앞 수문장
-function palace(scene: THREE.Scene, GLOW: THREE.Texture) {
-  const g = new THREE.Group(); scene.add(g);
-  // 바다를 덮는 넓은 땅 (광장 바깥)
-  const far = new THREE.Mesh(new THREE.PlaneGeometry(1600, 900), M(0xb9b2a4)); far.rotation.x = -Math.PI / 2; far.position.set(0, 0.005, -450); g.add(far);
-  // 박석 줄무늬
-  for (let z = -10; z < 16; z += 1.6) { const l = new THREE.Mesh(new THREE.PlaneGeometry(44, 0.04), M(0xa79f90)); l.rotation.x = -Math.PI / 2; l.position.set(0, 0.02, z); g.add(l); }
-  const z0 = PALACE.gateZ;
-  const stone = M(0xd6d0c2), stoneDark = M(0x9e978a), wood = M(0x9b3a2c), green = M(0x3f7a6a), roofM = M(0x3a3d42), wallM = M(0xcfc6b3), wallRoof = M(0x4a4d52);
-  // 돌 기단과 세 개의 홍예문
-  const base = new THREE.Group(); base.position.set(PALACE.x, 0, z0); g.add(base);
-  box(16, 5.2, 4.5, stone, 0, 2.6, 0, base);
-  for (const [x, w] of [[-4.2, 2.2], [0, 2.8], [4.2, 2.2]] as const) {
-    box(w, 3.2, 4.6, M(0x2b2620), x, 1.6, 0, base);
-    const arch = new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2, 4.6, 16, 1, false, 0, Math.PI), M(0x2b2620));
-    arch.rotation.z = Math.PI / 2; arch.rotation.y = Math.PI / 2; arch.position.set(x, 3.2, 0); base.add(arch);
-  }
-  // 문루: 붉은 기둥, 초록 단청 띠, 두 겹 지붕
-  const hall = new THREE.Group(); hall.position.y = 5.2; base.add(hall);
-  for (let i = 0; i < 6; i++) for (const z of [-1.6, 1.6]) box(0.35, 3, 0.35, wood, -6 + i * 2.4, 1.5, z, hall);
-  box(14, 0.5, 4, green, 0, 3.1, 0, hall);
-  const roof = (w: number, d: number, y: number) => {
-    const r = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 1, 1, 4, 1), roofM);
-    r.rotation.y = Math.PI / 4; r.scale.set(w * 0.72, 1.6, d * 0.72); r.position.y = y; hall.add(r);
-    // 처마 끝을 살짝 들어 올린 느낌
-    for (const sx of [-1, 1]) { const tip = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.2, 4), roofM); tip.rotation.z = sx * 1.2; tip.position.set(sx * w / 2, y - 0.5, 0); hall.add(tip); }
-  };
-  roof(18, 7.5, 4.3); box(12, 1.6, 3.6, wood, 0, 5.6, 0, hall); box(12.2, 0.4, 3.6, green, 0, 6.4, 0, hall); roof(15, 6, 7.4);
-  // 현판
-  const plate = textSprite('광화문 · Gwanghwamun', 0.9); plate.position.set(0, 4.3, 2.3); hall.add(plate);
-  // 양옆 담장
-  for (const sx of [-1, 1]) {
-    box(60, 3.2, 1, wallM, sx * 38, 1.6, z0 + 0.5, g);
-    box(60, 0.5, 1.6, wallRoof, sx * 38, 3.4, z0 + 0.5, g);
-  }
-  // 뒤로 보이는 근정전 지붕과 북쪽 산
-  const hall2 = new THREE.Group(); hall2.position.set(0, 0, z0 - 60); g.add(hall2);
-  box(26, 7, 12, wood, 0, 3.5, 0, hall2);
-  const r2 = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 1, 1, 4, 1), roofM); r2.rotation.y = Math.PI / 4; r2.scale.set(24, 6, 12); r2.position.y = 9.5; hall2.add(r2);
-  const mountain = new THREE.Mesh(new THREE.ConeGeometry(120, 70, 7), M(0x5d6e55, { flatShading: true })); mountain.position.set(-20, 30, z0 - 260); g.add(mountain);
-  const m2 = new THREE.Mesh(new THREE.ConeGeometry(90, 50, 6), M(0x6a7a5f, { flatShading: true })); m2.position.set(110, 22, z0 - 230); g.add(m2);
-  // 수문장: 붉은 옷에 검은 갓, 깃발을 든 채 문 앞에 서 있다가 가끔 교대 행진
-  const guards: { c: THREE.Group; x: number; ph: number }[] = [];
-  for (const x of [-2.2, 2.2, -6.5, 6.5]) {
-    const c = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, 1.1, 10), M(0xb0302a)); body.position.y = 0.75; c.add(body);
-    const sash = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.04, 6, 14), M(0x2c5fa8)); sash.rotation.x = Math.PI / 2; sash.position.y = 0.7; c.add(sash);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), M(0xf0d2b6)); head.position.y = 1.5; c.add(head);
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.03, 16), M(0x1c1c1c)); brim.position.y = 1.72; c.add(brim);
-    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.22, 12), M(0x1c1c1c)); crown.position.y = 1.84; c.add(crown);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.6, 6), M(0x6b4a2e)); pole.position.set(0.38, 1.3, 0); c.add(pole);
-    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.8), M(x < 0 ? 0xe8c14a : 0x3d78c8, { side: THREE.DoubleSide })); flag.position.set(0.68, 2.2, 0); c.add(flag);
-    c.position.set(x, 0, z0 + 3); g.add(c); guards.push({ c, x, ph: Math.random() * 6 });
-  }
-  const guardTag = textSprite('수문장 · Gate guards', 0.5); guardTag.position.set(0, 2.6, z0 + 3); g.add(guardTag);
-  // 한복 대여소 (역 출구 옆)
-  const shop = new THREE.Group(); shop.position.set(HANBOK_SHOP.x, 0, HANBOK_SHOP.z); g.add(shop);
-  box(3.2, 2.4, 2, M(0xf2ece0), 0, 1.2, 0, shop);
-  box(3.6, 0.3, 2.4, roofM, 0, 2.55, 0, shop);
-  const rack = [0xe85d75, 0x4f8fd6, 0xf2c14e, 0x7cc47a, 0xb48cff];
-  rack.forEach((c, i) => { const h = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 8), M(c)); h.position.set(-1.2 + i * 0.6, 0.9, -1.05); h.rotation.x = Math.PI; shop.add(h); });
-  const shopTag = textSprite('👘 한복 대여 · Hanbok rental', 0.5); shopTag.position.set(0, 3.1, 0); shop.add(shopTag);
-  let t0 = 0;
-  return {
-    group: g,
-    update(dt: number, t: number) {
-      t0 += dt;
-      // 1분마다 15초 동안 교대식: 수문장들이 제자리에서 발을 맞춰 걷고 깃발이 흔들림
-      const ceremony = (t0 % 60) < 15;
-      for (const q of guards) {
-        const step = ceremony ? Math.sin(t / 220 + q.ph) : 0;
-        q.c.position.y = Math.abs(step) * 0.06;
-        q.c.position.x = q.x + (ceremony ? Math.sin(t / 2000 + q.ph) * 0.4 : 0);
-        (q.c.children[6] as THREE.Mesh).rotation.y = Math.sin(t / 400 + q.ph) * (ceremony ? 0.5 : 0.15);
-      }
-      void GLOW;
-    },
-  };
-}
-export const HANBOK_SHOP = { x: 12.5, z: 9 };
-
-// ---------- 서울로 가는 문 (해변) / 지하철 역 출구 (서울) ----------
-function portal(scene: THREE.Scene, GLOW: THREE.Texture) {
-  const g = new THREE.Group(); g.position.set(PORTAL.x, 0, PORTAL.z); g.rotation.y = 0; scene.add(g);
-  // 해변: 모래 위에 혼자 서 있는 나무 문틀, 안쪽은 소용돌이치는 푸른 빛
-  const door = new THREE.Group(); g.add(door);
-  const frame = M(0x7a5a3c);
-  box(0.16, 2.3, 0.2, frame, -0.62, 1.15, 0, door); box(0.16, 2.3, 0.2, frame, 0.62, 1.15, 0, door); box(1.4, 0.16, 0.2, frame, 0, 2.32, 0, door);
-  const swirlTex = (() => {
-    const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d')!;
-    const gr = x.createRadialGradient(64, 64, 4, 64, 64, 64); gr.addColorStop(0, '#e9fbff'); gr.addColorStop(0.35, '#6fd3ff'); gr.addColorStop(1, '#2a4bb8');
-    x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
-    x.strokeStyle = 'rgba(255,255,255,.55)'; x.lineWidth = 3;
-    for (let a = 0; a < 12; a += 0.35) { const r = a * 5; x.beginPath(); x.arc(64, 64, r, a, a + 0.9); x.stroke(); }
-    return new THREE.CanvasTexture(c);
-  })();
-  const inner = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 2.15), new THREE.MeshBasicMaterial({ map: swirlTex, side: THREE.DoubleSide, transparent: true, opacity: 0.92 }));
-  inner.position.y = 1.15; door.add(inner);
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0x7fd8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.6 }));
-  halo.scale.set(3.4, 3.8, 1); halo.position.y = 1.2; door.add(halo);
-  const sign = textSprite('🚇 서울로 가는 문 · To Seoul', 0.55); sign.position.y = 2.85; door.add(sign);
-  // 서울: 지하철 역 출구 (계단이 내려가는 입구 + 초록 지붕 + 역 이름판)
-  const exit = new THREE.Group(); g.add(exit);
-  const metal = M(0x4f5560), glass = new THREE.MeshLambertMaterial({ color: 0xa9d3e0, transparent: true, opacity: 0.5 });
-  box(2.2, 0.12, 2.6, M(0x2f8f5b), 0, 2.4, 0, exit);
-  for (const x of [-1, 1]) { box(0.08, 2.4, 0.08, metal, x, 1.2, -1.2, exit); box(0.08, 2.4, 0.08, metal, x, 1.2, 1.2, exit); box(0.04, 1.6, 2.4, glass, x, 1.4, 0, exit); }
-  box(2, 0.9, 0.05, glass, 0, 1.0, -1.25, exit);
-  for (let i = 0; i < 5; i++) box(1.8, 0.12, 0.45, M(0x777b80), 0, -0.1 - i * 0.18, 0.9 - i * 0.45, exit);
-  const pit = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 2.4), M(0x1a1c20)); pit.rotation.x = -Math.PI / 2; pit.position.set(0, -0.95, 0); exit.add(pit);
-  let exitSign = textSprite('🚇', 0.6); exitSign.position.y = 3.0; exit.add(exitSign);
-  return {
-    setPlace(station: boolean, stationName: string) {
-      door.visible = !station; exit.visible = station;
-      exit.remove(exitSign); exitSign = textSprite(`🚇 ${stationName}`, 0.6); exitSign.position.y = 3.0; exit.add(exitSign);
-    },
-    update(dt: number, t: number) {
-      inner.rotation.z = 0; (inner.material as THREE.MeshBasicMaterial).map!.rotation = t / 900; (inner.material as THREE.MeshBasicMaterial).map!.center.set(0.5, 0.5);
-      halo.material.opacity = 0.45 + Math.sin(t / 500) * 0.15;
-      void dt;
-    },
-  };
-}
-
 export function createPlaceScenery(scene: THREE.Scene, GLOW: THREE.Texture) {
-  const bus = busStop(scene), han = hangang(scene, GLOW), pal = palace(scene, GLOW), gate = portal(scene, GLOW), seoul = createSeoulScenery(scene, GLOW);
+  const bus = busStop(scene), han = hangang(scene, GLOW);
   let id: PlaceId = 'jeongdongjin';
   return {
-    setPlace(p: PlaceId, station: boolean, stationName: string) {
-      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang'; pal.group.visible = p === 'gyeongbokgung';
-      gate.setPlace(station, stationName); seoul.setPlace(p);
+    setPlace(p: PlaceId) {
+      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang';
     },
     cook: () => han.cook(),
-    get busking() { return seoul.busking; },
-    get stallHits() { return seoul.stallHits; },
     update(dt: number, t: number, night: number) {
       if (id === 'hyangho') bus.update(dt);
       if (id === 'hangang') han.update(dt, t, night);
-      if (id === 'gyeongbokgung') pal.update(dt, t);
-      seoul.update(dt, t, night);
-      gate.update(dt, t);
     },
   };
 }
