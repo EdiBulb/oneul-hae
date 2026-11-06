@@ -5,7 +5,7 @@ import type { Look } from '../../server/src/protocol';
 const KEY = 'oneul-hae-v2';
 
 interface Saved {
-  days: Record<string, 'live' | 'replay'>;
+  days: Record<string, 'live' | 'replay' | 'shield'>;
   alarm: { on: boolean };
   hinted?: boolean;
   uid: string;
@@ -21,6 +21,20 @@ interface Saved {
   outfit?: number;
   /** 금빛 해돋이를 만든 적이 있는지 (보온병 열림) */
   golden?: boolean;
+  /** 햇살 포인트 */
+  sun?: number;
+  /** 햇살 내역 (최근 40개): d 날짜키, t 사유 키, p 증감 */
+  sunLog?: { d: string; t: string; p: number }[];
+  /** 그날 이미 받은 것: key = 날짜|종류 */
+  sunGot?: Record<string, number>;
+  /** 햇살로 산 것 (옷 id, 'lc:색', 'lp:무늬', 'jf:불색') */
+  owned?: string[];
+  /** 풍등 모양: c 색 번호, p 무늬 번호 */
+  lantern?: { c: number; p: number };
+  /** 쥐불놀이 불 색 */
+  fireColor?: number;
+  /** 연속 기록 지키기: 쓴 달(YYYY-MM)과 횟수, 마지막으로 물어본 날 */
+  shield?: { m: string; n: number; asked?: string };
   /** 오늘 주운 조개: key = 장소|현지날짜, got = 그날 조개 번호 */
   shells?: { key: string; got: number[] };
   /** 조개 도감: 종류 → 주운 개수 */

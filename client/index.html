@@ -68,6 +68,7 @@
       <div class="viewers" hidden><span class="dot off" id="liveDot"></span><b id="viewerCount">연결 중…</b><span id="viewerUnit"></span></div>
       <button class="iconbtn" id="soundBtn" aria-label="소리 끄기">🔊</button>
       <button class="iconbtn" id="langBtn" aria-label="Language / 언어">EN</button>
+      <button class="sun-chip" id="sunChip" aria-label="햇살"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg><b id="sunNum">0</b><i class="sp s1"></i><i class="sp s2"></i><i class="sp s3"></i></button>
       <button class="iconbtn" id="menuBtn" data-i18n="menu">기록·알람</button>
     </div>
   </header>
@@ -97,6 +98,9 @@
       <button class="act primary" data-ic="🍜" id="ramenBtn" hidden data-i18n="ramenBtn">라면 끓이기</button>
       <button class="act route-act" data-ic="📍" id="routeBtn" hidden data-i18n="routeBtn">실제로 가 보기</button>
       <button class="act sand-act" data-ic="🏖️" id="sandBtn" hidden data-i18n="sandOpen">모래 게시판</button>
+      <button class="act night-act" id="jwibulBtn" data-ic="🔥" hidden><span data-i18n="jwibul">쥐불놀이</span></button>
+      <button class="act night-act" id="starBtn" data-ic="🌠" hidden><span data-i18n="starAct">별똥별</span></button>
+      <button class="act night-act" id="fireBtn" data-ic="🎆" hidden><span data-i18n="fireAct">불꽃</span></button>
       <button class="act" id="wearBtn" data-ic="🧥"><span data-i18n="wearBtn">옷</span></button>
       <button class="act more" id="actMore" aria-expanded="false" aria-controls="actTray" data-i18n-aria="actAria" aria-label="다른 행동 더 보기" data-ic="✨"><span data-i18n="actMore">행동</span></button>
       <button class="act primary" data-ic="🏮" id="lanternBtn" data-i18n="lantern">풍등 올리기</button>
@@ -132,6 +136,39 @@
   <h2 id="outfitTitle" data-i18n="wearTitle">옷 입기</h2>
   <p class="lead" data-i18n="wearLead">새벽 바다·산 정상은 추워요. 칸마다 하나씩 골라 보세요. 다른 사람에게도 보여요.</p>
   <div id="wardrobe"></div>
+  <div class="wear-buy" id="wearBuy" hidden><span id="wearBuyText"></span><button class="btn primary" id="wearBuyBtn"></button></div>
+</div>
+<div class="sheet" id="sunSheet" role="dialog" aria-labelledby="sunTitle">
+  <div class="sun-head"><div class="sun-big"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#5a2a08" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="#5a2a08"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></div><div><small id="sunTitle" data-i18n="sunMine">내 햇살</small><b id="sunTotal">0</b></div></div>
+  <div class="sun-stats" id="sunStats"></div>
+  <div class="cal-nav"><button class="cal-btn" id="calPrev" aria-label="지난달">‹</button><b id="calTitle"></b><button class="cal-btn" id="calNext" aria-label="다음달">›</button></div>
+  <div class="cal-week" id="calWeek"></div>
+  <div class="cal" id="cal"></div>
+  <div class="cal-legend" id="calLegend"></div>
+  <div class="sun-goal" id="sunGoal"></div>
+  <h3 class="sun-h" data-i18n="sunUse">햇살 쓰기</h3>
+  <div class="sun-uses" id="sunUses"></div>
+  <h3 class="sun-h" data-i18n="sunEarn">햇살 버는 법</h3>
+  <div class="sun-rules" id="sunRules"></div>
+  <h3 class="sun-h" data-i18n="sunLog">최근 내역</h3>
+  <div class="sun-log" id="sunLogList"></div>
+</div>
+<div class="sheet" id="lanternShop" role="dialog" aria-labelledby="lsTitle">
+  <h2 id="lsTitle" data-i18n="lsTitle">풍등 꾸미기</h2>
+  <div class="ls-prev"><div class="ls-lantern" id="lsLantern"><span id="lsMarks"></span></div></div>
+  <h3 class="wear-h" data-i18n="lsColor">색</h3>
+  <div class="ls-colors" id="lsColors"></div>
+  <h3 class="wear-h" data-i18n="lsPattern">무늬</h3>
+  <div class="outfit-grid ls-pats" id="lsPats"></div>
+  <div class="wear-buy" id="lsBuy" hidden><span id="lsBuyText"></span><button class="btn primary" id="lsBuyBtn"></button></div>
+</div>
+<div class="sheet" id="shieldSheet" role="dialog" aria-labelledby="shTitle">
+  <div class="sh-icon" aria-hidden="true"><svg width="64" height="72" viewBox="0 0 76 86"><path d="M38 4 L70 16 V42 C70 62 56 76 38 82 C20 76 6 62 6 42 V16 Z" fill="#2b2d52" stroke="#ffc070" stroke-width="3"/><circle cx="38" cy="42" r="10" fill="#ffc070"/></svg></div>
+  <h2 id="shTitle" data-i18n="shTitle">어제 해를 못 봤어요</h2>
+  <p class="lead" id="shText"></p>
+  <button class="btn primary" id="shYes"></button>
+  <button class="link" id="shNo" data-i18n="shNo">괜찮아요, 오늘부터 다시</button>
+  <p class="sh-left" id="shLeft"></p>
 </div>
 <div class="sheet" id="routeSheet" role="dialog" aria-labelledby="routeTitle">
   <h2 id="routeTitle"></h2>

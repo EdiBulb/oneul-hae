@@ -4,14 +4,33 @@ import { textSprite } from './character';
 interface Lantern { g: THREE.Group; vy: number; vz: number; sway: number; age: number }
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
+/** 풍등 색·무늬 (style = 색 + 무늬 * 8) */
+export const LANTERN_COLORS = ['#ffc27a', '#ff9fbf', '#9fd7ff', '#c9a7ff', '#7fe0c4', '#ffe08a'];
+export const LANTERN_PATTERNS = ['', '★', '✿', '福'];
+const texCache = new Map<number, THREE.Texture>();
+function lanternTex(style: number) {
+  let t = texCache.get(style);
+  if (t) return t;
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+  const g = c.getContext('2d')!;
+  g.fillStyle = LANTERN_COLORS[style % 8] ?? LANTERN_COLORS[0]; g.fillRect(0, 0, 128, 64);
+  const mark = LANTERN_PATTERNS[(style >> 3) % 8] ?? '';
+  if (mark) {
+    g.fillStyle = 'rgba(255,255,255,.8)'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let i = 0; i < 4; i++) { g.fillText(mark, 16 + i * 32, 22); g.fillText(mark, 32 + i * 32, 46); }
+  }
+  t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; texCache.set(style, t);
+  return t;
+}
+
 export function createLanterns(scene: THREE.Scene, GLOW: THREE.Texture) {
   const list: Lantern[] = [];
   const geo = new THREE.CylinderGeometry(0.24, 0.17, 0.38, 10, 1, true);
 
   /** label이 있으면 풍등 위에 소원이 보인다. other면 남의 풍등이라 글자를 조금 작게 */
-  function launch(pos: THREE.Vector3, label?: string, other = false) {
+  function launch(pos: THREE.Vector3, label?: string, other = false, style = 0) {
     const g = new THREE.Group();
-    g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffc27a, transparent: true, side: THREE.DoubleSide, fog: false })));
+    g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: lanternTex(style), transparent: true, side: THREE.DoubleSide, fog: false })));
     const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xff9a4a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
     flame.scale.set(1.5, 1.5, 1); g.add(flame);
     if (label) { const l = textSprite(label, other ? 0.55 : 0.7); l.position.y = 0.55; g.add(l); }

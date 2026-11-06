@@ -214,6 +214,13 @@ export function animChar(c: Char, dt: number) {
     (c.steam.material as THREE.MeshBasicMaterial).opacity = 0.35 * (1 - s);
   }
   const e = 1 - Math.pow(0.0005, dt);
+  // 쥐불놀이: 오른팔을 옆으로 들고, 손끝에서 불깡통이 세로로 빙글빙글
+  const jw = c.inner.getObjectByName('jwibul');
+  if (jw?.visible && c.state !== 'lie') {
+    aR = 0; aRz = 1.45;
+    const sp = (c.inner.userData.jwSpeed as number | undefined) ?? 7;
+    jw.rotation.z -= sp * dt;
+  }
   c.armL.rotation.x += (aL - c.armL.rotation.x) * e;
   c.armR.rotation.x += (aR - c.armR.rotation.x) * e;
   c.armR.rotation.z += (aRz - c.armR.rotation.z) * e;
@@ -257,7 +264,11 @@ export const WEAR = {
 export type WearSlot = keyof typeof WEAR;
 export const wearGet = (mask: number, k: WearSlot) => (mask >> WEAR[k].shift) & WEAR[k].bits;
 export const wearSet = (mask: number, k: WearSlot, v: number) => (mask & ~(WEAR[k].bits << WEAR[k].shift)) | ((v & WEAR[k].bits) << WEAR[k].shift);
-export const OUTFIT_MAX = (1 << 13) - 1;
+/** 쥐불놀이: 비트 13 켜짐, 14~15 불 색 */
+export const JWIBUL = 1 << 13;
+export const JW_COLORS = [0xff9a3c, 0x6fb6ff, 0xff8fbf, 0x8dffb0];
+export const jwColor = (mask: number) => JW_COLORS[(mask >> 14) & 3];
+export const OUTFIT_MAX = (1 << 16) - 1;
 const PAD_COLORS = [0, 0x1d1e24, 0xece8e0, 0x26304f, 0xd2a03c];
 
 /** 체크무늬 (목도리용) */
@@ -328,6 +339,25 @@ function buildWear(c: Char, o: THREE.Group) {
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.08, 14), L(0xc0392b)); cap.position.y = 0.18; th.add(cap);
   const st = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false })); st.name = 'tsteam'; st.position.y = 0.3; th.add(st);
   c.armL.add(th);
+}
+
+/** 쥐불놀이 깡통: 오른쪽 어깨 옆 한 점을 중심으로 줄 끝의 깡통이 돈다 */
+function applyJwibul(c: Char, mask: number) {
+  let jw = c.inner.getObjectByName('jwibul') as THREE.Group | undefined;
+  const on = !!(mask & JWIBUL);
+  if (!jw) {
+    if (!on) return;
+    jw = new THREE.Group(); jw.name = 'jwibul'; jw.position.set(0.95, 1.05, 0.05); c.inner.add(jw);
+    const R = 0.95;
+    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, R, 4), new THREE.MeshBasicMaterial({ color: 0x9a8f86 }));
+    wire.position.y = R / 2; jw.add(wire);
+    const can = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.16, 10), new THREE.MeshLambertMaterial({ color: 0x3a2a22 }));
+    can.name = 'can'; can.position.y = R; jw.add(can);
+    const ember = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb35c }));
+    ember.name = 'ember'; ember.position.y = R + 0.02; jw.add(ember);
+  }
+  jw.visible = on;
+  ((jw.getObjectByName('ember') as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(jwColor(mask));
 }
 
 /** 옷장 상태 반영 */
@@ -436,6 +466,7 @@ export function setOutfit(c: Char, mask: number) {
   c.armR.getObjectByName('flowers')!.visible = !!(mask & OUTFIT.flowers);
   c.armR.getObjectByName('ramen')!.visible = !!(mask & OUTFIT.ramen);
   applyWear(c, o, mask);
+  applyJwibul(c, mask);
   o.userData.mask = mask;
 }
 export const outfitOf = (c: Char) => ((c.inner.getObjectByName('outfit')?.userData.mask as number) ?? 0);

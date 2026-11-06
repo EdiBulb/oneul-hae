@@ -53,6 +53,7 @@ interface SocketData {
   channel?: Channel;
   uid?: string;
   lastLantern: number;
+  lastSky: number;
   lastEmote: number;
   moveBudget: number;
   /** 짠을 누르고 아직 상대를 못 찾은 시각 (0 = 없음) */
@@ -196,6 +197,7 @@ function leave(socket: Sock, io: IO) {
 
 io.on('connection', (socket: Sock) => {
   socket.data.lastLantern = 0;
+  socket.data.lastSky = 0;
   socket.data.lastEmote = 0;
   socket.data.moveBudget = 20;
   socket.data.cheersAt = 0;
@@ -277,7 +279,7 @@ io.on('connection', (socket: Sock) => {
     socket.to(c.key).emit('emote', socket.id, e);
   });
 
-  socket.on('lantern', (x, z, text) => {
+  socket.on('lantern', (x, z, text, style) => {
     const c = socket.data.channel, now = Date.now();
     if (!c || now - socket.data.lastLantern < 3000) return; // 3초에 한 번
     socket.data.lastLantern = now;
@@ -285,7 +287,15 @@ io.on('connection', (socket: Sock) => {
     L.push([Math.round(num(x, BOUNDS.minX, BOUNDS.maxX) * 10) / 10, Math.round(num(z, BOUNDS.minZ, BOUNDS.maxZ) * 10) / 10]);
     if (L.length > LANTERN_MAX * 2) L.splice(0, L.length - LANTERN_MAX);
     // 공개 소원은 지금 해변에 있는 사람에게만 전달하고 저장하지 않는다 (오늘의 흔적에는 위치만)
-    socket.to(c.key).emit('lantern', socket.id, num(x, BOUNDS.minX, BOUNDS.maxX), num(z, BOUNDS.minZ, BOUNDS.maxZ), cleanWish(text));
+    socket.to(c.key).emit('lantern', socket.id, num(x, BOUNDS.minX, BOUNDS.maxX), num(z, BOUNDS.minZ, BOUNDS.maxZ), cleanWish(text), Math.floor(num(style, 0, 255)));
+  });
+
+  // 밤 하늘 연출 (별똥별·불꽃): 2초에 한 번, 같은 해변 사람들에게만
+  socket.on('sky', (kind, x, c) => {
+    const ch = socket.data.channel, now = Date.now();
+    if (!ch || (kind !== 'star' && kind !== 'fire') || now - (socket.data.lastSky ?? 0) < 2000) return;
+    socket.data.lastSky = now;
+    socket.to(ch.key).emit('sky', socket.id, kind, num(x, -60, 60), Math.floor(num(c, 0, 7)));
   });
 
   // 방석은 서버가 주인: 먼저 요청한 사람이 앉는다
@@ -324,7 +334,7 @@ io.on('connection', (socket: Sock) => {
   socket.on('outfit', mask => {
     const c = socket.data.channel, me = c?.players.get(socket.id);
     if (!c || !me) return;
-    me.outfit = Math.floor(num(mask, 0, 8191)); // 소품 4비트 + 옷장 9비트
+    me.outfit = Math.floor(num(mask, 0, 65535)); // 소품 4비트 + 옷장 9비트 + 쥐불놀이 3비트
     socket.to(c.key).emit('outfit', socket.id, me.outfit);
   });
 

@@ -2,10 +2,9 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, setOutfit, outfitOf, showLeftFlowers } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
-import { createLanterns } from './lanterns';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
 import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT } from './beach-extras';
@@ -16,13 +15,16 @@ import { createSkyLife } from './skylife';
 import { createPlaceScenery } from './place-scenery';
 import { createBots } from './bots';
 import { createFireflies, createFlock, createLeaves } from './sky-extras';
+import { createNightFx, FIRE_COLORS } from './night-fx';
+import { LANTERN_COLORS, LANTERN_PATTERNS, createLanterns } from './lanterns';
 import { createEcho, createLateSleeper, say } from './gags';
 import { connect } from './net';
 import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place, placeBlurb, placeRoute, type PlaceGroup } from './places';
-import { T, applyHtml, lang, num, setLang } from './i18n';
+import { T, applyHtml, lang, locale, num, setLang } from './i18n';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
-import { ITEMS, SLOT_NAME, itemName, needText, unlocked } from './wardrobe';
+import { ITEMS, SLOT_NAME, itemName, migrateOwned, unlocked } from './wardrobe';
+import { EARN, PRICE, buy, earnCycle, earnGolden, earnLive, onSun, owns, shieldOffer, shieldsLeft, spend, sunTotal, useShield, markShieldAsked } from './sunpoints';
 import { dayName, dur, hm, mmss, sunPos, sunriseInfo, sunrises } from './sun';
 import { createWorld, glowTexture, groundY } from './world';
 
@@ -177,7 +179,9 @@ const virtualNow = () => {
 };
 
 // 예전 서울 투어에서 입은 한복 표시(16)는 지움
-if (store.outfit) store.outfit &= OUTFIT_MAX & ~HELD;
+/** 저장하지 않는 잠깐짜리 비트: 손에 든 음식, 쥐불놀이 */
+const TEMP = HELD | JWIBUL | (3 << 14);
+if (store.outfit) store.outfit &= OUTFIT_MAX & ~TEMP;
 // ================= 나 =================
 const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
 const spawn = () => { const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z); };
@@ -325,11 +329,11 @@ net.on('clink', (a, b) => {
 });
 net.on('outfit', (id, mask) => { const r = remotes.get(id); if (r) setOutfit(r.c, mask); });
 net.on('blanket', (id, on) => { const r = remotes.get(id); if (r) r.c.blanket.visible = on; });
-net.on('lantern', (id, x, z, text) => {
+net.on('lantern', (id, x, z, text, style) => {
   const r = remotes.get(id);
   // 공개된 소원이고, 내가 '다른 사람 소원 보기'를 켜 두었을 때만 글자를 띄움
   const wish = text && store.seeWishes ? localizeWish(text) : undefined;
-  lanterns.launch(new THREE.Vector3(x, groundY(z), z), wish, true);
+  lanterns.launch(new THREE.Vector3(x, groundY(z), z), wish, true, style ?? 0);
   if (r) ticker(wish ? T.lanternByWish(localizeNick(r.info.nick), wish) : T.lanternBy(localizeNick(r.info.nick)));
 });
 net.on('seat', (idx, id) => {
@@ -503,6 +507,7 @@ cvs.addEventListener('pointermove', e => {
   const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 1 && eyeK > 0.5) { eye.tYaw = clamp(eye.tYaw - dx * 0.006, -1.7, 1.7); eye.tPitch = clamp(eye.tPitch + dy * 0.005, 0.12, 1.5); }
+  else if (ptrs.size === 1 && jwOn) { /* 쥐불놀이: 드래그는 깡통 돌리기 */ }
   else if (ptrs.size === 1) { cam.tYaw -= dx * 0.007; cam.tPitch = clamp(cam.tPitch + dy * 0.005, 0.04, 1.35); }
   else if (ptrs.size === 2 && pinch0) {
     const [a, b] = [...ptrs.values()];
@@ -608,9 +613,11 @@ function updateUI(vnow: number, alt: number, t: number) {
   $('liveDot').className = 'dot' + (live || replay ? '' : ' off');
   $('progress').style.display = replay ? 'block' : 'none';
   // 해가 지평선을 넘는 순간, 해 뜨기 1분 전에는 자동으로 펼침
-  if (lastAltForBanner < 0 && alt >= 0 && (live || replay)) { expandBanner(10000); bots.clap(); }
-  else if (lastAltForBanner < 0 && alt >= 0 && cyc) { bots.clap(); flock.fly(); }
-  if (lastAltForBanner < 0 && alt >= 0 && (live || cyc)) { sunRoseNow(); }
+  // 첫 프레임(-90)은 '해가 막 뜬 것'으로 치지 않음 (낮에 들어오자마자 박수·햇살이 나오지 않게)
+  const crossed = lastAltForBanner > -89 && lastAltForBanner < 0 && alt >= 0;
+  if (crossed && (live || replay)) { expandBanner(10000); bots.clap(); }
+  else if (crossed && cyc) { bots.clap(); flock.fly(); }
+  if (crossed && (live || cyc)) { sunRoseNow(); }
   maybeDeliverOnLoad(alt, live, cyc);
   lastAltForBanner = alt;
   if (live && info.windowSR && info.windowSR - now < 60000 && info.windowSR > now && minuteWarned !== info.windowSR) {
@@ -626,6 +633,7 @@ function updateUI(vnow: number, alt: number, t: number) {
     $('sub').textContent = T.sunriseAt(pn, hm(replay.sr, tz));
     if (k >= 1) {
       replay = null; track('replay_finished', { place: place.id });
+      earnCycle();
       if (markSeen('replay')) { toast(T.replaySeen); track('sunrise_seen', { place: place.id, kind: 'replay', streak: streakCount() }); }
       // 다 본 뒤: 진짜 해돋이는 언제인지, 그리고 이때 처음으로 홈 화면 추가를 권함
       const nx = sunriseInfo(place, Date.now()).next;
@@ -673,6 +681,7 @@ function updateUI(vnow: number, alt: number, t: number) {
     if (!watchStart) watchStart = Date.now();
     if (live && !seenFlag && Date.now() - watchStart > 5000) {
       seenFlag = true;
+      earnLive();
       if (markSeen('live')) { toast(T.liveSeen(streakCount())); track('sunrise_seen', { place: place.id, kind: 'live', streak: streakCount(), others: remotes.size }); askInstallAfterSun(); }
     }
   }
@@ -720,6 +729,7 @@ function loop(t: number) {
   leaves.update(dt, t, me.root.position, floorY);
   echo.update(dt); late.update(dt); updateYaho(t); updateCheer(t, dt);
   flock.update(dt, camera, world.sunDir);
+  updateNight(dt);
   updateRamen(t);
   updateSparkles(dt);
   if (sky.update(dt, t, alt, camera, lying)) showStarWish();
@@ -864,6 +874,7 @@ function open(id: string) { openSheet = $(id); openSheet.classList.add('open'); 
 function close() {
   // 모래에 쓰다가 닫으면 모래 위 미리보기도 지움
   if (openSheet?.id === 'sandSheet') { $('sandPreview').hidden = true; $('sand').classList.remove('previewing'); }
+  if (openSheet?.id === 'outfitSheet') endTryOn();
   openSheet?.classList.remove('open'); back.classList.remove('open', 'over-sand'); openSheet = null; document.body.classList.remove('dressing');
 }
 back.onclick = close;
@@ -903,10 +914,11 @@ function releaseLantern(text: string, custom = false) {
   if (performance.now() - lastMyLantern < 3000) { toast(T.lanternWait); return; }
   lastMyLantern = performance.now();
   close();
-  lanterns.launch(me.root.position, text);
+  const lst = (store.lantern?.c ?? 0) + (store.lantern?.p ?? 0) * 8;
+  lanterns.launch(me.root.position, text, false, lst);
   // 고른 소원은 함께 보여 주고, 직접 쓴 소원은 '다른 사람에게도 보여주기'를 체크했을 때만 서버로 보낸다
   const shared = !custom || store.shareWish;
-  if (connected) net.emit('lantern', +me.root.position.x.toFixed(2), +me.root.position.z.toFixed(2), shared ? text : undefined);
+  if (connected) net.emit('lantern', +me.root.position.x.toFixed(2), +me.root.position.z.toFixed(2), shared ? text : undefined, lst);
   track('lantern_released', { place: place.id, custom, shared });
   toast(custom && shared ? T.lanternUpShared(text) : T.lanternUp(text));
 }
@@ -1550,28 +1562,54 @@ function applyTerrain(p: Place) {
 }
 // ================= 옷장 =================
 function setWear(mask: number) {
-  store.outfit = mask & ~HELD; save();
-  setOutfit(me, store.outfit | (outfitOf(me) & HELD));
+  store.outfit = mask & ~TEMP; save();
+  setOutfit(me, store.outfit | (outfitOf(me) & TEMP));
   if (connected) net.emit('outfit', outfitOf(me));
 }
+let tryOn: (typeof ITEMS)[number] | null = null;
+const KO = lang === 'ko';
 function renderWardrobe() {
-  const cur = store.outfit ?? 0;
+  const cur = tryOn ? tryOn.set(store.outfit ?? 0) : store.outfit ?? 0;
   $('wardrobe').innerHTML = (Object.keys(SLOT_NAME) as (keyof typeof SLOT_NAME)[]).map(slot => {
     const tiles = ITEMS.filter(it => it.slot === slot).map(it => {
       const open_ = unlocked(it), on = it.get(cur);
       const dot = it.color ? `<em class="sw" style="background:${it.color}"></em>` : '';
-      return `<button class="tile wear${open_ ? '' : ' locked'}" data-w="${it.id}" aria-pressed="${on}"><i>${it.icon}${dot}</i><span>${itemName(it)}</span>${open_ ? '' : `<small>🔒 ${needText(it)}</small>`}</button>`;
+      const tag = open_ ? '' : `<small class="price">${KO ? '햇살' : 'Sun'} ${it.price}</small>`;
+      return `<button class="tile wear${open_ ? '' : ' locked'}${tryOn === it ? ' trying' : ''}" data-w="${it.id}" aria-pressed="${on}"><i>${it.icon}${dot}</i><span>${itemName(it)}</span>${tag}</button>`;
     }).join('');
-    return `<h3 class="wear-h">${SLOT_NAME[slot][lang === 'ko' ? 0 : 1]}</h3><div class="outfit-grid wear-grid">${tiles}</div>`;
+    return `<h3 class="wear-h">${SLOT_NAME[slot][KO ? 0 : 1]}</h3><div class="outfit-grid wear-grid">${tiles}</div>`;
   }).join('');
+  const bar = $('wearBuy');
+  bar.hidden = !tryOn;
+  if (tryOn) {
+    $('wearBuyText').innerHTML = `<b>${itemName(tryOn)}</b><small>${KO ? '입어 보는 중' : 'Trying on'} · ${KO ? '내 햇살' : 'You have'} ${sunTotal()}</small>`;
+    const btn = $('wearBuyBtn') as HTMLButtonElement;
+    btn.textContent = `${KO ? '햇살' : 'Sun'} ${tryOn.price} ${KO ? '사기' : 'Buy'}`;
+    btn.disabled = sunTotal() < (tryOn.price ?? 0);
+  }
 }
+function endTryOn() { if (!tryOn) return; tryOn = null; setOutfit(me, (store.outfit ?? 0) | (outfitOf(me) & TEMP)); }
 $('wardrobe').addEventListener('click', e => {
   const btn = (e.target as HTMLElement).closest('[data-w]') as HTMLElement | null; if (!btn) return;
   const it = ITEMS.find(x => x.id === btn.dataset.w); if (!it) return;
-  if (!unlocked(it)) { toast(`🔒 ${needText(it)}`); return; }
+  if (!unlocked(it)) {
+    // 안 가진 옷: 먼저 입어 보기 (나에게만 보임) → 아래 '사기' 버튼
+    tryOn = it; setOutfit(me, it.set(store.outfit ?? 0) | (outfitOf(me) & TEMP)); renderWardrobe();
+    track('wear_try', { item: it.id });
+    return;
+  }
+  tryOn = null;
   setWear(it.set(store.outfit ?? 0)); renderWardrobe();
   track('wear', { slot: it.slot, item: it.id });
 });
+$('wearBuyBtn').onclick = () => {
+  const it = tryOn; if (!it) return;
+  if (!buy(it.id, it.price ?? 0)) { toast(KO ? '햇살이 모자라요' : 'Not enough sunlight'); return; }
+  tryOn = null; setWear(it.set(store.outfit ?? 0)); renderWardrobe();
+  toast(KO ? `${itemName(it)} 샀어요 ✨` : `Bought ${itemName(it)} ✨`);
+  track('sun_buy', { item: it.id, price: it.price });
+};
+migrateOwned();
 setOutfit(me, store.outfit ?? 0);
 const openWardrobe = () => { renderWardrobe(); open('outfitSheet'); track('wardrobe_open'); };
 $('wearBtn').onclick = openWardrobe;
@@ -1627,8 +1665,8 @@ function updateHandoff(dt: number) {
   if (handoff.t > 2.0) {
     showLeftFlowers(handoff.b, false);
     setOutfit(handoff.b, outfitOf(handoff.b) | OUTFIT.flowers);
-    if (handoff.aId === myId) { store.outfit = outfitOf(me) & ~HELD; save(); toast(T.gave); }
-    if (handoff.bId === myId) { store.outfit = outfitOf(me) & ~HELD; save(); toast(T.got); }
+    if (handoff.aId === myId) { store.outfit = outfitOf(me) & ~TEMP; save(); toast(T.gave); }
+    if (handoff.bId === myId) { store.outfit = outfitOf(me) & ~TEMP; save(); toast(T.got); }
     handoff = null;
   }
 }
@@ -1827,6 +1865,8 @@ net.on('cheer', (key, total, people, from) => {
 let lastWindowKey = '';
 function sunRoseNow() {
   const key = lastWindowKey;
+  // 5분 해도 오늘 도장(작은 도장) + 햇살 1 (하루 3번까지)
+  if (cycling()) { markSeen('replay'); earnCycle(); }
   if (key) {
     const k = Math.min(1, ((cheer.key === key ? cheer.total : 0) + BOT_CHEER) / CHEER_GOAL);
     if (k >= 1) {
@@ -1839,6 +1879,7 @@ function sunRoseNow() {
       setTimeout(() => { $('goldenCard').hidden = true; }, 10500);
       for (let i = 0; i < 14; i++) setTimeout(() => spark(me.root.position), 600 + i * 260);
       track('golden_sunrise', { place: place.id, people: n });
+      if ((myCheers[key] ?? 0) > 0) setTimeout(() => earnGolden(), 4000);
     } else if ((myCheers[key] ?? 0) > 0) setTimeout(() => toast(T.notGolden(Math.round(k * 100))), 2500);
   }
   setTimeout(deliverLetter, goldT > 0 ? 7500 : 2500);
@@ -1924,5 +1965,223 @@ const bots = createBots({
   onLantern: (pos, nick) => { lanterns.launch(pos, undefined, true); ticker(T.lanternBy(nick)); },
 });
 bots.fill();
+
+
+// ================= 햇살 포인트 =================
+// 오른쪽 위 햇살 칩: 받을 때 반짝이며 숫자가 올라가고, 누르면 햇살 메뉴(도장 달력·쓰기·버는 법·내역)
+const nightFx = createNightFx(scene, GLOW);
+const SL = (ko: string, en: string) => (lang === 'ko' ? ko : en);
+let sunShown = sunTotal(), sunAnim: { from: number; to: number; t0: number } | null = null;
+$('sunNum').textContent = String(sunShown);
+onSun((gain, total) => {
+  if (gain <= 0) { sunShown = total; $('sunNum').textContent = String(total); return; }
+  sunAnim = { from: sunShown, to: total, t0: performance.now() };
+  const chip = $('sunChip'); chip.classList.remove('pop'); void chip.offsetWidth; chip.classList.add('pop');
+  setTimeout(() => chip.classList.remove('pop'), 1800);
+});
+function updateSunChip() {
+  if (!sunAnim) return;
+  const k = Math.min(1, (performance.now() - sunAnim.t0) / 1200), e = 1 - Math.pow(1 - k, 3);
+  sunShown = Math.round(sunAnim.from + (sunAnim.to - sunAnim.from) * e);
+  $('sunNum').textContent = String(sunShown);
+  if (k >= 1) sunAnim = null;
+}
+const SUN_REASON: Record<string, [string, string]> = {
+  live: ['진짜 해돋이(LIVE)', 'LIVE sunrise'], cycle: ['5분 해돋이', '5-minute sunrise'], golden: ['금빛 해돋이 함께', 'Golden sunrise'],
+  streak3: ['3일 연속 보너스', '3-day streak bonus'], streak7: ['7일 연속 보너스', '7-day streak bonus'], shield: ['연속 기록 지키기', 'Streak saver'],
+  star: ['별똥별 띄우기', 'Shooting star'], fire: ['불꽃 쏘기', 'Firework'],
+};
+const reasonOf = (t: string) => {
+  const r = SUN_REASON[t]; if (r) return SL(r[0], r[1]);
+  const it = ITEMS.find(x => x.id === t); if (it) return itemName(it);
+  if (t.startsWith('lc:')) return SL('풍등 색', 'Lantern colour');
+  if (t.startsWith('lp:')) return SL('풍등 무늬', 'Lantern pattern');
+  if (t.startsWith('jf:')) return SL('쥐불놀이 불 색', 'Fire spin colour');
+  return t;
+};
+let calMonth = new Date(); calMonth.setDate(1);
+function renderSunSheet() {
+  $('sunTotal').textContent = String(sunTotal());
+  const days = store.days, keys = Object.keys(days);
+  const ym = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, '0')}`;
+  const inMonth = keys.filter(k => k.startsWith(ym));
+  const streak = streakCount();
+  $('sunStats').innerHTML = [
+    [SL('연속', 'Streak'), SL(`${streak}일`, `${streak}d`), true],
+    [SL('이번 달 도장', 'Stamps this month'), String(inMonth.length), false],
+    [SL('LIVE로 본 날', 'LIVE days'), String(keys.filter(k => days[k] === 'live').length), false],
+  ].map(([a, b, hi]) => `<div><small>${a}</small><b${hi ? ' class="hi"' : ''}>${b}</b></div>`).join('');
+  $('calTitle').textContent = calMonth.toLocaleDateString(locale, { year: 'numeric', month: 'long' });
+  $('calWeek').innerHTML = (lang === 'ko' ? ['일', '월', '화', '수', '목', '금', '토'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S']).map(d => `<span>${d}</span>`).join('');
+  const first = calMonth.getDay(), n = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate(), today = dateKey(Date.now());
+  let html = '<span></span>'.repeat(first);
+  for (let d = 1; d <= n; d++) {
+    const k = `${ym}-${String(d).padStart(2, '0')}`, v = days[k];
+    const cls = v === 'live' ? 'live' : v ? 'cyc' : '';
+    html += `<span class="day${k === today ? ' today' : ''}"><i class="st ${cls}">${v ? SUN_SVG : ''}</i><small>${d}</small></span>`;
+  }
+  $('cal').innerHTML = html;
+  $('calLegend').innerHTML = `<span><i class="lg live"></i>${SL('LIVE로 봄', 'LIVE')}</span><span><i class="lg cyc"></i>${SL('5분 해로 봄', '5-min sun')}</span><span><i class="lg today"></i>${SL('오늘', 'Today')}</span>`;
+  const next = streak < 3 ? 3 : streak < 7 ? 7 : 0;
+  $('sunGoal').innerHTML = next
+    ? `<div class="g-row"><b>${SL(`${next}일 연속 보너스까지`, `To ${next}-day streak`)}</b><em>+${next === 3 ? EARN.streak3 : EARN.streak7} ${SL('햇살', 'sun')}</em></div><div class="g-bar"><i style="width:${(streak / next) * 100}%"></i></div><small>${SL(`${next - streak}일 남았어요`, `${next - streak} more day(s)`)}</small>`
+    : `<div class="g-row"><b>${SL('7일 연속 달성!', '7-day streak!')}</b></div>`;
+  const night = isNight();
+  const uses: [string, string, string, string, boolean][] = [
+    ['wear', '🧥', SL('옷', 'Clothes'), SL('새 옷을 입어 보고 사기', 'Try on and buy'), true],
+    ['lantern', '🏮', SL('풍등 꾸미기', 'Lantern style'), SL('색·무늬 바꾸기', 'Colours and patterns'), true],
+    ['jwibul', '🔥', SL('쥐불놀이', 'Fire spin'), night ? SL('무료 · 지금 할 수 있어요', 'Free · available now') : SL('무료 · 밤에만', 'Free · night only'), night],
+    ['star', '🌠', SL('별똥별 띄우기', 'Shooting star'), `${SL('햇살', 'Sun')} ${PRICE.star} · ${night ? SL('모두에게 보여요', 'everyone sees it') : SL('밤에만', 'night only')}`, night],
+    ['fire', '🎆', SL('불꽃 쏘기', 'Firework'), `${SL('햇살', 'Sun')} ${PRICE.fire} · ${night ? SL('모두에게 보여요', 'everyone sees it') : SL('밤에만', 'night only')}`, night],
+    ['shield', '🛡️', SL('연속 기록 지키기', 'Streak saver'), `${SL('햇살', 'Sun')} ${PRICE.shield} · ${SL(`하루를 놓친 다음 날 · 이번 달 ${shieldsLeft()}번 남음`, `the day after a miss · ${shieldsLeft()} left this month`)}`, false],
+  ];
+  $('sunUses').innerHTML = uses.map(([id, ic, t, d, on]) => `<button class="use-row${on ? '' : ' off'}" data-use="${id}"><i>${ic}</i><span><b>${t}</b><small>${d}</small></span><em>›</em></button>`).join('');
+  $('sunRules').innerHTML = ([
+    [SL('진짜 해돋이(LIVE) 보기', 'Watch the LIVE sunrise'), SL('하루 한 번, 실제 일출 시각에', 'once a day'), EARN.live],
+    [SL('5분마다 뜨는 해 보기', 'Watch a 5-minute sunrise'), SL(`하루 최대 ${EARN.cycleMax}번까지`, `up to ${EARN.cycleMax} a day`), EARN.cycle],
+    [SL('금빛 해돋이에 함께하기', 'Join a golden sunrise'), SL('응원 버튼을 한 번이라도 누르면', 'cheer at least once'), EARN.golden],
+    [SL('3일 연속', '3-day streak'), SL('연속 기록 보너스', 'streak bonus'), EARN.streak3],
+    [SL('7일 연속', '7-day streak'), SL('연속 기록 보너스', 'streak bonus'), EARN.streak7],
+  ] as [string, string, number][]).map(([a, b, p]) => `<div class="rule"><span><b>${a}</b><small>${b}</small></span><em>+${p}</em></div>`).join('');
+  const log = store.sunLog ?? [];
+  $('sunLogList').innerHTML = log.length
+    ? log.slice(0, 12).map(l => `<div class="lg-row"><small>${l.d.slice(5).replace('-', '.')}</small><span>${reasonOf(l.t)}</span><em class="${l.p > 0 ? 'plus' : ''}">${l.p > 0 ? '+' : ''}${l.p}</em></div>`).join('')
+    : `<p class="empty">${SL('아직 내역이 없어요. 해를 보면 햇살이 쌓여요.', 'Nothing yet. Watch a sunrise to earn sunlight.')}</p>`;
+}
+const SUN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
+$('sunChip').onclick = () => { calMonth = new Date(); calMonth.setDate(1); renderSunSheet(); open('sunSheet'); track('sun_open', { sun: sunTotal() }); };
+$('calPrev').onclick = () => { calMonth.setMonth(calMonth.getMonth() - 1); renderSunSheet(); };
+$('calNext').onclick = () => { calMonth.setMonth(calMonth.getMonth() + 1); renderSunSheet(); };
+$('sunUses').addEventListener('click', e => {
+  const b = (e.target as HTMLElement).closest('[data-use]') as HTMLElement | null; if (!b) return;
+  const u = b.dataset.use;
+  if (u === 'wear') { close(); openWardrobe(); return; }
+  if (u === 'lantern') { close(); openLanternShop(); return; }
+  if (u === 'shield') { toast(SL('하루를 놓친 다음 날 들어오면 자동으로 물어봐요', "We'll offer it the day after you miss a sunrise")); return; }
+  if (!isNight()) { toast(SL('밤에만 할 수 있어요 🌙', 'Only at night 🌙')); return; }
+  close();
+  if (u === 'jwibul') toggleJwibul(); else if (u === 'star') shootStar(); else if (u === 'fire') shootFire();
+});
+
+// ---------- 밤 ----------
+/** 밤: 해가 지평선 4° 아래 + 해 뜨기 1분 전부터는 쉼 (해돋이를 가리지 않게) */
+function isNight() {
+  if (lastAltForBanner > -4 || lastAltForBanner < -89) return false;
+  if (cycling()) return cycleToSunrise() > 60000;
+  const sr = sunriseInfo(place, Date.now()).next;
+  return !sr || sr - Date.now() > 60000;
+}
+let jwOn = false, jwSpeed = 7;
+function setJwibul(on: boolean) {
+  jwOn = on;
+  const col = store.fireColor ?? 0;
+  const mask = (outfitOf(me) & ~(JWIBUL | (3 << 14))) | (on ? JWIBUL | (col << 14) : 0);
+  setOutfit(me, mask);
+  if (connected) net.emit('outfit', mask);
+  $('jwibulBtn').classList.toggle('on', on);
+}
+function toggleJwibul() {
+  if (!jwOn && !isNight()) { toast(SL('밤에만 할 수 있어요 🌙', 'Only at night 🌙')); return; }
+  if (!jwOn && mySeat !== null) standUp();
+  setJwibul(!jwOn);
+  if (jwOn) { jwSpeed = 7; toast(SL('화면에 손가락으로 동그라미를 그리면 더 빨리 돌아요', 'Draw circles on the screen to spin faster')); track('jwibul', { place: place.id }); }
+}
+$('jwibulBtn').onclick = toggleJwibul;
+function shootStar() {
+  if (!spend('star', PRICE.star)) { toast(SL(`햇살 ${PRICE.star}이 필요해요`, `Needs ${PRICE.star} sunlight`)); return; }
+  sky.force();
+  if (connected) net.emit('sky', 'star', 0, 0);
+  track('night_star', { place: place.id });
+}
+function shootFire() {
+  if (!spend('fire', PRICE.fire)) { toast(SL(`햇살 ${PRICE.fire}이 필요해요`, `Needs ${PRICE.fire} sunlight`)); return; }
+  const x = me.root.position.x + (Math.random() - 0.5) * 30, c = Math.floor(Math.random() * FIRE_COLORS.length);
+  nightFx.firework(x, c, ORIGIN);
+  if (connected) net.emit('sky', 'fire', x, c);
+  track('night_fire', { place: place.id });
+}
+const ORIGIN = new THREE.Vector3();
+$('starBtn').onclick = shootStar;
+$('fireBtn').onclick = shootFire;
+net.on('sky', (id, kind, x, c) => {
+  if (kind === 'star') sky.force(); else nightFx.firework(x, c, ORIGIN);
+  const r = remotes.get(id);
+  if (r) ticker(kind === 'star' ? SL(`${localizeNick(r.info.nick)}님이 별똥별을 띄웠어요`, `${localizeNick(r.info.nick)} sent a shooting star`) : SL(`${localizeNick(r.info.nick)}님이 불꽃을 쐈어요`, `${localizeNick(r.info.nick)} set off a firework`));
+});
+// 쥐불놀이 중엔 화면 드래그가 카메라 대신 깡통을 돌림: 내 캐릭터 둘레로 원을 그릴수록 빨라짐
+let jwPrevAng: number | null = null;
+cvs.addEventListener('pointermove', e => {
+  if (!jwOn || !ptrs.has(e.pointerId)) { jwPrevAng = null; return; }
+  const p = sparkTmp.copy(me.root.position); p.y += 1.2; p.project(camera);
+  const cx = (p.x + 1) / 2 * innerWidth, cy = (1 - p.y) / 2 * innerHeight;
+  const a = Math.atan2(e.clientY - cy, e.clientX - cx);
+  if (jwPrevAng !== null) { let d = a - jwPrevAng; if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; jwSpeed = Math.min(24, jwSpeed + Math.abs(d) * 2.2); }
+  jwPrevAng = a;
+});
+cvs.addEventListener('pointerup', () => { jwPrevAng = null; });
+const canPos = new THREE.Vector3();
+function emitEmbers(c: Char) {
+  const jw = c.inner.getObjectByName('jwibul');
+  if (!jw?.visible) return;
+  const can = jw.getObjectByName('can'); if (!can) return;
+  can.getWorldPosition(canPos);
+  const sp = (c.inner.userData.jwSpeed as number | undefined) ?? 7, col = jwColor(outfitOf(c));
+  nightFx.ember(canPos, col, sp); nightFx.ember(canPos, col, sp);
+}
+function updateNight(dt: number) {
+  const night = isNight(), show = night && !openSheet && !lying && sandK < 0.01;
+  for (const id of ['starBtn', 'fireBtn', 'jwibulBtn']) { const el = $(id); if (el.hidden === show) el.hidden = !show; }
+  if (jwOn && !night) { setJwibul(false); }
+  if (jwOn) { jwSpeed += (7 - jwSpeed) * Math.min(1, dt * 0.35); me.inner.userData.jwSpeed = jwSpeed; }
+  emitEmbers(me);
+  for (const r of remotes.values()) emitEmbers(r.c);
+  nightFx.update(dt);
+  updateSunChip();
+}
+
+// ---------- 풍등 꾸미기 ----------
+let lsPick = { c: store.lantern?.c ?? 0, p: store.lantern?.p ?? 0 };
+const lcPrice = (c: number) => (c === 0 ? 0 : c === 5 ? PRICE.lanternGold : PRICE.lanternColor);
+const lpPrice = (p: number) => (p === 0 ? 0 : PRICE.lanternPattern);
+const COLOR_NAMES: [string, string][] = [['기본 주황', 'Orange'], ['벚꽃 분홍', 'Pink'], ['하늘 파랑', 'Sky blue'], ['라벤더', 'Lavender'], ['청록', 'Teal'], ['금빛', 'Gold']];
+const PAT_NAMES: [string, string][] = [['없음', 'None'], ['별', 'Stars'], ['꽃', 'Flowers'], ['복(福)', 'Luck (福)']];
+function renderLanternShop() {
+  const cOwn = (c: number) => c === 0 || owns(`lc:${c}`), pOwn = (p: number) => p === 0 || owns(`lp:${p}`);
+  $('lsLantern').style.background = LANTERN_COLORS[lsPick.c];
+  $('lsMarks').textContent = LANTERN_PATTERNS[lsPick.p] ? (LANTERN_PATTERNS[lsPick.p] + ' ').repeat(9) : '';
+  $('lsColors').innerHTML = LANTERN_COLORS.map((hex, i) => `<button class="ls-c${lsPick.c === i ? ' on' : ''}" data-c="${i}" aria-label="${SL(COLOR_NAMES[i][0], COLOR_NAMES[i][1])}"><i style="background:${hex}"></i><small class="${cOwn(i) ? '' : 'price'}">${cOwn(i) ? SL('보유', 'Owned') : lcPrice(i)}</small></button>`).join('');
+  $('lsPats').innerHTML = LANTERN_PATTERNS.map((m, i) => `<button class="tile${lsPick.p === i ? ' trying' : ''}" data-p="${i}" aria-pressed="${lsPick.p === i}"><i>${m || '–'}</i><span>${SL(PAT_NAMES[i][0], PAT_NAMES[i][1])}</span><small class="${pOwn(i) ? '' : 'price'}">${pOwn(i) ? SL('보유', 'Owned') : `${SL('햇살', 'Sun')} ${lpPrice(i)}`}</small></button>`).join('');
+  const need = (cOwn(lsPick.c) ? 0 : lcPrice(lsPick.c)) + (pOwn(lsPick.p) ? 0 : lpPrice(lsPick.p));
+  const same = lsPick.c === (store.lantern?.c ?? 0) && lsPick.p === (store.lantern?.p ?? 0);
+  $('lsBuy').hidden = same && !need;
+  $('lsBuyText').innerHTML = `<b>${SL(COLOR_NAMES[lsPick.c][0], COLOR_NAMES[lsPick.c][1])} · ${SL(PAT_NAMES[lsPick.p][0], PAT_NAMES[lsPick.p][1])}</b><small>${need ? SL(`내 햇살 ${sunTotal()}`, `You have ${sunTotal()}`) : SL('앞으로 올리는 풍등이 모두 이 모양', 'All your lanterns will look like this')}</small>`;
+  const btn = $('lsBuyBtn') as HTMLButtonElement;
+  btn.textContent = need ? `${SL('햇살', 'Sun')} ${need} ${SL('사기', 'Buy')}` : SL('이걸로 할게요', 'Use this');
+  btn.disabled = need > sunTotal();
+}
+function openLanternShop() { lsPick = { c: store.lantern?.c ?? 0, p: store.lantern?.p ?? 0 }; renderLanternShop(); open('lanternShop'); track('lantern_shop_open'); }
+$('lsColors').addEventListener('click', e => { const b = (e.target as HTMLElement).closest('[data-c]') as HTMLElement | null; if (b) { lsPick.c = +b.dataset.c!; renderLanternShop(); } });
+$('lsPats').addEventListener('click', e => { const b = (e.target as HTMLElement).closest('[data-p]') as HTMLElement | null; if (b) { lsPick.p = +b.dataset.p!; renderLanternShop(); } });
+$('lsBuyBtn').onclick = () => {
+  const { c, p } = lsPick;
+  if (c && !owns(`lc:${c}`) && !buy(`lc:${c}`, lcPrice(c))) { toast(SL('햇살이 모자라요', 'Not enough sunlight')); return; }
+  if (p && !owns(`lp:${p}`) && !buy(`lp:${p}`, lpPrice(p))) { toast(SL('햇살이 모자라요', 'Not enough sunlight')); renderLanternShop(); return; }
+  store.lantern = { c, p }; save(); renderLanternShop();
+  toast(SL('다음 풍등부터 이 모양으로 올라가요 🏮', 'Your next lantern will look like this 🏮'));
+  track('lantern_style', { c, p });
+};
+
+// ---------- 연속 기록 지키기 ----------
+setTimeout(() => {
+  const n = shieldOffer(); if (!n) return;
+  markShieldAsked();
+  $('shText').innerHTML = SL(`연속 기록이 <b>${n}일</b>에서 끊기려고 해요.<br>어제 칸을 햇살로 지킬까요?`, `Your <b>${n}-day</b> streak is about to break.<br>Use sunlight to save yesterday?`);
+  $('shYes').textContent = `${SL('햇살', 'Sun')} ${PRICE.shield}${SL('으로 지키기', ' — save it')}`;
+  ($('shYes') as HTMLButtonElement).disabled = sunTotal() < PRICE.shield;
+  $('shLeft').textContent = sunTotal() < PRICE.shield ? SL(`햇살이 ${PRICE.shield - sunTotal()} 모자라요`, `${PRICE.shield - sunTotal()} more sunlight needed`) : SL(`한 달에 2번까지 · 이번 달 ${shieldsLeft()}번 남음`, `Twice a month · ${shieldsLeft()} left`);
+  open('shieldSheet'); track('shield_offer', { streak: n });
+}, 4500);
+$('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
+$('shNo').onclick = () => close();
 
 Object.assign(window, { __hae: { ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

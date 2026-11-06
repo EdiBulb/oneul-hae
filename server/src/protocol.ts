@@ -111,7 +111,9 @@ export interface ServerToClient {
   sandRemove: (id: string) => void;
   castle: (c: Castle) => void;
   /** text: 쓴 사람이 공개를 고르고, 서버 필터를 통과한 소원만. 없으면 불빛만 */
-  lantern: (id: string, x: number, z: number, text?: string) => void;
+  lantern: (id: string, x: number, z: number, text?: string, style?: number) => void;
+  /** 밤 하늘 연출: star 별똥별, fire 불꽃 (x: 해변 가로 위치, c: 색 번호) */
+  sky: (id: string, kind: 'star' | 'fire', x: number, c: number) => void;
   seat: (idx: number, id: string | null) => void;
   stats: (s: Stats) => void;
 }
@@ -123,7 +125,8 @@ export interface ClientToServer {
   cheer: (key: string) => void;
   skip: (n: number) => void;
   /** 소원 문구는 고른 소원이거나, 직접 쓴 소원 중 "다른 사람에게도 보여주기"를 체크한 것만 보낸다 */
-  lantern: (x: number, z: number, text?: string) => void;
+  lantern: (x: number, z: number, text?: string, style?: number) => void;
+  sky: (kind: 'star' | 'fire', x: number, c: number) => void;
   sit: (idx: number, ack: (ok: boolean) => void) => void;
   stand: () => void;
   blanket: (on: boolean) => void;
