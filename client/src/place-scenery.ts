@@ -218,12 +218,50 @@ function seopjikoji(scene: THREE.Scene, GLOW: THREE.Texture) {
   };
 }
 
+
+/** 한국 소나무 실루엣: 휘어진 줄기 + 납작한 솔잎 덩어리 층. 해돋이 땐 거의 검게 보여 화면 테두리가 된다 */
+function koreanPine(h: number, lean: number, seed: number) {
+  const g = new THREE.Group();
+  const bark = new THREE.MeshLambertMaterial({ color: 0x1a1512 }), leaf = new THREE.MeshLambertMaterial({ color: 0x18201a, flatShading: true });
+  const rnd = (i: number) => { const x = Math.sin(seed * 91.7 + i * 12.9898) * 43758.5453; return x - Math.floor(x); };
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i <= 6; i++) { const k = i / 6; pts.push(new THREE.Vector3(Math.sin(k * 2.2 + seed) * 0.5 + lean * k * k * h * 0.35, k * h, Math.cos(k * 1.7 + seed) * 0.3)); }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 16, h * 0.035, 6), bark));
+  const pad = new THREE.SphereGeometry(1, 9, 5);
+  const n = 6 + Math.floor(rnd(0) * 3);
+  for (let i = 0; i < n; i++) {
+    const k = 0.5 + 0.5 * (i / (n - 1)), base = curve.getPoint(k);
+    const ang = rnd(i + 1) * Math.PI * 2, reach = (1 - k * 0.6) * h * (0.28 + rnd(i + 7) * 0.2);
+    const end = base.clone().add(new THREE.Vector3(Math.cos(ang) * reach, h * 0.05, Math.sin(ang) * reach * 0.6));
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(h * 0.012, h * 0.02, base.distanceTo(end), 5), bark);
+    br.position.copy(base).lerp(end, 0.5); br.lookAt(end); br.rotateX(Math.PI / 2); g.add(br);
+    const m = new THREE.Mesh(pad, leaf), w = h * (0.17 + rnd(i + 3) * 0.1);
+    m.scale.set(w, w * 0.32, w * 0.8); m.position.copy(end); m.rotation.y = ang; g.add(m);
+    const m2 = new THREE.Mesh(pad, leaf); m2.scale.set(w * 0.7, w * 0.26, w * 0.6); m2.position.copy(end).add(new THREE.Vector3(0, w * 0.28, 0)); g.add(m2);
+  }
+  const top = new THREE.Mesh(pad, leaf), tw = h * 0.24; top.scale.set(tw, tw * 0.33, tw * 0.8); top.position.copy(curve.getPoint(1)); g.add(top);
+  return g;
+}
+
+/** 바닷가 장소 양옆을 소나무로 액자처럼 */
+function pineFrame(scene: THREE.Scene) {
+  const group = new THREE.Group();
+  const spots: [number, number, number, number][] = [ // x, z, 높이, 기울기(+면 오른쪽으로) — 화면 양옆 위에서 가지가 해를 감싸도록
+    [-11, -1.8, 8.5, 0.25], [-14, 1.5, 7, -0.2], [-18, 5, 9, 0.1],
+    [11.5, -1.5, 9, -0.25], [15, 2.5, 7.5, 0.2],
+  ];
+  spots.forEach(([x, z, h, l], i) => { const t = koreanPine(h, l, i + 1); t.position.set(x, 0, z); group.add(t); });
+  scene.add(group); return group;
+}
+
 export function createPlaceScenery(scene: THREE.Scene, GLOW: THREE.Texture) {
-  const bus = busStop(scene), han = hangang(scene, GLOW), peak = createMountain(scene, 'jirisan'), halla = createMountain(scene, 'hallasan'), seop = seopjikoji(scene, GLOW);
+  const bus = busStop(scene), han = hangang(scene, GLOW), peak = createMountain(scene, 'jirisan'), halla = createMountain(scene, 'hallasan'), seop = seopjikoji(scene, GLOW), pines = pineFrame(scene);
+  const PINES: PlaceId[] = ['jeongdongjin', 'homigot', 'seongsan', 'seopjikoji', 'jumunjin'];
   let id: PlaceId = 'jeongdongjin';
   return {
     setPlace(p: PlaceId) {
-      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang'; peak.group.visible = p === 'jirisan'; halla.group.visible = p === 'hallasan'; seop.group.visible = p === 'seopjikoji';
+      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang'; peak.group.visible = p === 'jirisan'; halla.group.visible = p === 'hallasan'; seop.group.visible = p === 'seopjikoji'; pines.visible = PINES.includes(p);
     },
     cook: () => han.cook(),
     update(dt: number, t: number, night: number, low: THREE.Color) {

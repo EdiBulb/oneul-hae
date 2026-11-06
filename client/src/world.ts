@@ -9,15 +9,15 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 /** 해 고도별 하늘색 (위, 중간, 지평선) */
 const C = (r: number, g: number, b: number) => new THREE.Color(r / 255, g / 255, b / 255);
 const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
-  // 참고: 실제 일출 사진 4장에서 뽑은 색 — 위는 맑은 파랑, 중간은 분홍·보라, 수평선은 진한 주황·다홍
+  // 참고: 실제 일출 사진 — 주황·다홍 하늘 + 검은 실루엣. 해 뜰 무렵엔 위로 갈수록 짙은 적갈색
   [-18, C(4, 6, 26), C(9, 13, 42), C(17, 22, 58)],
-  [-10, C(10, 16, 51), C(30, 34, 88), C(70, 48, 100)],
-  [-5, C(20, 40, 105), C(112, 66, 128), C(232, 92, 58)],
-  [-1.5, C(28, 72, 166), C(206, 104, 122), C(255, 104, 28)],
-  [1.5, C(36, 104, 204), C(240, 150, 112), C(255, 132, 36)],
-  [5, C(58, 126, 212), C(248, 188, 140), C(255, 196, 112)],
+  [-10, C(10, 14, 44), C(34, 30, 70), C(80, 44, 70)],
+  [-5, C(34, 26, 56), C(130, 56, 52), C(226, 92, 40)],
+  [-1.5, C(78, 36, 40), C(196, 78, 30), C(255, 122, 30)],
+  [1.5, C(104, 48, 38), C(222, 100, 30), C(255, 150, 46)],
+  [5, C(96, 96, 132), C(236, 156, 92), C(255, 198, 118)],
   [12, C(90, 152, 210), C(152, 196, 232), C(230, 240, 246)],
-]
+];
 
 /** 앉을 자리. 방석·데크는 바다(ry 0)를, 통나무는 모닥불을 바라본다.
  *  bench(통나무·데크 끝)면 y가 엉덩이 높이, sx·sz는 일어날 때 내려설 자리 */
@@ -66,12 +66,11 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
         vec3 c = mix(low, mid, smoothstep(0.0, 0.12, h));
         c = mix(c, top, smoothstep(0.12, 0.5, h));
         if(h < 0.0) c = low;
-        // 해 쪽 수평선은 주황 띠가 옆으로 길게 번지고, 반대쪽은 보랏빛으로 식는다 (사진처럼)
+        // 해 쪽 수평선은 주황 띠가 옆으로 길게 번지고, 반대쪽은 짙은 적갈색으로 가라앉는다
         vec2 dh = normalize(d.xz + 1e-5), sh = normalize(sunDir.xz + 1e-5);
         float side = pow(dot(dh, sh) * 0.5 + 0.5, 3.0), hh = max(h, 0.0);
-        c += vec3(1.0, 0.36, 0.06) * exp(-hh * 11.0) * side * 0.55 * dawn;
-        c += vec3(0.95, 0.35, 0.45) * exp(-hh * 4.0) * side * (1.0 - exp(-hh * 11.0)) * 0.18 * dawn;
-        c = mix(c, c * vec3(0.72, 0.7, 1.05), (1.0 - side) * dawn * 0.45 * (1.0 - smoothstep(0.0, 0.35, hh)));
+        c += vec3(1.0, 0.42, 0.08) * exp(-hh * 10.0) * side * 0.5 * dawn;
+        c *= mix(1.0, 0.55, (1.0 - side) * dawn);
         float s = max(dot(d, sunDir), 0.0);
         c += vec3(1.0, 0.5, 0.18) * pow(s, 5.0) * (0.3 + 0.25 * dawn) * glow;
         c += vec3(1.0, 0.78, 0.45) * pow(s, 60.0) * (0.4 + 0.3 * dawn) * glow;
@@ -138,7 +137,8 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
         float sp = 0.5 + 0.5 * sin(vW.x * 6.0 + time * 3.1) * sin(vW.z * 9.0 - time * 2.4 + n.x * 30.0);
         c += mix(sunCol, vec3(1.0, 0.85, 0.5), 0.35) * road * (0.25 + 1.6 * sp * sp) * sunUp * (0.55 + 0.9 * dawn);
         // 동틀 녘엔 바다도 하늘의 주황·분홍을 비춘다
-        c = mix(c, skyLow * 0.75, dawn * 0.28 * (1.0 - road));
+        // 동틀 녘 바다는 거의 검정 + 하늘 주황이 비스듬히 살짝 비침 (금빛 길만 밝게)
+        c = mix(c, mix(vec3(0.035, 0.02, 0.02), skyLow * 0.45, fres * 0.8), dawn * 0.8 * (1.0 - road));
         c = mix(c, fogCol, smoothstep(120.0, 1100.0, length(vW - cameraPosition)) * mix(1.0, 0.7, day));
         gl_FragColor = vec4(c, 1.0);
       }`,
@@ -251,7 +251,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
 
     const warm = clamp(alt / 12, 0, 1);
     sunCol.setRGB(1, 0.5 + 0.46 * warm, 0.16 + 0.76 * warm);
-    (sunMesh.material as THREE.MeshBasicMaterial).color.copy(sunCol);
+    (sunMesh.material as THREE.MeshBasicMaterial).color.copy(sunCol).lerp(tmp.setRGB(1, 0.95, 0.75), 0.6);
     sunMesh.position.copy(camera.position).addScaledVector(sunDir, 850);
     sunMesh.visible = alt > -3;
     sunGlow.position.copy(sunMesh.position);
@@ -282,10 +282,10 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     hemi.color.copy(mid).multiplyScalar(0.6).add(tmp.setRGB(0.24, 0.26, 0.4));
     // 해가 낮게 떠 있을 땐 역광: 주변광을 줄여 앞쪽 바위·사람이 실루엣처럼 어둡게 → 해가 더 빛남
     const backlit = clamp(1 - Math.abs(alt - 1.5) / 7, 0, 1);
-    hemi.intensity = (0.75 + 0.3 * dayK) * (1 - 0.45 * backlit) * Math.PI;
+    hemi.intensity = (0.75 + 0.3 * dayK) * (1 - 0.45 * backlit) * (1 - 0.7 * dawn) * Math.PI;
     moon.intensity = 0.4 * (1 - dayK) * Math.PI;
     sunLight.color.copy(sunCol);
-    sunLight.intensity = clamp((alt + 2) / 8, 0, 1) * 0.95 * Math.PI;
+    sunLight.intensity = clamp((alt + 2) / 8, 0, 1) * 0.95 * (1 - 0.5 * dawn) * Math.PI;
     sunLight.position.copy(sunDir).multiplyScalar(50);
     return alt;
   }
