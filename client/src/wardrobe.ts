@@ -34,8 +34,10 @@ export const ITEMS: Item[] = [
 
 export const SLOT_NAME: Record<WearSlot, [string, string]> = { outer: ['겉옷', 'Outerwear'], hat: ['모자', 'Hat'], scarf: ['목도리', 'Scarf'], hand: ['손', 'In hand'] };
 
+/** 지금은 모든 옷을 바로 입을 수 있게 (조건은 남겨 둠 — true를 false로 바꾸면 다시 잠김) */
+const ALL_OPEN = true;
 export function unlocked(it: Item) {
-  const n = it.need; if (!n) return true;
+  const n = it.need; if (!n || ALL_OPEN) return true;
   const days = Object.keys(store.days).length;
   if (n.kind === 'days') return days >= n.n;
   if (n.kind === 'streak') return streakCount() >= n.n;

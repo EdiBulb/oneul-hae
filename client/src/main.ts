@@ -1750,6 +1750,7 @@ $('yahoBtn').onclick = () => {
 // 해 뜨기 전 잠깐 '해야 솟아라!'로 응원. 한 사람 10번까지. 게이지가 차면 금빛 해돋이 (못 채워도 해는 그냥 뜸).
 // 지금은 혼자서도 금빛 해돋이가 되도록 목표 16 (내 응원 10 + 가짜 사용자 8). 여럿이 모여야 되게 하려면 30으로
 const CHEER_GOAL = 16, CHEER_MAX = 10, BOT_CHEER = 8;
+const GOLD_TOTAL = 48;
 let cheer = { key: '', total: 0, people: 0 }, myCheers: Record<string, number> = {}, cheerHinted = '', goldT = 0, lastBotSpark = 0;
 /** 지금이 응원 시간이면 이번 해돋이의 이름(key)과 진행률(0~1), 아니면 null */
 function cheerWindow(): { key: string; k: number } | null {
@@ -1783,7 +1784,13 @@ function spark(from: THREE.Vector3) {
 }
 function updateCheer(t: number, dt: number) {
   // 금빛 해돋이 여운: 40초에 걸쳐 천천히 원래 하늘로
-  if (goldT > 0) { goldT = Math.max(0, goldT - dt); world.setGolden(Math.min(1, goldT / 12)); }
+  // 금빛 해돋이: 해가 올라오는 동안 8초에 걸쳐 천천히 물들고(ease-in-out), 끝날 땐 12초에 걸쳐 서서히 원래 하늘로
+  if (goldT > 0) {
+    goldT = Math.max(0, goldT - dt);
+    const inK = clamp((GOLD_TOTAL - goldT) / 8, 0, 1), outK = Math.min(1, goldT / 12);
+    const ease = (x: number) => x * x * (3 - 2 * x);
+    world.setGolden(ease(inK) * ease(outK));
+  }
   const w = cheerWindow(), b = $('cheerBtn'), g = $('gauge');
   const show = !!w && !openSheet && !lying;
   if (b.hidden === show) b.hidden = !show;
@@ -1823,12 +1830,14 @@ function sunRoseNow() {
   if (key) {
     const k = Math.min(1, ((cheer.key === key ? cheer.total : 0) + BOT_CHEER) / CHEER_GOAL);
     if (k >= 1) {
-      goldT = 40; world.setGolden(1);
-      if (!store.golden) { store.golden = true; save(); setTimeout(() => toast(lang === 'ko' ? '🎁 보온병이 옷장에 생겼어요' : '🎁 Thermos unlocked in your wardrobe'), 8000); }
+      goldT = GOLD_TOTAL;
+      if (!store.golden) { store.golden = true; save(); }
       const n = cheer.key === key ? cheer.people : 1;
-      $('goldenText').textContent = T.golden(n); $('goldenCard').hidden = false;
-      setTimeout(() => { $('goldenCard').hidden = true; }, 7000);
-      for (let i = 0; i < 14; i++) setTimeout(() => spark(me.root.position), i * 90);
+      $('goldenText').textContent = T.golden(n);
+      // 하늘이 어느 정도 물든 뒤에 카드가 뜨게 (갑자기 튀지 않게)
+      setTimeout(() => { $('goldenCard').hidden = false; }, 3500);
+      setTimeout(() => { $('goldenCard').hidden = true; }, 10500);
+      for (let i = 0; i < 14; i++) setTimeout(() => spark(me.root.position), 600 + i * 260);
       track('golden_sunrise', { place: place.id, people: n });
     } else if ((myCheers[key] ?? 0) > 0) setTimeout(() => toast(T.notGolden(Math.round(k * 100))), 2500);
   }
