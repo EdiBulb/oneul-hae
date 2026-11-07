@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { stable } from './stable-tex';
 import type { PlaceId } from '../../server/src/protocol';
 import type { Place } from './places';
 import { sunPos } from './sun';
@@ -31,7 +32,7 @@ export function glowTexture() {
   const g = c.getContext('2d')!, gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
-  return new THREE.CanvasTexture(c);
+  return stable(new THREE.CanvasTexture(c));
 }
 
 export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, GLOW: THREE.Texture) {
@@ -68,13 +69,14 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
         if(h < 0.0) c = low;
         // 해 쪽 수평선은 주황 띠가 옆으로 길게 번지고, 반대쪽은 짙은 적갈색으로 가라앉는다
         vec2 dh = normalize(d.xz + 1e-5), sh = normalize(sunDir.xz + 1e-5);
-        float side = pow(dot(dh, sh) * 0.5 + 0.5, 3.0), hh = max(h, 0.0);
+        float side = pow(clamp(dot(dh, sh) * 0.5 + 0.5, 0.0, 1.0), 3.0), hh = max(h, 0.0);
         c += vec3(1.0, 0.42, 0.08) * exp(-hh * 10.0) * side * 0.5 * dawn;
         c *= mix(1.0, 0.55, (1.0 - side) * dawn);
         float s = max(dot(d, sunDir), 0.0);
         c += vec3(1.0, 0.5, 0.18) * pow(s, 5.0) * (0.3 + 0.25 * dawn) * glow;
         c += vec3(1.0, 0.78, 0.45) * pow(s, 60.0) * (0.4 + 0.3 * dawn) * glow;
-        c += vec3(step(0.9965, hash(floor(d * 520.0))) * stars * smoothstep(0.03, 0.25, h));
+        // 별은 밤에만 계산 (낮에 0을 곱해도 정밀도가 낮은 기기에선 계산이 넘쳐 잡티가 될 수 있음)
+        if (stars > 0.001) c += vec3(step(0.9965, hash(floor(d * 520.0))) * stars * smoothstep(0.03, 0.25, h));
         gl_FragColor = vec4(c, 1.0);
       }`,
   }));
@@ -98,7 +100,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
       gr.addColorStop(0, 'rgba(255,250,230,0.9)'); gr.addColorStop(1, 'rgba(255,240,200,0)');
       g.fillStyle = gr; g.beginPath(); g.moveTo(0, -3); g.lineTo(len, -9 - (i % 2) * 6); g.lineTo(len, 9 + (i % 2) * 6); g.lineTo(0, 3); g.fill();
     }
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: stable(new THREE.CanvasTexture(c)), blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
     s.renderOrder = 5; scene.add(s); return s;
   })();
 

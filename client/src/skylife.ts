@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { stable } from './stable-tex';
 
 // 하늘의 작은 움직임: 밤엔 별똥별, 낮엔 천천히 흘러가는 구름.
 
@@ -14,7 +15,7 @@ function cloudTexture() {
     gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
   }
-  return new THREE.CanvasTexture(c);
+  return stable(new THREE.CanvasTexture(c));
 }
 
 export function createSkyLife(scene: THREE.Scene, GLOW: THREE.Texture) {

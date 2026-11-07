@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { stable } from './stable-tex';
 import type { PlaceId } from '../../server/src/protocol';
 import { groundY } from './world';
 import { insideSandBoard } from './sand-board';
@@ -176,7 +177,7 @@ function plankTexture() {
     g.fillStyle = `rgba(0,0,0,${0.05 + Math.random() * 0.08})`; g.fillRect(0, y, 64, 30);
     g.fillStyle = 'rgba(40,24,12,.6)'; g.fillRect(0, y + 30, 64, 2);
   }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  const t = stable(new THREE.CanvasTexture(c)); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 
 export function createPier(scene: THREE.Scene, GLOW: THREE.Texture) {

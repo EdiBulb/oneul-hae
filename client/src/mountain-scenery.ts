@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { stable } from './stable-tex';
 import { textSprite } from './character';
 import { CRATER, SUMMIT, mountainY as mY } from './beach-extras';
 
@@ -31,7 +32,7 @@ function stoneFace(chars: string[], height: string) {
   g.fillStyle = '#f4efe2'; g.textAlign = 'center'; g.font = '900 64px "Noto Sans KR", sans-serif';
   chars.forEach((ch, i) => g.fillText(ch, 128, 80 + i * (396 / chars.length)));
   g.font = '800 34px "Noto Sans KR", sans-serif'; g.fillText(height, 128, 486);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  const t = stable(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
 /** 나무 안내판 */
@@ -43,7 +44,7 @@ function trailSign(name: string) {
   g.fillStyle = '#fff6e0'; g.textAlign = 'center';
   g.font = '900 64px "Noto Sans KR", sans-serif'; g.fillText(`↑ ${name} 정상`, 256, 92);
   g.font = '700 38px "Noto Sans KR", sans-serif'; g.fillText('Summit · 50 m', 256, 156);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  const t = stable(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
 /** 산마다 다른 점: 땅 색, 나무, 표지석 글자, 먼 능선 (한라산은 섬이라 사방이 운해) */
@@ -147,7 +148,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId = 'jirisan') {
       gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.7, 'rgba(235,238,245,0.7)'); gr.addColorStop(1, 'rgba(220,225,235,0)');
       x.fillStyle = gr; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill();
     }
-    return new THREE.CanvasTexture(cv);
+    return stable(new THREE.CanvasTexture(cv));
   })();
   const puffs: THREE.Sprite[] = [];
   for (let i = 0; i < 150; i++) {

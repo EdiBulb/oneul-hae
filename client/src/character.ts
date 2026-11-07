@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { stable } from './stable-tex';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export type CharState = 'idle' | 'walk' | 'sit' | 'lie';
@@ -279,7 +280,7 @@ function plaid() {
   g.fillStyle = '#b8322c'; g.fillRect(0, 0, 64, 64);
   g.fillStyle = 'rgba(30,30,50,.55)'; for (const x of [8, 40]) { g.fillRect(x, 0, 12, 64); g.fillRect(0, x, 64, 12); }
   g.fillStyle = 'rgba(255,230,180,.6)'; for (const x of [28, 60]) { g.fillRect(x, 0, 2, 64); g.fillRect(0, x, 64, 2); }
-  plaidTex = new THREE.CanvasTexture(c); plaidTex.wrapS = plaidTex.wrapT = THREE.RepeatWrapping; plaidTex.repeat.set(3, 1);
+  plaidTex = stable(new THREE.CanvasTexture(c)); plaidTex.wrapS = plaidTex.wrapT = THREE.RepeatWrapping; plaidTex.repeat.set(3, 1);
   return plaidTex;
 }
 

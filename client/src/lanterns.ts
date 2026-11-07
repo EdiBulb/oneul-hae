@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { stable } from './stable-tex';
 import { textSprite } from './character';
 
 interface Lantern { g: THREE.Group; vy: number; vz: number; sway: number; age: number }
@@ -19,7 +20,7 @@ function lanternTex(style: number) {
     g.fillStyle = 'rgba(255,255,255,.8)'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     for (let i = 0; i < 4; i++) { g.fillText(mark, 16 + i * 32, 22); g.fillText(mark, 32 + i * 32, 46); }
   }
-  t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; texCache.set(style, t);
+  t = stable(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace; texCache.set(style, t);
   return t;
 }
 

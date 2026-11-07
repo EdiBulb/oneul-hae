@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { stable } from './stable-tex';
 import type { PlaceId } from '../../server/src/protocol';
 import { BUS_STOP, RAMEN_MACHINE, STORE } from './beach-extras';
 import { textSprite } from './character';
@@ -78,7 +79,7 @@ function windowTexture() {
   for (let y = 4; y < 128; y += 8) for (let x = 4; x < 64; x += 8) {
     if (Math.random() < 0.55) { g.fillStyle = Math.random() < 0.8 ? '#ffd99a' : '#cfe6ff'; g.fillRect(x, y, 4, 4); }
   }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  const t = stable(new THREE.CanvasTexture(c)); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 
 function hangang(scene: THREE.Scene, GLOW: THREE.Texture) {

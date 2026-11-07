@@ -1477,6 +1477,18 @@ addEventListener('popstate', () => {
 // ================= 분석 =================
 initAnalytics(store.uid);
 setTimeout(inAppHint, 1200);
+// 기기별 화면 문제를 찾기 위해: 그래픽 칩 이름·정밀도·화면 배율을 한 번 기록
+setTimeout(() => {
+  try {
+    const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const hp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+    track('gl_info', {
+      gpu: ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : String(gl.getParameter(gl.RENDERER)),
+      highp: !!hp && hp.precision > 0, dpr: window.devicePixelRatio, w: innerWidth, h: innerHeight,
+      inapp: /Barcelona|Threads|Instagram|KAKAOTALK|FBAN|FBAV/i.test(navigator.userAgent),
+    });
+  } catch { /* 무시 */ }
+}, 3000);
 track('session_start', {
   place: place.id,
   lang,
