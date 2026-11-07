@@ -165,6 +165,25 @@ function stats(): Stats {
 // ---------- 서버 ----------
 const http = createServer(async (req, res) => {
   if (req.url === '/health') { res.writeHead(200).end('ok'); return; }
+  // 지금 몇 명 있는지 폰으로 바로 보는 간단한 현황판 (숫자만, 개인 정보 없음)
+  if (req.url === '/stats') {
+    const s = stats(), rows = (Object.keys(s.online) as PlaceId[]).filter(p => s.online[p] || s.today[p]);
+    const sum = (r: Record<PlaceId, number>) => Object.values(r).reduce((a, b) => a + b, 0);
+    const up = Math.round(process.uptime() / 60);
+    const body = [
+      `오늘의 해 현황 (${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} KST)`,
+      ``,
+      `지금 접속: ${sum(s.online)}명`,
+      `오늘 다녀간 사람: ${sum(s.today)}명`,
+      `오늘 알람으로 깬 사람: ${sum(s.woke)}명`,
+      ``,
+      ...rows.map(p => `- ${p}: 지금 ${s.online[p]} · 오늘 ${s.today[p]}`),
+      ``,
+      `※ 서버가 켜진 지 ${up}분. 서버가 잠들었다 깨면(무료 서버) '오늘' 숫자가 0부터 다시 셉니다. 정확한 기록은 PostHog를 보세요.`,
+    ].join('\n');
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }).end(body);
+    return;
+  }
   try { if (await handleReminderHttp(req, res, ORIGINS)) return; } catch (e) { console.error(e); if (!res.headersSent) res.writeHead(500).end(); return; }
   res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end('오늘의 해 실시간 서버');
 });
