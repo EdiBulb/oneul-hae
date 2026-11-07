@@ -40,6 +40,8 @@ export function initAnalytics(uid: string) {
       disable_session_recording: true,
       persistence: 'localStorage',
     });
+    // 같은 PostHog 프로젝트를 Cookable 등 다른 Abracadelulu 앱과 같이 씀 → 모든 이벤트에 app 표시
+    posthog.register({ app: 'oneul-hae' });
     ph = posthog;
     for (const [e, p] of queue.splice(0)) ph.capture(e, p);
   }).catch(() => { /* 분석 실패가 서비스를 막으면 안 됨 */ });
