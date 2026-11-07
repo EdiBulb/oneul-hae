@@ -463,3 +463,11 @@
 .inapp-go{flex:none;background:linear-gradient(180deg,#ffc070,#ff8a3d);color:#2a1404;text-decoration:none;border-radius:999px;padding:8px 12px;font-weight:900;white-space:nowrap}
 .inapp-go[hidden]{display:none}
 .inapp-x{flex:none;font:inherit;background:none;border:none;color:#6b4a32;width:32px;height:32px;font-size:15px}
+/* 해 뜬 뒤 편지 물어보기 */
+.letter-ask{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 190px);transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:10px;background:rgba(20,21,42,.94);border:1px solid rgba(255,192,112,.5);border-radius:18px;padding:10px 8px 10px 16px;font-size:14px;font-weight:700;color:var(--ink);box-shadow:0 12px 30px rgba(0,0,0,.4);white-space:nowrap;animation:askIn .5s ease-out}
+.letter-ask[hidden]{display:none}
+.letter-ask .btn{width:auto;margin:0;padding:9px 16px;font-size:14px}
+.letter-ask-x{font:inherit;background:none;border:none;color:var(--ink-dim);width:32px;height:32px}
+@keyframes askIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+.route-in{margin-top:12px}
+.zbtn[hidden]{display:none}

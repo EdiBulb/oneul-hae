@@ -387,6 +387,20 @@ joy.addEventListener('pointerup', joyEnd); joy.addEventListener('pointercancel',
 function readInput() {
   if (sandOpen) { input.x = input.y = 0; return; } // 게시판을 보는 동안은 제자리
   let { x, y } = joyVec;
+  // '앉을 곳 찾기': 손대지 않는 동안 가장 가까운 빈자리로 걸어가서 앉음
+  const touched = x || y || keys['a'] || keys['d'] || keys['w'] || keys['s'] || keys['arrowleft'] || keys['arrowright'] || keys['arrowup'] || keys['arrowdown'];
+  if (seekSeat !== null) {
+    const s = seats[seekSeat];
+    if (touched || s.occ || mySeat !== null || performance.now() > seekUntil) seekSeat = null;
+    else {
+      const dx = s.x - me.root.position.x, dz = s.z - me.root.position.z, d = Math.hypot(dx, dz);
+      if (d < 1.6) { seekSeat = null; $('sitBtn').click(); }
+      else {
+        const ux = dx / d, uz = dz / d, fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+        x = ux * rx + uz * rz; y = ux * fx + uz * fz;
+      }
+    }
+  }
   if (keys['a'] || keys['arrowleft']) x -= 1;
   if (keys['d'] || keys['arrowright']) x += 1;
   if (keys['w'] || keys['arrowup']) y += 1;
@@ -398,6 +412,7 @@ function readInput() {
 
 // ================= 카메라: 내 캐릭터 주위를 도는 궤도 카메라 =================
 const cam = { yaw: 0, pitch: 0.3, dist: 6.4, tYaw: 0, tPitch: 0.3, tDist: 6.4 };
+let seekSeat: number | null = null, seekUntil = 0;
 const DIST_MIN = 3, DIST_MAX = 46;
 function setView(d: number, pitch?: number, yaw?: number) {
   cam.tDist = clamp(d, DIST_MIN, DIST_MAX);
@@ -492,6 +507,7 @@ function updateCamera(dt: number) {
   meLabel.scale.set(meLabelBase.x * k, meLabelBase.y * k, 1);
   meLabel.position.y = 1.9 + (k - 1) * 0.12;
   meRing.scale.setScalar(Math.min(3, 0.8 + cam.dist / 14));
+  { const far = cam.tDist > 15, ov = $('overview'), rv = $('resetView'); if (ov.hidden !== far) { ov.hidden = far; rv.hidden = !far; } }
   $('viewName').textContent = lying && eyeView ? T.viewMine : cam.tDist > 20 ? T.viewAll : cam.tDist > 9 ? T.view3rd : T.viewMine;
 }
 
@@ -584,6 +600,8 @@ function updateMe(dt: number) {
   bl.textContent = me.blanket.visible ? T.blanketOff : T.blanketOn;
   updateGiveBtn();
   updatePetBtn();
+  // 앉기 버튼은 앉아 있거나 빈자리 가까이 있을 때만 (평소엔 '행동' 안의 '앉을 곳 찾기')
+  { const sbn = $('sitBtn'), show = mySeat !== null || lying || near !== null; if (sbn.hidden === show) sbn.hidden = !show; }
   $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : seats[near].kind === 'rock' ? T.sitRock : T.sitDown) : T.findSeat;
 }
 
@@ -760,7 +778,9 @@ function renderPlaceList() {
     return rows ? `<div class="place-group"><h3>${label()}</h3>${rows}</div>` : '';
   }).join('');
 }
-$('placeBtn').onclick = () => { renderPlaceList(); open('placeSheet'); track('place_picker_opened', { place: place.id }); };
+$('placeBtn').onclick = () => {
+  const pr = $('placeRoute'); pr.hidden = !placeRoute(place); pr.textContent = lang === 'ko' ? `📍 ${placeName(place)} 실제로 가 보기` : `📍 How to get to ${placeName(place)}`;
+  renderPlaceList(); open('placeSheet'); track('place_picker_opened', { place: place.id }); };
 $('placeList').addEventListener('click', e => {
   const row = (e.target as HTMLElement).closest<HTMLElement>('.place-row');
   const p = row && PLACES.find(x => x.id === row.dataset.id);
@@ -803,6 +823,18 @@ $('sitBtn').onclick = () => {
 };
 const doEmote = (e: 'stretch' | 'wave' | 'cheers' | 'clap') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
 $('stretchBtn').onclick = () => doEmote('stretch');
+$('seatFindBtn').onclick = () => {
+  setTray(false);
+  if (mySeat !== null) return;
+  let best: number | null = null, bd = Infinity;
+  seats.forEach((s, i) => {
+    if (s.occ || (s.places && !s.places.includes(place.id)) || (!s.kind && !has.mats(place.id))) return;
+    const d = Math.hypot(s.x - me.root.position.x, s.z - me.root.position.z);
+    if (d < bd) { bd = d; best = i; }
+  });
+  if (best === null) { toast(T.seatHint); return; }
+  seekSeat = best; seekUntil = performance.now() + 15000; track('seat_find', { place: place.id });
+};
 $('waveBtn').onclick = () => doEmote('wave');
 $('cheersBtn').onclick = () => doEmote('cheers');
 
@@ -1558,7 +1590,7 @@ function applyTerrain(p: Place) {
   sandBoard.setShown(!has.peak(p.id));
   leaves.setOn(leavesHere(p.id), me.root.position, floorY);
   summitReached = false;
-  $('routeBtn').hidden = !placeRoute(p);
+  $('routeBtn').hidden = true; // 실제로 가 보기는 장소 목록 안으로 옮김
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
   if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
 }
@@ -1615,7 +1647,9 @@ migrateOwned();
 setOutfit(me, store.outfit ?? 0);
 const openWardrobe = () => { renderWardrobe(); open('outfitSheet'); track('wardrobe_open'); };
 $('wearBtn').onclick = openWardrobe;
+$('wearTile').onclick = () => { setTray(false); openWardrobe(); };
 $('outfitBtn').onclick = openWardrobe;
+$('placeRoute').onclick = () => { close(); $('routeBtn').click(); };
 $('routeBtn').onclick = () => {
   const r = placeRoute(place);
   if (!r) return;
@@ -1867,6 +1901,7 @@ net.on('cheer', (key, total, people, from) => {
 let lastWindowKey = '';
 function sunRoseNow() {
   const key = lastWindowKey;
+  setTimeout(askLetter, 9000);
   // 5분 해도 오늘 도장(작은 도장) + 햇살 1 (하루 3번까지)
   if (cycling()) { markSeen('replay'); earnCycle(); }
   if (key) {
@@ -1891,7 +1926,16 @@ setInterval(() => { const w = cheerWindow(); if (w) lastWindowKey = w.key; }, 50
 // ================= 내일의 해에게 보내는 편지 =================
 // 편지는 이 기기에만 저장. 다음 날 처음 해가 뜰 때 해가 다시 가져다줌.
 const todayKey = () => dateKey(Date.now());
-function updateLetterBtn() { const show = !store.letter && !openSheet; if ($('letterBtn').hidden === show) $('letterBtn').hidden = !show; }
+function updateLetterBtn() { if (!$('letterBtn').hidden) $('letterBtn').hidden = true; } // 편지는 해 뜬 뒤 물어보기 + 기록·알람 메뉴로 옮김
+$('letterMenuBtn').onclick = () => { close(); $('letterBtn').click(); };
+function askLetter() {
+  if (store.letter || openSheet || store.letterAskDay === dateKey(Date.now())) return;
+  store.letterAskDay = dateKey(Date.now()); save();
+  $('letterAsk').hidden = false; track('letter_ask');
+  setTimeout(() => { $('letterAsk').hidden = true; }, 12000);
+}
+$('letterAskYes').onclick = () => { $('letterAsk').hidden = true; $('letterBtn').click(); track('letter_ask_yes'); };
+$('letterAskNo').onclick = () => { $('letterAsk').hidden = true; };
 setInterval(updateLetterBtn, 500);
 $('letterBtn').onclick = () => { ($('letterInput') as HTMLTextAreaElement).value = ''; $('letterCount').textContent = '0 / 60'; open('letterSheet'); track('letter_open'); };
 $('letterInput').addEventListener('input', () => { $('letterCount').textContent = `${($('letterInput') as HTMLTextAreaElement).value.length} / 60`; });
@@ -2131,6 +2175,17 @@ cvs.addEventListener('pointermove', e => {
 });
 cvs.addEventListener('pointerup', () => { jwPrevAng = null; });
 const canPos = new THREE.Vector3();
+// 내 캐릭터를 톡 누르면 옷 입기 (옷 버튼 대신)
+const tapRay = new THREE.Raycaster(), tapNdc = new THREE.Vector2();
+let tapStart: { x: number; y: number; t: number } | null = null;
+cvs.addEventListener('pointerdown', e => { tapStart = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+cvs.addEventListener('pointerup', e => {
+  const t0 = tapStart; tapStart = null;
+  if (!t0 || jwOn || openSheet || Math.hypot(e.clientX - t0.x, e.clientY - t0.y) > 10 || performance.now() - t0.t > 450) return;
+  tapNdc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  tapRay.setFromCamera(tapNdc, camera);
+  if (tapRay.intersectObject(me.inner, true).length) { openWardrobe(); track('wear_tap_me'); }
+});
 function emitEmbers(c: Char) {
   const jw = c.inner.getObjectByName('jwibul');
   if (!jw?.visible) return;

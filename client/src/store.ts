@@ -21,6 +21,8 @@ interface Saved {
   outfit?: number;
   /** 금빛 해돋이를 만든 적이 있는지 (보온병 열림) */
   golden?: boolean;
+  /** 해 뜬 뒤 편지 쓰기를 물어본 날 (하루 한 번) */
+  letterAskDay?: string;
   /** 햇살 포인트 */
   sun?: number;
   /** 햇살 내역 (최근 40개): d 날짜키, t 사유 키, p 증감 */

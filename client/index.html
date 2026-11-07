@@ -115,11 +115,13 @@
       <button class="act night-act" id="jwibulBtn" data-ic="🔥" hidden><span data-i18n="jwibul">쥐불놀이</span></button>
       <button class="act night-act" id="starBtn" data-ic="🌠" hidden><span data-i18n="starAct">별똥별</span></button>
       <button class="act night-act" id="fireBtn" data-ic="🎆" hidden><span data-i18n="fireAct">불꽃</span></button>
-      <button class="act" id="wearBtn" data-ic="🧥"><span data-i18n="wearBtn">옷</span></button>
+      <button class="act" id="wearBtn" data-ic="🧥" hidden><span data-i18n="wearBtn">옷</span></button>
       <button class="act more" id="actMore" aria-expanded="false" aria-controls="actTray" data-i18n-aria="actAria" aria-label="다른 행동 더 보기" data-ic="✨"><span data-i18n="actMore">행동</span></button>
       <button class="act primary" data-ic="🏮" id="lanternBtn" data-i18n="lantern">풍등 올리기</button>
     </div>
     <div class="act-tray pe" id="actTray" role="menu" aria-label="해를 기다리며 할 수 있는 것" data-i18n-aria="actTrayAria" hidden>
+      <button class="tile" id="seatFindBtn" role="menuitem"><i>🪑</i><span data-i18n="seatFind">앉을 곳 찾기</span></button>
+      <button class="tile" id="wearTile" role="menuitem"><i>🧥</i><span data-i18n="wearBtn">옷</span></button>
       <button class="tile" id="waveBtn" role="menuitem"><i>👋</i><span data-i18n="wave">손 흔들기</span></button>
       <button class="tile" id="cheersBtn" role="menuitem"><i>☕</i><span data-i18n="cheersTile">짠</span></button>
       <button class="tile" id="stretchBtn" role="menuitem"><i>🙆</i><span data-i18n="stretch">기지개</span></button>
@@ -135,10 +137,10 @@
 
 <div class="view">
   <button class="zbtn photo" id="photoBtn" aria-label="지금 화면 사진 찍기" data-i18n-aria="photoAria">📷</button>
-  <button class="zbtn" id="zoomIn" aria-label="가까이" data-i18n-aria="zoomInAria">+</button>
-  <button class="zbtn" id="zoomOut" aria-label="멀리" data-i18n-aria="zoomOutAria">−</button>
+  <button class="zbtn" id="zoomIn" hidden aria-label="가까이" data-i18n-aria="zoomInAria">+</button>
+  <button class="zbtn" id="zoomOut" hidden aria-label="멀리" data-i18n-aria="zoomOutAria">−</button>
   <button class="zbtn small" id="overview" aria-label="모여 있는 사람 전체 보기" data-i18n-aria="overviewAria" data-i18n-html="overview">전체<br>보기</button>
-  <button class="zbtn small" id="resetView" aria-label="내 시점으로" data-i18n-aria="resetViewAria" data-i18n-html="resetView">내<br>시점</button>
+  <button class="zbtn small" id="resetView" hidden aria-label="내 시점으로" data-i18n-aria="resetViewAria" data-i18n-html="resetView">내<br>시점</button>
   <div class="vname" id="viewName">내 시점</div>
 </div>
 
@@ -196,6 +198,7 @@
 <div class="sheet" id="placeSheet" role="dialog" aria-labelledby="placeTitle">
   <h2 id="placeTitle" data-i18n="placeTitle">어디로 갈까요?</h2>
   <div id="placeList"></div>
+  <button class="btn route-in" id="placeRoute" hidden></button>
 </div>
 <div class="sheet" id="dexSheet" role="dialog" aria-labelledby="dexTitle">
   <h2 id="dexTitle">조개 도감</h2>
@@ -244,6 +247,11 @@
       <button class="switch" id="alarmBtn" aria-pressed="false" data-i18n="alarmBtn">알람 켜기</button>
     </div>
     <button class="link" id="demoBtn" data-i18n="demoBtn">알람으로 깨는 아침 미리 체험하기</button>
+  </div>
+  <div class="block">
+    <div class="big" style="margin-bottom:6px" data-i18n="letterMenuTitle">내일의 해에게</div>
+    <p class="muted" style="margin:0 0 10px" data-i18n="letterMenuText">한 줄 써 두면 내일 해가 뜰 때 나에게 도착해요.</p>
+    <button class="btn" id="letterMenuBtn" data-i18n="letterMenuBtn">편지 쓰기 ✉️</button>
   </div>
   <div class="block">
     <div class="big" style="margin-bottom:10px" data-i18n="missed">놓친 해돋이</div>
@@ -363,6 +371,11 @@
   <div class="sand-notice" data-i18n-html="sandNotice">모래 게시판의 글은 오늘 이 해변에 오는 <b>모두에게 보여요.</b> 이름은 남지 않고, 3시간 뒤 사라져요.</div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="letter-ask" id="letterAsk" hidden>
+  <span data-i18n="letterAsk">내일의 해에게 한 줄 남길래요?</span>
+  <button class="btn primary" id="letterAskYes" data-i18n="letterAskYes">쓰기</button>
+  <button class="letter-ask-x" id="letterAskNo" aria-label="다음에">✕</button>
+</div>
 <div class="inapp" id="inapp" hidden>
   <span id="inappText"></span>
   <a class="inapp-go" id="inappGo" hidden></a>
