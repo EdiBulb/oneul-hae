@@ -16,6 +16,7 @@ import { createPlaceScenery } from './place-scenery';
 import { createBots } from './bots';
 import { createFireflies, createFlock, createLeaves } from './sky-extras';
 import { createNightFx, FIRE_COLORS } from './night-fx';
+import { inAppHint } from './inapp';
 import { LANTERN_COLORS, LANTERN_PATTERNS, createLanterns } from './lanterns';
 import { createEcho, createLateSleeper, say } from './gags';
 import { connect } from './net';
@@ -1443,6 +1444,7 @@ addEventListener('popstate', () => {
 
 // ================= 분석 =================
 initAnalytics(store.uid);
+setTimeout(inAppHint, 1200);
 track('session_start', {
   place: place.id,
   lang,

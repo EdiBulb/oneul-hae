@@ -38,6 +38,10 @@
 <link rel="icon" type="image/svg+xml" href="/logo.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="canonical" href="https://hae.abracadelulu.com/">
+<script>
+/* 카카오톡 안 브라우저면 바로 기본 브라우저로 넘김 (카카오가 공식으로 지원하는 주소). 한 번만 시도 */
+(function(){try{var u=navigator.userAgent;if(/KAKAOTALK/i.test(u)&&!sessionStorage.getItem('kkOut')){sessionStorage.setItem('kkOut','1');location.replace('kakaotalk://web/openExternal?url='+encodeURIComponent(location.href));}}catch(e){}})();
+</script>
 <meta name="robots" content="index, follow">
 <meta name="google-site-verification" content="BbU6oV9QQ3M486msoKxjp1f0hpUYbuIucQa9WDIlI-w" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -359,6 +363,11 @@
   <div class="sand-notice" data-i18n-html="sandNotice">모래 게시판의 글은 오늘 이 해변에 오는 <b>모두에게 보여요.</b> 이름은 남지 않고, 3시간 뒤 사라져요.</div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="inapp" id="inapp" hidden>
+  <span id="inappText"></span>
+  <a class="inapp-go" id="inappGo" hidden></a>
+  <button class="inapp-x" id="inappX" aria-label="닫기">✕</button>
+</div>
 <div class="gl-lost" id="glLost" hidden data-i18n="glLost">화면을 다시 불러오는 중…</div>
 <!-- 같이 해 띄우기: 지평선 위 햇살 게이지 (해 위치를 따라감) -->
 <div class="gauge" id="gauge" hidden aria-live="polite">
