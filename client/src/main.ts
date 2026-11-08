@@ -2083,7 +2083,7 @@ function renderSunSheet() {
   $('sunGoal').innerHTML = next
     ? `<div class="g-row"><b>${SL(`${next}일 연속 보너스까지`, `To ${next}-day streak`)}</b><em>+${next === 3 ? EARN.streak3 : EARN.streak7} ${SL('햇살', 'sun')}</em></div><div class="g-bar"><i style="width:${(streak / next) * 100}%"></i></div><small>${SL(`${next - streak}일 남았어요`, `${next - streak} more day(s)`)}</small>`
     : `<div class="g-row"><b>${SL('7일 연속 달성!', '7-day streak!')}</b></div>`;
-  const night = isNight();
+  const night = canJwibul();
   const uses: [string, string, string, string, boolean][] = [
     ['wear', '🧥', SL('옷', 'Clothes'), SL('새 옷을 입어 보고 사기', 'Try on and buy'), true],
     ['lantern', '🏮', SL('풍등 꾸미기', 'Lantern style'), SL('색·무늬 바꾸기', 'Colours and patterns'), true],
@@ -2131,6 +2131,9 @@ $('sunUses').addEventListener('click', e => {
 
 // ---------- 밤 ----------
 /** 밤: 해가 지평선 4° 아래 + 해 뜨기 1분 전부터는 쉼 (해돋이를 가리지 않게) */
+// 테스트용: 쥐불놀이를 낮에도 할 수 있게. 밤에만 되게 되돌리려면 false로
+const JW_ANYTIME = true;
+const canJwibul = () => JW_ANYTIME || isNight();
 function isNight() {
   if (lastAltForBanner > -4 || lastAltForBanner < -89) return false;
   if (cycling()) return cycleToSunrise() > 60000;
@@ -2147,7 +2150,7 @@ function setJwibul(on: boolean) {
   $('jwibulBtn').classList.toggle('on', on);
 }
 function toggleJwibul() {
-  if (!jwOn && !isNight()) { toast(SL('밤에만 할 수 있어요 🌙', 'Only at night 🌙')); return; }
+  if (!jwOn && !canJwibul()) { toast(SL('밤에만 할 수 있어요 🌙', 'Only at night 🌙')); return; }
   if (!jwOn && mySeat !== null) standUp();
   setJwibul(!jwOn);
   if (jwOn) { jwSpeed = 7; toast(SL('화면을 톡톡 누르면 더 빨리 돌아요', 'Tap the screen to spin faster')); track('jwibul', { place: place.id }); }
@@ -2197,7 +2200,7 @@ function emitEmbers(c: Char) {
   nightFx.ember(canPos, col, sp); nightFx.ember(canPos, col, sp);
 }
 function updateNight(dt: number) {
-  const night = isNight(), show = night && !openSheet && !lying && sandK < 0.01;
+  const night = canJwibul(), show = night && !openSheet && !lying && sandK < 0.01;
   // 별똥별·불꽃은 피드백으로 뺌 (해돋이 보러 가서 불꽃놀이는 안 하니까) — 밤엔 쥐불놀이만
   { const el = $('jwibulBtn'); if (el.hidden === show) el.hidden = !show; }
   if (jwOn && !night) { setJwibul(false); }
