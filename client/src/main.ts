@@ -435,10 +435,12 @@ function fadeMe(k: number) {
   if (k === meFade) return;
   meFade = k;
   me.root.traverse(o => {
-    const m = (o as THREE.Mesh).material as THREE.Material | undefined;
-    if (!m || (o as THREE.Sprite).isSprite) return;
-    if (m.userData.op0 === undefined) { m.userData.op0 = m.opacity; m.userData.tr0 = m.transparent; }
-    m.transparent = k < 1 || m.userData.tr0; m.opacity = m.userData.op0 * k; m.needsUpdate = true;
+    const mm = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+    if (!mm || (o as THREE.Sprite).isSprite) return;
+    for (const m of Array.isArray(mm) ? mm : [mm]) { // 면마다 재질이 다른 것(김밥 단면)도
+      if (m.userData.op0 === undefined) { m.userData.op0 = m.opacity; m.userData.tr0 = m.transparent; }
+      m.transparent = k < 1 || m.userData.tr0; m.opacity = m.userData.op0 * k; m.needsUpdate = true;
+    }
   });
 }
 /** 카메라가 내려갈 수 있는 가장 낮은 각도. 그보다 더 밀면 하늘을 올려다봄 */
@@ -644,6 +646,8 @@ function updateUI(vnow: number, alt: number, t: number) {
   const crossed = lastAltForBanner > -89 && lastAltForBanner < 0 && alt >= 0;
   if (crossed && (live || replay)) { expandBanner(10000); bots.clap(); }
   else if (crossed && cyc) { bots.clap(); }
+  // 가게에서 들고 나온 게 있으면 해 뜨는 순간 하늘로 번쩍
+  if (crossed && itemOf(outfitOf(me)) && !lying) { me.emote = 'raise'; me.emoteT = 0; if (connected) net.emit('emote', 'raise'); }
   if (crossed) birds.sunrise(camera, world.sunDir); // 해가 뜨는 순간 황금 새 (하루 한 번)
   if (crossed && (live || cyc)) { sunRoseNow(); }
   maybeDeliverOnLoad(alt, live, cyc);
@@ -825,7 +829,10 @@ $('sitBtn').onclick = () => {
   const sitHere = () => {
     const s = seats[idx];
     s.occ = 'me'; mySeat = idx; me.state = 'sit'; me.bench = !!s.bench;
-    me.root.position.set(s.x, s.bench ? s.y! : groundY(s.z) + 0.07, s.z);
+    // 의자·통나무는 그 높이에, 평상은 평상 위에, 해변 방석은 모래 위에
+    me.root.position.set(s.x, s.bench ? s.y! : s.y !== undefined ? s.y + 0.04 : groundY(s.z) + 0.07, s.z);
+    // 가게 의자·평상: 카메라를 옆에서 (등 뒤 건물·맞은편 의자에 가리지 않게)
+    if (s.kind === 'chair' || s.kind === 'floor') { const want = s.ry + Math.PI * 0.5, d = Math.atan2(Math.sin(want - cam.tYaw), Math.cos(want - cam.tYaw)); setView(Math.min(cam.tDist, 5.5), 0.4, cam.tYaw + d); }
   };
   if (!connected) { sitHere(); return; }
   // 서버가 먼저 온 사람에게 방석을 준다
@@ -2069,6 +2076,8 @@ function renderDogLine() {
 // 내 화면에만 있고 서버에는 없어서 위쪽 인원수·통계에 들어가지 않는다. 진짜 사람이 와도 그대로 있다.
 const bots = createBots({
   scene, seats, placeId: () => place.id, matsHere: () => has.mats(place.id),
+  // 해 뜨기 직전이면 산에서 돌아다니던 봇들도 정상으로 모임
+  sunSoon: () => lastAltForBanner > -3 && lastAltForBanner < 0.3,
   onLantern: (pos, nick) => { if (!LANTERN_ON) return; lanterns.launch(pos, undefined, true); ticker(T.lanternBy(nick)); },
 });
 bots.fill();

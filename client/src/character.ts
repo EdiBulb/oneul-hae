@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 export type CharState = 'idle' | 'walk' | 'sit' | 'lie';
 /** clink = 다른 사람과 커피잔을 부딪치는 동작 (서버가 짝을 지어 줄 때만) */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet' | 'dance' | 'yaho';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet' | 'dance' | 'yaho' | 'raise';
 
 export interface Char {
   root: THREE.Group;
@@ -127,7 +127,7 @@ export function disposeChar(c: Char) {
 }
 
 /** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
-const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0, yaho: 2.2 };
+const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0, yaho: 2.2, raise: 3.2 };
 export function animChar(c: Char, dt: number) {
   c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
   let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
@@ -195,6 +195,11 @@ export function animChar(c: Char, dt: number) {
       // 두 손을 입 옆에 모으고 살짝 뒤로 젖혔다가 앞으로 "야호~"
       const kk = clamp(k * 2.5, 0, 1);
       aL = aR = 2.5 * kk; aLz = -0.75 * kk; aRz = 0.75 * kk; y += 0.04 * kk;
+    }
+    if (c.emote === 'raise') {
+      // 해 뜨는 순간: 들고 있던 걸 하늘로 번쩍 (위아래로 두 번 들썩)
+      const kk = clamp(k * 2.4, 0, 1), bob = Math.abs(Math.sin(c.emoteT * 5)) * 0.15;
+      aR = (2.95 - bob) * kk; aRz = 0.1 * kk; aL = 0.9 * kk; aLz = -0.4 * kk; y += (0.05 + bob * 0.4) * kk;
     }
     if (c.emote === 'eat') { const up = Math.sin(Math.PI * u); aR = 1.15 + 0.85 * up; aRz = 0.3 * up; }
     if (c.emote === 'give') { aR = 1.0 + 0.5 * clamp(k * 2, 0, 1); aRz = -0.15 * clamp(k * 2, 0, 1); }
@@ -429,14 +434,14 @@ function makeBuckwheat() {
 /** 오른손에 드는 가게 먹을거리: 은박 김밥, 종이컵 커피, 노란 양은 주전자 */
 function buildShopItems(c: Char) {
   const L = (col: number, em = 0) => new THREE.MeshLambertMaterial({ color: col, emissive: em });
-  const k = new THREE.Group(); k.name = 'kimbap'; k.position.set(0, -0.47, -0.06); k.visible = false; c.armR.add(k);
+  const k = new THREE.Group(); k.name = 'kimbap'; k.position.set(0, -0.5, -0.1); k.scale.setScalar(1.8); k.visible = false; c.armR.add(k);
   const foil = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.2, 10), L(0xc9ccd2, 0x202226)); foil.rotation.x = Math.PI / 2 - 0.3; k.add(foil);
   const end = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.02, 10), [L(0x16221a), L(0xf4efe2), L(0xf4efe2)]); end.rotation.x = Math.PI / 2 - 0.3; end.position.set(0, 0.03, -0.1); k.add(end);
-  const cf = new THREE.Group(); cf.name = 'coffee'; cf.position.set(0, -0.47, -0.06); cf.visible = false; c.armR.add(cf);
+  const cf = new THREE.Group(); cf.name = 'coffee'; cf.position.set(0, -0.5, -0.1); cf.scale.setScalar(1.8); cf.visible = false; c.armR.add(cf);
   cf.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.038, 0.13, 12), L(0xf3ece0)));
   const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.049, 0.043, 0.05, 12), L(0x8a5a3a)); sl.position.y = -0.005; cf.add(sl);
   const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.053, 0.053, 0.02, 12), L(0xe9e1d2)); lid.position.y = 0.075; cf.add(lid);
-  const mk = new THREE.Group(); mk.name = 'makgeolli'; mk.position.set(0, -0.48, -0.08); mk.visible = false; c.armR.add(mk);
+  const mk = new THREE.Group(); mk.name = 'makgeolli'; mk.position.set(0, -0.52, -0.12); mk.scale.setScalar(1.8); mk.visible = false; c.armR.add(mk);
   const yel = L(0xe2b13c, 0x3a2a08);
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), yel); body.scale.y = 0.85; mk.add(body);
   const lidK = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.025, 10), yel); lidK.position.y = 0.06; mk.add(lidK);

@@ -191,7 +191,13 @@ export function floorY(x: number, z: number) {
 /** 카메라가 있어도 되는 곳인지 (건물 안이면 false). 높이 4.5m 위는 자유 */
 export function camOpen(x: number, y: number, z: number) {
   // 산: 카메라가 바위 언덕 속으로 들어가지 않게
-  if (PEAK.includes(terrain)) return y > mountainY(x, z) + 0.5;
+  if (PEAK.includes(terrain)) {
+    if (terrain === 'jirisan') for (const s of SHOPS) {
+      const [lx, lz] = worldToShop(s, x, z);
+      if (Math.abs(lx) < s.w / 2 + 0.35 && Math.abs(lz) < s.d / 2 + 0.35 && y < mountainY(s.x, s.z) + 4.2) return false;
+    }
+    return y > mountainY(x, z) + 0.5;
+  }
   if (y > 4.5) return true;
   switch (terrain) {
     case 'hangang':
