@@ -881,12 +881,13 @@ $('skipBtn').onclick = () => {
 $('lieBtn').onclick = () => {
   if (mySeat !== null) standUp();
   const p = me.root.position;
-  if (surfaceAt(p.x, p.z) !== 'sand' || onPier(p.x, p.z)) { toast(T.lieNo); return; }
+  const peak = has.peak(place.id); // 산 정상은 어디서나 누울 수 있음
+  if (!peak && (surfaceAt(p.x, p.z) !== 'sand' || onPier(p.x, p.z))) { toast(T.lieNo); return; }
   lying = true; eyeView = true; lieSince = performance.now(); me.state = 'lie'; me.emote = null;
   eye.yaw = eye.tYaw = 0; eye.pitch = eye.tPitch = 0.95;
   // 누우면 카메라를 낮춰 하늘이 화면 가득 들어오게
   setView(5.5, 0.12, me.root.rotation.y + 1.1); // 비스듬히 옆에서: 누운 모습과 하늘·바다가 같이 보이게
-  toast(T.lieHint);
+  toast(peak ? T.lieHintPeak : T.lieHint);
   track('lie_down', { place: place.id });
 };
 $('blanketBtn').onclick = () => {
