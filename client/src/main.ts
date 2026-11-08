@@ -1536,14 +1536,7 @@ renderStreak(); renderAlarm(); renderCounts();
 requestAnimationFrame(loop);
 
 // 테스트용 (브라우저 콘솔에서 확인)
-// ================= 별똥별 · 조개 · 모래성 =================
-let starTimer = 0;
-function showStarWish() {
-  const b = $('starWish'); b.hidden = false;
-  clearTimeout(starTimer); starTimer = window.setTimeout(() => (b.hidden = true), 8000);
-  track('shooting_star', { place: place.id, lying });
-}
-$('starWish').onclick = () => { $('starWish').hidden = true; open('wishSheet'); track('star_wish', { place: place.id }); };
+// ================= 조개 · 모래성 =================
 
 // 조개: 장소의 현지 날짜마다 새로 깔림
 let lastShellCheck = 0;
