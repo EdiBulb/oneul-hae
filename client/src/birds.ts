@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { stable } from './stable-tex';
+import { DRAW_SP, drawBird } from './bird-draw';
 
 /**
  * 하늘의 새들 — 여러 종류 · 여러 대형으로 시간에 따라 랜덤하게 날아감
@@ -10,100 +11,36 @@ import { stable } from './stable-tex';
  * 모든 새를 한 번의 그리기 호출(인스턴싱)로 그림. 아주 먼 새는 작은 'v' 획 그림으로 바꿔 보이게 함
  */
 
-type Sp = { span: number; chord: number; bend: number; fingers: number; neck: number; tail: 'short' | 'fan' | 'fork'; flap: number; glide: number; row: number };
+type Sp = { span: number; flap: number; glide: number; row: number }; // 모양은 bird-draw.ts의 DRAW_SP
 const SP: Record<'goose' | 'gull' | 'swallow' | 'small' | 'golden', Sp> = {
-  goose:   { span: 1.6,  chord: 0.2,  bend: 0.12, fingers: 5, neck: 0.42, tail: 'short', flap: 3.0, glide: 0,    row: 0 },
-  gull:    { span: 1.3,  chord: 0.2,  bend: 0.55, fingers: 3, neck: 0.16, tail: 'fan',   flap: 3.4, glide: 0.45, row: 1 },
-  swallow: { span: 0.34, chord: 0.16, bend: 0.25, fingers: 0, neck: 0.1,  tail: 'fork',  flap: 9,   glide: 0.25, row: 2 },
-  small:   { span: 0.3,  chord: 0.2,  bend: 0.1,  fingers: 0, neck: 0.1,  tail: 'short', flap: 11,  glide: 0,    row: 3 },
-  golden:  { span: 2.2,  chord: 0.3,  bend: 0.3,  fingers: 7, neck: 0.22, tail: 'fan',   flap: 1.4, glide: 0.55, row: 4 },
+  goose:   { span: 1.6,  flap: 3.0, glide: 0,    row: 0 },
+  gull:    { span: 1.3,  flap: 3.4, glide: 0.45, row: 1 },
+  swallow: { span: 0.34, flap: 9,   glide: 0.25, row: 2 },
+  small:   { span: 0.3,  flap: 11,  glide: 0,    row: 3 },
+  golden:  { span: 2.2,  flap: 1.4, glide: 0.55, row: 4 },
 };
-const ROW_TICK = 5, ROWS = 6, COLS = 9, CELL = 128, FILL = 0.4; // 날개 반폭 = 칸의 40%
+const ROW_TICK = 5, ROWS = 6, COLS = 9, CELL = 160, FILL = 0.4; // 날개 반폭 = 칸의 40%
 const frameF = (i: number) => -1 + (2 * i) / (COLS - 1);           // 칸 번호 → 날갯짓 값 -1..1
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp = THREE.MathUtils.clamp;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
-// ---------- 새 모양 (아래에서 올려다본 모습) ----------
-function wingPts(sp: Sp, f: number) {
-  const a = f * 0.75 + 0.05, b = a * 1.35 - sp.bend;
-  const S = [0.05, 0], Wr = [0.05 + 0.42 * Math.cos(a), -0.42 * Math.sin(a)];
-  const T = [Wr[0] + 0.55 * Math.cos(b), Wr[1] - 0.55 * Math.sin(b)];
-  return { S, Wr, T, b };
-}
-function wingPath(g: CanvasRenderingContext2D, sp: Sp, f: number) {
-  const { S, Wr, T } = wingPts(sp, f), c = sp.chord;
-  g.beginPath();
-  g.moveTo(S[0], S[1] - c * 0.35);
-  g.quadraticCurveTo((S[0] + Wr[0]) / 2, (S[1] + Wr[1]) / 2 - c * 0.45, Wr[0], Wr[1] - c * 0.1);
-  g.quadraticCurveTo((Wr[0] + T[0]) / 2, (Wr[1] + T[1]) / 2 - c * 0.15, T[0], T[1]);
-  g.quadraticCurveTo((Wr[0] + T[0]) / 2 + 0.02, (Wr[1] + T[1]) / 2 + c * 0.75, Wr[0] - 0.02, Wr[1] + c * 0.85);
-  g.quadraticCurveTo((S[0] + Wr[0]) / 2, (S[1] + Wr[1]) / 2 + c * 1.15, S[0], S[1] + c * 0.75);
-  g.closePath();
-}
-function fingers(g: CanvasRenderingContext2D, sp: Sp, f: number) {
-  const { Wr, T, b } = wingPts(sp, f), c = sp.chord, n = sp.fingers;
-  for (let i = 0; i < n; i++) {
-    const k = i / Math.max(1, n - 1), bx = lerp(Wr[0], T[0], 0.62 + k * 0.33), by = lerp(Wr[1], T[1], 0.62 + k * 0.33) + c * 0.35 * (1 - k);
-    const ang = b - 0.15 - (1 - k) * 0.9, len = 0.1 + k * 0.08;
-    g.beginPath(); g.moveTo(bx - 0.02, by - 0.015);
-    g.quadraticCurveTo(bx + Math.cos(ang) * len * 0.6, by - Math.sin(ang) * len * 0.6 - 0.01, bx + Math.cos(ang) * len, by - Math.sin(ang) * len);
-    g.quadraticCurveTo(bx + Math.cos(ang) * len * 0.5 + 0.01, by - Math.sin(ang) * len * 0.5 + 0.02, bx + 0.02, by + 0.02);
-    g.fill();
-  }
-}
-function body(g: CanvasRenderingContext2D, sp: Sp) { // 다가오는 새: 머리가 아래
-  const n = sp.neck;
-  g.beginPath(); g.ellipse(0, -0.02, 0.055, 0.16, 0, 0, Math.PI * 2); g.fill();
-  g.beginPath(); g.ellipse(0, 0.1 + n * 0.5, 0.022, n * 0.5 + 0.02, 0, 0, Math.PI * 2); g.fill();
-  g.beginPath(); g.arc(0, 0.12 + n, 0.032, 0, Math.PI * 2); g.fill();
-  const tY = -0.15;
-  g.beginPath();
-  if (sp.tail === 'fork') { g.moveTo(-0.03, tY); g.lineTo(-0.09, tY - 0.3); g.lineTo(0, tY - 0.1); g.lineTo(0.09, tY - 0.3); g.lineTo(0.03, tY); }
-  else if (sp.tail === 'fan') { g.moveTo(-0.04, tY); g.lineTo(-0.13, tY - 0.13); g.quadraticCurveTo(0, tY - 0.19, 0.13, tY - 0.13); g.lineTo(0.04, tY); }
-  else { g.moveTo(-0.035, tY); g.lineTo(0, tY - 0.1); g.lineTo(0.035, tY); }
-  g.fill();
-}
-
-/** base: 실루엣(황금 새는 금빛 그대로), rim: 역광 테두리 빛 (흰색, 셰이더에서 금빛으로 칠함) */
+// ---------- 아틀라스: 날갯짓 장면들을 미리 그려 둠 (모양은 bird-draw.ts) ----------
+/** base: 실루엣(황금 새는 금빛 그대로), rim: 역광 빛 마스크 (흰색, 셰이더에서 금빛으로 칠함) */
 function buildAtlas() {
   const mk = () => { const c = document.createElement('canvas'); c.width = COLS * CELL; c.height = ROWS * CELL; return c; };
   const baseC = mk(), rimC = mk(), base = baseC.getContext('2d')!, rim = rimC.getContext('2d')!;
   const s = CELL * FILL;
-  for (const sp of Object.values(SP)) {
-    const gold = sp === SP.golden;
+  for (const [key, sp] of Object.entries(SP) as [keyof typeof SP, Sp][]) {
+    const ds = DRAW_SP[key], gold = key === 'golden';
     for (let i = 0; i < COLS; i++) {
-      const f = frameF(i), cx = i * CELL + CELL / 2, cy = sp.row * CELL + CELL / 2;
-      for (const [g, pass] of [[base, 'base'], [rim, 'rim']] as const) {
-        if (pass === 'rim' && gold) continue;
+      const f = frameF(i), cx = i * CELL + CELL / 2, cy = sp.row * CELL + CELL * 0.45;
+      for (const [g, mode] of [[base, gold ? 'gold' : 'base'], [rim, 'rim']] as const) {
+        if (mode === 'rim' && gold) continue;
         g.save(); g.beginPath(); g.rect(i * CELL, sp.row * CELL, CELL, CELL); g.clip();
         g.translate(cx, cy); g.scale(s, s);
-        if (pass === 'base') {
-          if (gold) {
-            g.shadowColor = 'rgba(255,200,110,.95)'; g.shadowBlur = s * 0.3;
-            const gr = g.createRadialGradient(0, 0, 0.05, 0, 0, 1.05);
-            gr.addColorStop(0, '#4a240e'); gr.addColorStop(0.35, '#b56a28'); gr.addColorStop(0.75, '#ffd28a'); gr.addColorStop(1, '#fff3d2');
-            g.fillStyle = gr;
-          } else g.fillStyle = '#120a07';
-          for (const m of [1, -1]) {
-            g.save(); g.scale(m, 1); wingPath(g, sp, f); g.fill(); if (sp.fingers) fingers(g, sp, f);
-            if (gold) {
-              wingPath(g, sp, f); g.strokeStyle = 'rgba(255,246,220,.9)'; g.lineWidth = 0.022; g.stroke();
-              const { S, Wr, T } = wingPts(sp, f); g.strokeStyle = 'rgba(255,240,205,.3)'; g.lineWidth = 0.01; g.shadowBlur = 0;
-              for (let j = 1; j < 7; j++) {
-                const k = j / 7, px = k < 0.5 ? lerp(S[0], Wr[0], k * 2) : lerp(Wr[0], T[0], (k - 0.5) * 2), py = k < 0.5 ? lerp(S[1], Wr[1], k * 2) : lerp(Wr[1], T[1], (k - 0.5) * 2);
-                g.beginPath(); g.moveTo(px, py); g.lineTo(px - 0.03, py + sp.chord * (0.9 - k * 0.6)); g.stroke();
-              }
-              g.shadowBlur = s * 0.3;
-            }
-            g.restore();
-          }
-          g.fillStyle = gold ? '#2a140a' : '#120a07'; g.shadowBlur = gold ? s * 0.1 : 0;
-          body(g, sp);
-        } else {
-          g.strokeStyle = '#fff'; g.lineWidth = 0.05; g.shadowColor = '#fff'; g.shadowBlur = s * 0.12; g.lineJoin = 'round';
-          for (const m of [1, -1]) { g.save(); g.scale(m, 1); wingPath(g, sp, f); g.stroke(); g.restore(); }
-        }
+        if (gold) { g.shadowColor = 'rgba(255,200,110,.9)'; g.shadowBlur = s * 0.25; }
+        drawBird(g, ds, f, mode);
         g.restore();
       }
     }
