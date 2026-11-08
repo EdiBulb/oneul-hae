@@ -411,6 +411,10 @@
 .g-bar i{display:block;height:100%;background:#ffc070;border-radius:999px}
 .sun-goal small{font-size:12px;color:var(--ink-dim)}
 .sun-h{margin:18px 0 8px;font-size:15px;font-weight:700}
+.sun-fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;-webkit-user-select:none;user-select:none}
+.sun-fold>summary::-webkit-details-marker{display:none}
+.sun-fold>summary::after{content:'▾';font-size:13px;opacity:.6;transition:transform .2s}
+.sun-fold[open]>summary::after{transform:rotate(180deg)}
 .sun-uses{display:flex;flex-direction:column;gap:6px}
 .use-row{font:inherit;color:var(--ink);display:flex;align-items:center;gap:12px;text-align:left;background:rgba(255,248,239,.06);border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-height:52px}
 .use-row i{font-style:normal;font-size:22px;width:28px;text-align:center}
