@@ -778,7 +778,7 @@ function renderPlaceList() {
   }).join('');
 }
 $('placeBtn').onclick = () => {
-  const pr = $('placeRoute'); pr.hidden = !placeRoute(place); pr.textContent = lang === 'ko' ? `📍 ${placeName(place)} 실제로 가 보기` : `📍 How to get to ${placeName(place)}`;
+  const pr = $('placeRoute'); pr.hidden = true; /* 실제로 가 보기는 꺼 둠 */ pr.textContent = lang === 'ko' ? `📍 ${placeName(place)} 실제로 가 보기` : `📍 How to get to ${placeName(place)}`;
   renderPlaceList(); open('placeSheet'); track('place_picker_opened', { place: place.id }); };
 $('placeList').addEventListener('click', e => {
   const row = (e.target as HTMLElement).closest<HTMLElement>('.place-row');
@@ -1194,14 +1194,16 @@ $('installMenuBtn').onclick = () => { close(); setTimeout(() => showInstall(true
 const SUPPORT_URL: string | undefined = import.meta.env.VITE_SUPPORT_URL;
 // 카카오페이 송금코드 (한국 사용자용). 바꾸면 public/kakaopay-qr.png도 다시 만들어야 함
 const KAKAOPAY_URL: string = import.meta.env.VITE_KAKAOPAY_URL ?? 'https://qr.kakaopay.com/FT8ClKPN7';
-if (KAKAOPAY_URL) {
+// 후원은 사람이 모일 때까지 잠시 꺼 둠 (다시 켜려면 true)
+const SUPPORT_ON = false;
+if (SUPPORT_ON && KAKAOPAY_URL) {
   $('supportBlock').hidden = false;
   const k = $('kakaoBtn') as HTMLAnchorElement;
   k.href = KAKAOPAY_URL; k.hidden = false;
   // 마우스로 보는 컴퓨터에서만 QR 표시 (폰에서는 버튼을 누르면 바로 카카오페이가 열림)
   if (matchMedia('(hover: hover) and (pointer: fine)').matches) $('kakaoQr').hidden = false;
 }
-if (SUPPORT_URL) {
+if (SUPPORT_ON && SUPPORT_URL) {
   $('supportBlock').hidden = false;
   const b = $('supportBtn') as HTMLAnchorElement;
   b.href = SUPPORT_URL; b.hidden = false;
