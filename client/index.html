@@ -73,12 +73,12 @@
   <header>
     <div class="hleft pe">
       <button class="iconbtn exitbtn" id="exitBtn" aria-label="해변에서 나가기" data-i18n-aria="exitAria" data-i18n-html="exit">‹<span class="exit-label"> 나가기</span></button>
-      <img class="brand-logo" src="/logo.svg" alt="" width="30" height="30">
+      <!-- 접속자 수 (진짜 사람만, 봇은 빼고). 달력처럼 보이던 로고 자리 -->
+      <div class="viewers" id="viewers"><span class="dot off" id="liveDot"></span><b id="viewerCount">연결 중…</b><span id="viewerUnit"></span></div>
       <div class="brand" data-i18n-html="brand">오늘의 해<small>출근 전 1분, 같이 보는 해돋이</small></div>
     </div>
     <div class="hright pe">
       <span class="conn" id="conn" data-i18n="connecting">연결 중…</span>
-      <div class="viewers" hidden><span class="dot off" id="liveDot"></span><b id="viewerCount">연결 중…</b><span id="viewerUnit"></span></div>
       <button class="iconbtn" id="soundBtn" aria-label="소리 끄기">🔊</button>
       <button class="iconbtn" id="langBtn" aria-label="Language / 언어">EN</button>
       <button class="sun-chip" id="sunChip" aria-label="햇살"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg><b id="sunNum">0</b><i class="sp s1"></i><i class="sp s2"></i><i class="sp s3"></i></button>
