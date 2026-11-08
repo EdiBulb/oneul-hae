@@ -14,7 +14,8 @@ import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
 import { createPlaceScenery } from './place-scenery';
 import { createBots } from './bots';
-import { createFireflies, createFlock, createLeaves } from './sky-extras';
+import { createFireflies, createLeaves } from './sky-extras';
+import { createBirds } from './birds';
 import { createNightFx, FIRE_COLORS } from './night-fx';
 import { inAppHint } from './inapp';
 import { LANTERN_COLORS, LANTERN_PATTERNS, createLanterns } from './lanterns';
@@ -84,7 +85,7 @@ const world = createWorld(scene, renderer, GLOW);
 const lanterns = createLanterns(scene, GLOW);
 // 해변 풍경(갈매기·강아지·동네 주민)은 인원수에 넣지 않는다
 const life = createBeachLife(scene);
-const fireflies = createFireflies(scene, GLOW), flock = createFlock(scene, GLOW), leaves = createLeaves(scene);
+const fireflies = createFireflies(scene, GLOW), birds = createBirds(scene), leaves = createLeaves(scene);
 const echo = createEcho(scene), late = createLateSleeper(scene, floorY);
 /** 가을(한국 9~11월)에 나무가 있는 곳(산·한강공원)에만 낙엽 */
 // 낙엽은 사용자 피드백으로 잠시 끔 (모델 품질이 받쳐줄 때 다시)
@@ -634,7 +635,8 @@ function updateUI(vnow: number, alt: number, t: number) {
   // 첫 프레임(-90)은 '해가 막 뜬 것'으로 치지 않음 (낮에 들어오자마자 박수·햇살이 나오지 않게)
   const crossed = lastAltForBanner > -89 && lastAltForBanner < 0 && alt >= 0;
   if (crossed && (live || replay)) { expandBanner(10000); bots.clap(); }
-  else if (crossed && cyc) { bots.clap(); flock.fly(); }
+  else if (crossed && cyc) { bots.clap(); }
+  if (crossed) birds.sunrise(camera, world.sunDir); // 해가 뜨는 순간 황금 새 (하루 한 번)
   if (crossed && (live || cyc)) { sunRoseNow(); }
   maybeDeliverOnLoad(alt, live, cyc);
   lastAltForBanner = alt;
@@ -746,7 +748,7 @@ function loop(t: number) {
   fireflies.update(t, night, me.root.position, floorY);
   leaves.update(dt, t, me.root.position, floorY);
   echo.update(dt); late.update(dt); updateYaho(t); updateCheer(t, dt);
-  flock.update(dt, camera, world.sunDir);
+  birds.update(dt, camera, world.sunDir, alt, innerHeight);
   updateNight(dt);
   updateRamen(t);
   updateSparkles(dt);
@@ -2258,4 +2260,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
