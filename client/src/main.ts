@@ -786,8 +786,8 @@ const ICON: Record<string, string> = { jeongdongjin: '🚉', jirisan: '⛰️', 
 function renderPlaceList() {
   $('placeList').innerHTML = GROUPS.map(([g, label]) => {
     const rows = PLACES.filter(p => p.group === g).map(p => {
-      const n = stats?.online[p.id] ?? 0;
-      return `<button class="place-row" data-id="${p.id}" aria-current="${p === place}"><i class="pi">${ICON[p.id] ?? '📍'}</i><span class="pt"><b>${placeName(p)}<small>${placeRegion(p)}</small></b><span>${placeBlurb(p)}</span></span><em>${n ? T.hereNow(n) : ''}</em></button>`;
+      // 인원수는 보여 주지 않음 (사람이 적을 때 '텅 빈 곳'처럼 보여서). 숫자는 서버 /stats 와 PostHog에서 확인
+      return `<button class="place-row" data-id="${p.id}" aria-current="${p === place}"><i class="pi">${ICON[p.id] ?? '📍'}</i><span class="pt"><b>${placeName(p)}<small>${placeRegion(p)}</small></b><span>${placeBlurb(p)}</span></span></button>`;
     }).join('');
     return rows ? `<div class="place-group"><h3>${label()}</h3>${rows}</div>` : '';
   }).join('');
