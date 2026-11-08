@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT } from './beach-extras';
+import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
 import { takePhoto } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
@@ -184,6 +184,8 @@ const virtualNow = () => {
 /** 저장하지 않는 잠깐짜리 비트: 손에 든 음식, 쥐불놀이 */
 const TEMP = HELD | JWIBUL | (3 << 14);
 if (store.outfit) store.outfit &= OUTFIT_MAX & ~TEMP;
+// 가게에서 들고 나온 건 그날까지만 (예전 한복 비트 16이 남아 있던 경우도 여기서 지워짐)
+if (store.outfit && itemOf(store.outfit) && store.itemDay !== dateKey(Date.now())) store.outfit = withItem(store.outfit, 0);
 // ================= 나 =================
 const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
 const spawn = () => { const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z); };
@@ -608,7 +610,7 @@ function updateMe(dt: number) {
   updatePetBtn();
   // 앉기 버튼은 앉아 있거나 빈자리 가까이 있을 때만 (평소엔 '행동' 안의 '앉을 곳 찾기')
   { const sbn = $('sitBtn'), show = mySeat !== null || lying || near !== null; if (sbn.hidden === show) sbn.hidden = !show; }
-  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : seats[near].kind === 'rock' ? T.sitRock : T.sitDown) : T.findSeat;
+  $('sitBtn').textContent = mySeat !== null || lying ? T.standUp : near !== null ? (seats[near].kind === 'log' ? T.sitLog : seats[near].kind === 'pier' ? T.sitPier : seats[near].kind === 'bus' ? T.sitBench : seats[near].kind === 'rock' ? T.sitRock : seats[near].kind === 'chair' ? T.sitChair : seats[near].kind === 'floor' ? T.sitFloor : T.sitDown) : T.findSeat;
 }
 
 // ================= 상단 문구 =================
@@ -751,6 +753,7 @@ function loop(t: number) {
   updateHandoff(dt);
   scenery.update(dt, t, night, world.skyLow);
   updateSummit();
+  updateShops(dt);
   fireflies.update(t, night, me.root.position, floorY);
   leaves.update(dt, t, me.root.position, floorY);
   echo.update(dt); late.update(dt); updateYaho(t); updateCheer(t, dt);
@@ -1614,6 +1617,44 @@ function applyTerrain(p: Place) {
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
   if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
 }
+// ================= 지리산 능선길 가게: 문 앞에 서면 들어갔다가 들고 나옴 =================
+const ITEM_TOAST: Record<number, [string, string]> = {
+  1: ['🍙 김밥 한 줄 들고 나왔어요', 'Got a roll of kimbap'],
+  2: ['☕ 따뜻한 커피 한 잔 들고 나왔어요', 'Got a hot coffee'],
+  3: ['🍶 막걸리 한 주전자 들고 나왔어요', 'Got a kettle of makgeolli'],
+};
+let shopVisit: { item: number; t: number } | null = null, shopAt: string | null = null, nextNibble = 8;
+function setShopItem(k: number) {
+  store.outfit = withItem(store.outfit ?? 0, k); store.itemDay = dateKey(Date.now()); save();
+  setOutfit(me, store.outfit | (outfitOf(me) & TEMP));
+  if (connected) net.emit('outfit', outfitOf(me));
+}
+function updateShops(dt: number) {
+  if (place.id !== 'jirisan') { shopAt = null; return; }
+  if (shopVisit) {
+    // 가게 안에 들어가 있는 짧은 시간: 캐릭터를 숨겼다가 '띵동'과 함께 들고 나옴
+    shopVisit.t += dt;
+    if (shopVisit.t > 0.9) {
+      me.inner.visible = true; setShopItem(shopVisit.item); amb.ding();
+      toast(SL(...ITEM_TOAST[shopVisit.item])); track('shop_item', { item: shopVisit.item });
+      shopVisit = null; nextNibble = 3;
+    }
+    return;
+  }
+  const p = me.root.position;
+  let here: Shop | null = null;
+  for (const s of SHOPS) { const [x, z] = shopDoor(s); if (Math.hypot(p.x - x, p.z - z) < 0.75) here = s; }
+  if (!here) { shopAt = null; }
+  else if (shopAt !== here.id && mySeat === null && !lying && !jwOn) {
+    shopAt = here.id;
+    if (itemOf(store.outfit ?? 0) !== here.item) { shopVisit = { item: here.item, t: 0 }; me.inner.visible = false; }
+  }
+  // 들고 있으면 가끔 한 입·한 모금
+  if (itemOf(outfitOf(me)) && !me.emote && me.state !== 'walk' && !lying && (nextNibble -= dt) <= 0) {
+    nextNibble = 8 + Math.random() * 7; me.emote = 'eat'; me.emoteT = 0; if (connected) net.emit('emote', 'eat');
+  }
+}
+
 // ================= 옷장 =================
 function setWear(mask: number) {
   store.outfit = mask & ~TEMP; save();

@@ -29,7 +29,7 @@ const PLACES: Record<PlaceId, { tz: string }> = {
   gisborne: { tz: 'Pacific/Auckland' },
 };
 /** 방석 22개 + 모닥불 통나무 4개 × 2자리 + 데크 끝 3자리 */
-const SEAT_COUNT = 42;
+const SEAT_COUNT = 56; // 해변 방석 22 + 높은 자리 20 + 지리산 가게 의자·평상 11 (+여유)
 // 해변 + 얕은 물 + 바다로 뻗은 데크(z -26까지). 세부 모양은 클라이언트가 막는다
 const BOUNDS = { minX: -22, maxX: 22, minZ: -26, maxZ: 17 };
 /** 짠: 이 거리(m) 안에서, 이 시간(ms) 안에 둘 다 눌러야 컵이 부딪친다 */
@@ -353,7 +353,7 @@ io.on('connection', (socket: Sock) => {
   socket.on('outfit', mask => {
     const c = socket.data.channel, me = c?.players.get(socket.id);
     if (!c || !me) return;
-    me.outfit = Math.floor(num(mask, 0, 65535)); // 소품 4비트 + 옷장 9비트 + 쥐불놀이 3비트
+    me.outfit = Math.floor(num(mask, 0, 262143)); // 소품 4비트 + 옷장 9비트 + 쥐불놀이 3비트 + 가게 먹을거리 2비트
     socket.to(c.key).emit('outfit', socket.id, me.outfit);
   });
 

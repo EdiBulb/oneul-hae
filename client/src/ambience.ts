@@ -288,6 +288,16 @@ export function createAmbience() {
         burst(t, 0.05, 'bandpass', rand(1800, 2600), 1.4, 0.55 * vol);
       }
     },
+    /** 가게 문 '띵동' (들고 나올 때) */
+    ding() {
+      if (!ctx || ctx.state !== 'running') return;
+      const t = ctx.currentTime + 0.01;
+      for (const [f, at] of [[1318.5, 0], [1046.5, 0.16]] as const) {
+        const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+        const g = ctx.createGain(); g.gain.setValueAtTime(0, t + at); g.gain.linearRampToValueAtTime(0.16, t + at + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + at + 0.7);
+        o.connect(g).connect(fxBus); o.start(t + at); o.stop(t + at + 0.75);
+      }
+    },
     /** 모닥불 소리 크기 (0~1): 밤의 정도 × 불과의 거리 */
     setFire(level: number) { fireLevel = clamp(level, 0, 1); },
     /** 다른 앱으로 넘어가면 잠시 멈춤 */

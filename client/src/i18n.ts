@@ -49,7 +49,7 @@ const ko = {
   viewAll: '전체 보기', view3rd: '3인칭', viewMine: '내 시점',
   // 방석
   blanketOn: '담요 덮기', blanketOff: '담요 벗기',
-  standUp: '일어나기', sitDown: '방석에 앉기', sitRock: '바위에 앉기', sitLog: '통나무에 앉기', sitPier: '데크 끝에 앉기', findSeat: '앉을 곳 찾기',
+  standUp: '일어나기', sitDown: '방석에 앉기', sitRock: '바위에 앉기', sitChair: '의자에 앉기', sitFloor: '평상에 앉기', sitLog: '통나무에 앉기', sitPier: '데크 끝에 앉기', findSeat: '앉을 곳 찾기',
   seatHint: '방석, 모닥불 통나무, 데크 끝 가까이 가면 앉을 수 있어요',
   seatTaken: '방금 다른 사람이 앉았어요',
   // 행동
@@ -247,7 +247,7 @@ const en: Dict = {
   me: 'Me',
   viewAll: 'Overview', view3rd: '3rd person', viewMine: 'My view',
   blanketOn: 'Wrap blanket', blanketOff: 'Take off blanket',
-  standUp: 'Stand up', sitDown: 'Sit on cushion', sitRock: 'Sit on the rock', sitLog: 'Sit on log', sitPier: 'Sit at pier end', findSeat: 'Find a seat',
+  standUp: 'Stand up', sitDown: 'Sit on cushion', sitRock: 'Sit on the rock', sitChair: 'Sit on the chair', sitFloor: 'Sit on the platform', sitLog: 'Sit on log', sitPier: 'Sit at pier end', findSeat: 'Find a seat',
   seatHint: 'Walk up to a cushion, a log by the fire or the end of the pier to sit',
   seatTaken: 'Someone just took that seat',
   actMore: 'Actions', actClose: 'Close',

@@ -18,7 +18,7 @@ export const BONFIRE = { x: 11, z: 10 };
 const LOG = { r: 2.1, len: 1.3, rad: 0.2, n: 4 };
 const logAngle = (i: number) => (i / LOG.n) * Math.PI * 2 + Math.PI / 4;
 
-interface HighSeat { x: number; z: number; ry: number; y: number; bench: true; kind: 'log' | 'pier' | 'bus' | 'rock'; sx: number; sz: number; places: PlaceId[] }
+interface HighSeat { x: number; z: number; ry: number; y: number; bench: boolean; kind: 'log' | 'pier' | 'bus' | 'rock' | 'chair' | 'floor'; sx: number; sz: number; places: PlaceId[] }
 /** 해변마다 있는 것 */
 const SUNRISE: PlaceId[] = ['jeongdongjin', 'seongsan', 'homigot', 'gisborne'];
 const ALL: PlaceId[] = [...SUNRISE, 'jumunjin', 'hyangho', 'hangang', 'jirisan', 'hallasan', 'seopjikoji'];
@@ -52,8 +52,11 @@ export function mountainY(x: number, z: number, id: PlaceId = terrain) {
   // 언덕(3m)을 넘으면 1.4m 아래 전망대: 도착 자리에서는 난간과 발아래 풍경이 안 보임
   else y = 3.0 - 1.4 * ss(SUMMIT.crestZ, 1.4, z);
   const ax = Math.abs(x);
-  y += Math.max(0, ax - 8) * 0.45 + Math.sin(x * 0.9 + z * 0.4) * 0.06;
-  if (z < SUMMIT.crestZ) y += Math.max(0, ax - 5) * 0.8;
+  // 능선 위를 걷는 느낌: 길에서 멀어질수록 양옆이 아래로 떨어지고(벽 없음), 멀리 운해 속으로 잠김
+  const edge = z < SUMMIT.crestZ ? 5.6 : 7;
+  y -= Math.pow(Math.max(0, ax - edge), 1.35) * 0.22;
+  y -= Math.pow(Math.max(0, z - 42), 1.4) * 0.3;
+  y += Math.sin(x * 0.9 + z * 0.4) * 0.06;
   if (id === 'hallasan') {
     // 분화구: 가장자리는 둥글게 솟고, 안쪽은 움푹 꺼짐
     const d = Math.hypot(x - CRATER.x, z - CRATER.z) / CRATER.r;
@@ -61,6 +64,49 @@ export function mountainY(x: number, z: number, id: PlaceId = terrain) {
   }
   return y;
 }
+// ---------- 지리산 능선길 가게 (정상 뒤쪽 길을 따라 카페 → 김밥 → 막걸리) ----------
+/** 가게 하나: 가운데 (x, z), 앞(문)이 ry 방향. 가게 쪽 좌표 lx(옆), lz(앞이 +) */
+export interface Shop { id: 'cafe' | 'kimbap' | 'jumak'; item: 1 | 2 | 3; x: number; z: number; ry: number; w: number; d: number; door: number; seats: { lx: number; lz: number; ry: number; h: number; kind: 'chair' | 'floor'; ox: number; oz: number }[] }
+const chairPair = (lx: number, lz: number) => [
+  { lx: lx - 0.75, lz, ry: -Math.PI / 2, h: 0.45, kind: 'chair' as const, ox: 0, oz: 0.8 },
+  { lx: lx + 0.75, lz, ry: Math.PI / 2, h: 0.45, kind: 'chair' as const, ox: 0, oz: 0.8 },
+];
+export const SHOPS: Shop[] = [
+  { id: 'cafe', item: 2, x: -5.4, z: 18, ry: Math.PI / 2, w: 4.2, d: 3.2, door: 1.1, seats: [...chairPair(3.4, 0.9), ...chairPair(3.4, -1.1)] },
+  { id: 'kimbap', item: 1, x: 5.3, z: 24.5, ry: -Math.PI / 2, w: 3.8, d: 2.4, door: 0, seats: [...chairPair(3.2, 0.6), ...chairPair(-3.2, 0.6)] },
+  { id: 'jumak', item: 3, x: -5.6, z: 31.5, ry: Math.PI / 2, w: 4.6, d: 3.4, door: 0, seats: [
+    { lx: 2.75, lz: 0.9, ry: 0, h: 0.5, kind: 'floor', ox: 0, oz: 1.3 },
+    { lx: 3.65, lz: 0.9, ry: 0, h: 0.5, kind: 'floor', ox: 0, oz: 1.3 },
+    { lx: 3.2, lz: -0.6, ry: Math.PI, h: 0.5, kind: 'floor', ox: 0, oz: -1.2 },
+  ] },
+];
+/** 평상 (막걸리 주막 앞) 크기·위치: 가게 쪽 좌표 */
+export const PYEONGSANG = { lx: 3.2, lz: 0.15, w: 2.0, d: 2.2, h: 0.42 };
+export function shopToWorld(s: Shop, lx: number, lz: number): [number, number] {
+  const c = Math.cos(s.ry), sn = Math.sin(s.ry);
+  return [s.x + lx * c + lz * sn, s.z - lx * sn + lz * c];
+}
+export function worldToShop(s: Shop, x: number, z: number): [number, number] {
+  const dx = x - s.x, dz = z - s.z, c = Math.cos(s.ry), sn = Math.sin(s.ry);
+  return [dx * c - dz * sn, dx * sn + dz * c];
+}
+/** 가게 건물·테이블·평상 안으로는 못 들어감 */
+function insideShop(x: number, z: number) {
+  for (const s of SHOPS) {
+    const [lx, lz] = worldToShop(s, x, z);
+    if (Math.abs(lx) < s.w / 2 + 0.25 && lz < s.d / 2 + 0.2 && lz > -s.d / 2 - 0.4) return true;
+    if (s.id === 'jumak' && Math.abs(lx - PYEONGSANG.lx) < PYEONGSANG.w / 2 && Math.abs(lz - PYEONGSANG.lz) < PYEONGSANG.d / 2 - 0.1) return true;
+    for (let i = 0; i < s.seats.length; i += 2) { // 테이블 (의자 두 개 사이)
+      if (s.seats[i].kind !== 'chair') continue;
+      const tx = (s.seats[i].lx + s.seats[i + 1].lx) / 2, tz = s.seats[i].lz;
+      if (Math.hypot(lx - tx, lz - tz) < 0.55) return true;
+    }
+  }
+  return false;
+}
+/** 가게 문 앞 (여기에 서면 들어갔다가 들고 나옴) */
+export function shopDoor(s: Shop) { return shopToWorld(s, s.door, s.d / 2 + 0.7); }
+
 /** 한강 편의점과 라면 기계 */
 export const STORE = { x: -11, z: 12, w: 5, d: 3.2 };
 export const RAMEN_MACHINE = { x: -8.1, z: 13.4 };
@@ -90,6 +136,11 @@ export function benchSeats() {
   for (let i = 0; i < 6; i++) {
     const x = -3.75 + i * 1.5, z = 0.75;
     out.push({ x, z, ry: 0, y: SUMMIT.deckY + 0.42, bench: true, kind: 'rock', sx: x, sz: 1.7, places: [...PEAK] });
+  }
+  // 42~: 지리산 능선길 가게 앞 의자·평상 (가게 쪽 좌표를 월드로 바꿔서)
+  for (const s of SHOPS) for (const t of s.seats) {
+    const [x, z] = shopToWorld(s, t.lx, t.lz), [sx, sz] = shopToWorld(s, t.lx + t.ox, t.lz + t.oz);
+    out.push({ x, z, ry: s.ry + t.ry, y: mountainY(x, z, 'jirisan') + t.h, bench: t.kind === 'chair', kind: t.kind, sx, sz, places: ['jirisan'] });
   }
   return out;
 }
@@ -152,8 +203,9 @@ export function canStand(x: number, z: number) {
   if (onPier(x, z)) return true;
   if (PEAK.includes(terrain)) {
     // 난간 너머(절벽)·양옆 바위·표지석에는 못 감
-    if (z < SUMMIT.edgeZ || z > 30 || Math.abs(x) > 13) return false;
+    if (z < SUMMIT.edgeZ || z > 38 || Math.abs(x) > 11) return false;
     if (z < SUMMIT.crestZ - 0.5 && Math.abs(x) > 5.2) return false;
+    if (terrain === 'jirisan' && insideShop(x, z)) return false;
     if (Math.hypot(x - SUMMIT.stone.x, z - SUMMIT.stone.z) < 0.6) return false;
     if (terrain === 'hallasan' && Math.hypot(x - CRATER.x, z - CRATER.z) < CRATER.r * 1.1) return false;
     return true;

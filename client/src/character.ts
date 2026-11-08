@@ -232,7 +232,7 @@ export function animChar(c: Char, dt: number) {
   c.legR.rotation.x += (lR - c.legR.rotation.x) * e;
   c.inner.position.y += (y - c.inner.position.y) * e;
   // 꽃다발은 팔이 어떻게 움직여도 꽃이 위로 오게
-  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL'], [c.armR, 'ramen']] as const) {
+  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL'], [c.armR, 'ramen'], [c.armR, 'kimbap'], [c.armR, 'coffee'], [c.armR, 'makgeolli']] as const) {
     const f = arm.getObjectByName(name);
     if (f?.visible) { f.rotation.x = -arm.rotation.x; f.rotation.z = -arm.rotation.z; }
   }
@@ -269,7 +269,12 @@ export const wearSet = (mask: number, k: WearSlot, v: number) => (mask & ~(WEAR[
 export const JWIBUL = 1 << 13;
 export const JW_COLORS = [0xff9a3c, 0x6fb6ff, 0xff8fbf, 0x8dffb0];
 export const jwColor = (mask: number) => JW_COLORS[(mask >> 14) & 3];
-export const OUTFIT_MAX = (1 << 16) - 1;
+/** 지리산 가게에서 들고 나온 것: 비트 16~17 (0 없음, 1 김밥, 2 커피, 3 막걸리 주전자) */
+export const SHOP_ITEM_SHIFT = 16;
+export const SHOP_ITEMS = ['', 'kimbap', 'coffee', 'makgeolli'] as const;
+export const itemOf = (mask: number) => (mask >> SHOP_ITEM_SHIFT) & 3;
+export const withItem = (mask: number, k: number) => (mask & ~(3 << SHOP_ITEM_SHIFT)) | ((k & 3) << SHOP_ITEM_SHIFT);
+export const OUTFIT_MAX = (1 << 18) - 1;
 const PAD_COLORS = [0, 0x1d1e24, 0xece8e0, 0x26304f, 0xd2a03c];
 
 /** 체크무늬 (목도리용) */
@@ -385,7 +390,7 @@ function applyWear(c: Char, o: THREE.Group, mask: number) {
 }
 /** 손에 드는 먹을거리 (그 장소를 떠나면 내려놓음) */
 export const HELD = OUTFIT.ramen;
-const FOODS = ['ramen'];
+const FOODS = ['ramen', 'kimbap', 'coffee', 'makgeolli'];
 
 /** 메밀꽃 다발: 붉은 줄기 끝에 작고 하얀 꽃송이가 몽글몽글, 크라프트지로 감쌈. 꽃이 위로 오게 세운다 */
 function makeBuckwheat() {
@@ -421,6 +426,24 @@ function makeBuckwheat() {
 
 
 
+/** 오른손에 드는 가게 먹을거리: 은박 김밥, 종이컵 커피, 노란 양은 주전자 */
+function buildShopItems(c: Char) {
+  const L = (col: number, em = 0) => new THREE.MeshLambertMaterial({ color: col, emissive: em });
+  const k = new THREE.Group(); k.name = 'kimbap'; k.position.set(0, -0.47, -0.06); k.visible = false; c.armR.add(k);
+  const foil = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.2, 10), L(0xc9ccd2, 0x202226)); foil.rotation.x = Math.PI / 2 - 0.3; k.add(foil);
+  const end = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.02, 10), [L(0x16221a), L(0xf4efe2), L(0xf4efe2)]); end.rotation.x = Math.PI / 2 - 0.3; end.position.set(0, 0.03, -0.1); k.add(end);
+  const cf = new THREE.Group(); cf.name = 'coffee'; cf.position.set(0, -0.47, -0.06); cf.visible = false; c.armR.add(cf);
+  cf.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.038, 0.13, 12), L(0xf3ece0)));
+  const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.049, 0.043, 0.05, 12), L(0x8a5a3a)); sl.position.y = -0.005; cf.add(sl);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.053, 0.053, 0.02, 12), L(0xe9e1d2)); lid.position.y = 0.075; cf.add(lid);
+  const mk = new THREE.Group(); mk.name = 'makgeolli'; mk.position.set(0, -0.48, -0.08); mk.visible = false; c.armR.add(mk);
+  const yel = L(0xe2b13c, 0x3a2a08);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), yel); body.scale.y = 0.85; mk.add(body);
+  const lidK = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.025, 10), yel); lidK.position.y = 0.06; mk.add(lidK);
+  const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.018, 0.1, 6), yel); sp.position.set(0, 0.02, -0.08); sp.rotation.x = -0.9; mk.add(sp);
+  const hd = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.007, 4, 12, Math.PI), yel); hd.position.y = 0.055; hd.rotation.y = Math.PI / 2; mk.add(hd);
+}
+
 export function setOutfit(c: Char, mask: number) {
   let o = c.inner.getObjectByName('outfit') as THREE.Group | undefined;
   if (!o) {
@@ -448,6 +471,7 @@ export function setOutfit(c: Char, mask: number) {
     for (const dx of [-0.012, 0.012]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, 0.26, 4), new THREE.MeshLambertMaterial({ color: 0xc9a46a })); ch.position.set(0.05 + dx, 0.12, 0); ch.rotation.z = -0.5; bowl.add(ch); }
     const bsteam = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }));
     bsteam.name = 'bsteam'; bsteam.position.y = 0.14; bowl.add(bsteam);
+    buildShopItems(c);
     buildWear(c, o);
     // 원래 옷 색 기억 (맨투맨을 벗으면 되돌림)
     const firstMesh = (g: THREE.Object3D) => g.children.find(ch => (ch as THREE.Mesh).isMesh) as THREE.Mesh;
@@ -466,6 +490,8 @@ export function setOutfit(c: Char, mask: number) {
   o.getObjectByName('scarf')!.visible = !!(mask & OUTFIT.scarf);
   c.armR.getObjectByName('flowers')!.visible = !!(mask & OUTFIT.flowers);
   c.armR.getObjectByName('ramen')!.visible = !!(mask & OUTFIT.ramen);
+  const item = itemOf(mask), jw = !!(mask & JWIBUL);
+  SHOP_ITEMS.forEach((n, k) => { if (n) c.armR.getObjectByName(n)!.visible = item === k && !jw && !(mask & OUTFIT.ramen); });
   applyWear(c, o, mask);
   applyJwibul(c, mask);
   o.userData.mask = mask;

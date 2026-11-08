@@ -221,7 +221,7 @@ function seopjikoji(scene: THREE.Scene, GLOW: THREE.Texture) {
 
 
 /** 한국 소나무 실루엣: 휘어진 줄기 + 납작한 솔잎 덩어리 층. 해돋이 땐 거의 검게 보여 화면 테두리가 된다 */
-function koreanPine(h: number, lean: number, seed: number) {
+export function koreanPine(h: number, lean: number, seed: number) {
   const g = new THREE.Group();
   const bark = new THREE.MeshLambertMaterial({ color: 0x1a1512 }), leaf = new THREE.MeshLambertMaterial({ color: 0x18201a, flatShading: true });
   const rnd = (i: number) => { const x = Math.sin(seed * 91.7 + i * 12.9898) * 43758.5453; return x - Math.floor(x); };
@@ -257,17 +257,19 @@ function pineFrame(scene: THREE.Scene) {
 }
 
 export function createPlaceScenery(scene: THREE.Scene, GLOW: THREE.Texture) {
-  const bus = busStop(scene), han = hangang(scene, GLOW), peak = createMountain(scene, 'jirisan'), halla = createMountain(scene, 'hallasan'), seop = seopjikoji(scene, GLOW), pines = pineFrame(scene);
+  const bus = busStop(scene), han = hangang(scene, GLOW), peak = createMountain(scene, 'jirisan', GLOW), seop = seopjikoji(scene, GLOW), pines = pineFrame(scene);
   const PINES: PlaceId[] = ['jeongdongjin', 'homigot', 'seongsan', 'seopjikoji', 'jumunjin'];
   let id: PlaceId = 'jeongdongjin';
+  // 한라산은 지금 장소 목록에 없어서, 실제로 갈 때만 만듦 (첫 화면 로딩·메모리 절약)
+  let halla: ReturnType<typeof createMountain> | null = null;
   return {
     setPlace(p: PlaceId) {
-      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang'; peak.group.visible = p === 'jirisan'; halla.group.visible = p === 'hallasan'; seop.group.visible = p === 'seopjikoji'; pines.visible = PINES.includes(p);
+      id = p; bus.group.visible = p === 'hyangho'; han.group.visible = p === 'hangang'; peak.group.visible = p === 'jirisan'; if (p === 'hallasan' && !halla) halla = createMountain(scene, 'hallasan', GLOW); if (halla) halla.group.visible = p === 'hallasan'; seop.group.visible = p === 'seopjikoji'; pines.visible = PINES.includes(p);
     },
     cook: () => han.cook(),
     update(dt: number, t: number, night: number, low: THREE.Color) {
-      if (id === 'jirisan') peak.update(dt, night, low);
-      if (id === 'hallasan') halla.update(dt, night, low);
+      if (id === 'jirisan') peak.update(dt, night, low, t);
+      if (id === 'hallasan') halla?.update(dt, night, low, t);
       if (id === 'seopjikoji') seop.update(t, night);
       if (id === 'hyangho') bus.update(dt);
       if (id === 'hangang') han.update(dt, t, night);
