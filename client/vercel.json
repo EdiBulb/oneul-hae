@@ -61,6 +61,11 @@
       "source": "/homigot",
       "destination": "/",
       "permanent": false
+    },
+    {
+      "source": "/jeongdongjin",
+      "destination": "/",
+      "permanent": false
     }
   ]
 }

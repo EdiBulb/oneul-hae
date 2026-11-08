@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>오늘의 해, 온라인 해돋이</title>
-<meta name="description" content="온라인 해돋이 오늘의 해. 출근 전 1분, 지리산 천왕봉 정상과 강릉 정동진 바다에서 사람들과 함께 실시간 해돋이를 봐요. 해 뜨기 5분 전 알람, 풍등 올리기, 햇살 도장 기록까지. 설치 없이 바로 접속하는 3D 온라인 해돋이.">
+<meta name="description" content="온라인 해돋이 오늘의 해. 출근 전 1분, 지리산 천왕봉 정상에서 사람들과 함께 실시간 해돋이를 봐요. 해 뜨기 5분 전 알람, 쥐불놀이, 햇살 도장 기록까지. 설치 없이 바로 접속하는 3D 온라인 해돋이.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -27,12 +27,12 @@
 <meta property="og:url" content="https://hae.abracadelulu.com/">
 <meta property="og:title" content="오늘의 해, 온라인 해돋이">
 <meta property="og:description" content="해 보러 갈 기운 없는 아침, 여기서 같이 봐요. 매일 아침 함께 보는 실시간 해돋이.">
-<meta property="og:image" content="https://hae.abracadelulu.com/og.png">
+<meta property="og:image" content="https://hae.abracadelulu.com/og-jirisan.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="수평선 위로 해가 뜨고 풍등이 떠오르는 바다">
+<meta property="og:image:alt" content="산 정상에서 구름 바다 위로 떠오르는 해를 바라보는 캐릭터들">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://hae.abracadelulu.com/og.png">
+<meta name="twitter:image" content="https://hae.abracadelulu.com/og-jirisan.png">
 <meta name="theme-color" content="#14152a">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="/logo.svg">
@@ -57,7 +57,7 @@
 <div id="scene"></div>
 <section class="sr-only">
   <h1>오늘의 해, 온라인 해돋이</h1>
-  <p>오늘의 해는 매일 아침 실제 일출 시각에 맞춰 지리산 천왕봉 정상과 강릉 정동진에서 해가 뜨는 모습을 다른 사람들과 함께 보는 3D 웹 서비스예요. 캐릭터로 해변을 걷고, 방석에 앉고, 소원을 적은 풍등을 올릴 수 있어요. 해 뜨기 5분 전 알람과 연속 기록으로 매일 아침 해 보는 습관을 만들어 보세요.</p>
+  <p>오늘의 해는 매일 아침 실제 일출 시각에 맞춰 지리산 천왕봉 정상에서 해가 뜨는 모습을 다른 사람들과 함께 보는 3D 웹 서비스예요. 캐릭터로 정상까지 걷고, 옷을 갈아입고, 밤에는 쥐불놀이를 할 수 있어요. 해 뜨기 5분 전 알람과 연속 기록으로 매일 아침 해 보는 습관을 만들어 보세요.</p>
 </section>
 <noscript>오늘의 해는 3D 화면을 쓰기 때문에 자바스크립트가 필요해요.</noscript>
 <nav class="sr-only" aria-label="해돋이 장소">
@@ -65,7 +65,6 @@
   <p>매일 아침 사람들과 함께 실시간 해돋이를 보는 3D 온라인 해돋이예요.</p>
   <ul>
     <li><a href="/jirisan">지리산 천왕봉 해돋이 · 운해 위로 떠오르는 해</a></li>
-    <li><a href="/jeongdongjin">강릉 정동진 해돋이 · 기차역 바로 앞 바다 일출</a></li>
   </ul>
 </nav>
 
@@ -117,7 +116,7 @@
       <button class="act night-act" id="fireBtn" data-ic="🎆" hidden><span data-i18n="fireAct">불꽃</span></button>
       <button class="act" id="wearBtn" data-ic="🧥" hidden><span data-i18n="wearBtn">옷</span></button>
       <button class="act more" id="actMore" aria-expanded="false" aria-controls="actTray" data-i18n-aria="actAria" aria-label="다른 행동 더 보기" data-ic="✨"><span data-i18n="actMore">행동</span></button>
-      <button class="act primary" data-ic="🏮" id="lanternBtn" data-i18n="lantern">풍등 올리기</button>
+      <button class="act primary" data-ic="🏮" id="lanternBtn" hidden data-i18n="lantern">풍등 올리기</button>
     </div>
     <div class="act-tray pe" id="actTray" role="menu" aria-label="해를 기다리며 할 수 있는 것" data-i18n-aria="actTrayAria" hidden>
       <button class="tile" id="seatFindBtn" role="menuitem"><i>🪑</i><span data-i18n="seatFind">앉을 곳 찾기</span></button>
@@ -275,7 +274,7 @@
     <button class="link" id="introBtn" data-i18n="introBtn">처음 화면 다시 보기</button>
     <button class="link" id="realSkyBtn"></button>
   </div>
-  <div class="block">
+  <div class="block" id="seeWishesBlock" hidden>
     <div class="row">
       <div class="muted" data-i18n-html="seeWishesText">다른 사람 소원 보기<br><small>끄면 풍등 불빛만 보여요</small></div>
       <button class="switch" id="seeWishesBtn" aria-pressed="true">켜짐</button>

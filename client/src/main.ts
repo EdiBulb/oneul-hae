@@ -332,6 +332,7 @@ net.on('clink', (a, b) => {
 net.on('outfit', (id, mask) => { const r = remotes.get(id); if (r) setOutfit(r.c, mask); });
 net.on('blanket', (id, on) => { const r = remotes.get(id); if (r) r.c.blanket.visible = on; });
 net.on('lantern', (id, x, z, text, style) => {
+  if (!LANTERN_ON) return;
   const r = remotes.get(id);
   // 공개된 소원이고, 내가 '다른 사람 소원 보기'를 켜 두었을 때만 글자를 띄움
   const wish = text && store.seeWishes ? localizeWish(text) : undefined;
@@ -438,15 +439,19 @@ function fadeMe(k: number) {
     m.transparent = k < 1 || m.userData.tr0; m.opacity = m.userData.op0 * k; m.needsUpdate = true;
   });
 }
+/** 카메라가 내려갈 수 있는 가장 낮은 각도. 그보다 더 밀면 하늘을 올려다봄 */
+const LOOK_MIN = 0.04;
 function updateCamera(dt: number) {
   const e = 1 - Math.pow(0.004, dt);
   cam.yaw += (cam.tYaw - cam.yaw) * e; cam.pitch += (cam.tPitch - cam.pitch) * e; cam.dist += (cam.tDist - cam.dist) * e;
   const p = me.root.position;
   target.set(p.x, p.y + (mySeat !== null ? 1.0 : 1.3), p.z);
-  const cp = Math.cos(cam.pitch);
+  // 화면을 위로 밀어 낮은 각도 아래로 내려가면: 카메라는 낮게 두고 시선만 하늘로 (하늘 올려다보기)
+  const pitch = Math.max(LOOK_MIN, cam.pitch), lookUp = Math.max(0, LOOK_MIN - cam.pitch);
+  const cp = Math.cos(pitch);
   camera.position.set(
     target.x + Math.sin(cam.yaw) * cp * cam.dist,
-    Math.max(0.6, target.y + Math.sin(cam.pitch) * cam.dist),
+    Math.max(0.6, target.y + Math.sin(pitch) * cam.dist),
     target.z + Math.cos(cam.yaw) * cp * cam.dist);
   // 카메라 충돌: 등 뒤에 가게·벽이 있으면 카메라를 내 쪽으로 당겨서 늘 열린 곳에 둠
   let open = 1;
@@ -470,6 +475,7 @@ function updateCamera(dt: number) {
   const close = clamp((12 - cam.dist) / 9, 0, 1), far = clamp((cam.dist - 9) / 18, 0, 1);
   const ahead = 9 * close + cam.dist * 0.75 * far;
   want.set(target.x - Math.sin(cam.yaw) * ahead, target.y + 0.3 * close, target.z - Math.cos(cam.yaw) * ahead);
+  if (lookUp > 0) want.y += (ahead + cam.dist * cp) * Math.tan(Math.min(1.3, lookUp * 1.5));
   camLook.lerp(want, 1 - Math.pow(0.02, dt));
   camera.lookAt(camLook);
   // 옷 입기: 화면 아래 절반은 옷장, 위 절반엔 내 캐릭터를 정면에서 (dressK 0 → 1)
@@ -525,7 +531,7 @@ cvs.addEventListener('pointermove', e => {
   const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 1 && eyeK > 0.5) { eye.tYaw = clamp(eye.tYaw - dx * 0.006, -1.7, 1.7); eye.tPitch = clamp(eye.tPitch + dy * 0.005, 0.12, 1.5); }
-  else if (ptrs.size === 1) { cam.tYaw -= dx * 0.007; cam.tPitch = clamp(cam.tPitch + dy * 0.005, 0.04, 1.35); }
+  else if (ptrs.size === 1) { cam.tYaw -= dx * 0.007; cam.tPitch = clamp(cam.tPitch + dy * 0.005, LOOK_MIN - 0.85, 1.35); }
   else if (ptrs.size === 2 && pinch0) {
     const [a, b] = [...ptrs.values()];
     setView(dist0 * pinch0 / Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)));
@@ -912,6 +918,9 @@ function close() {
   openSheet?.classList.remove('open'); back.classList.remove('open', 'over-sand'); openSheet = null; document.body.classList.remove('dressing');
 }
 back.onclick = close;
+// 풍등은 피드백으로 잠시 내림 (코드는 그대로, 다시 켜려면 true)
+const LANTERN_ON = false;
+$('lanternBtn').hidden = !LANTERN_ON; $('seeWishesBlock').hidden = !LANTERN_ON;
 $('lanternBtn').onclick = () => open('wishSheet');
 
 // ================= 사진 =================
@@ -1599,6 +1608,8 @@ function applyTerrain(p: Place) {
   leaves.setOn(leavesHere(p.id), me.root.position, floorY);
   summitReached = false;
   $('routeBtn').hidden = true; // 실제로 가 보기는 장소 목록 안으로 옮김
+  // 바다·모래가 없는 곳(산 정상)에선 해변 행동을 숨김
+  $('skipBtn').hidden = !has.water(p.id); $('castleBtn').hidden = !has.castles(p.id); $('dexBtn').hidden = !has.shells(p.id);
   // 라면은 그 장소에서만: 다른 곳으로 가면 내려놓음
   if (outfitOf(me) & OUTFIT.ramen) setRamen(false);
 }
@@ -2016,7 +2027,7 @@ function renderDogLine() {
 // 내 화면에만 있고 서버에는 없어서 위쪽 인원수·통계에 들어가지 않는다. 진짜 사람이 와도 그대로 있다.
 const bots = createBots({
   scene, seats, placeId: () => place.id, matsHere: () => has.mats(place.id),
-  onLantern: (pos, nick) => { lanterns.launch(pos, undefined, true); ticker(T.lanternBy(nick)); },
+  onLantern: (pos, nick) => { if (!LANTERN_ON) return; lanterns.launch(pos, undefined, true); ticker(T.lanternBy(nick)); },
 });
 bots.fill();
 
@@ -2083,7 +2094,7 @@ function renderSunSheet() {
   const night = canJwibul();
   const uses: [string, string, string, string, boolean][] = [
     ['wear', '🧥', SL('옷', 'Clothes'), SL('새 옷을 입어 보고 사기', 'Try on and buy'), true],
-    ['lantern', '🏮', SL('풍등 꾸미기', 'Lantern style'), SL('색·무늬 바꾸기', 'Colours and patterns'), true],
+    ...(LANTERN_ON ? [['lantern', '🏮', SL('풍등 꾸미기', 'Lantern style'), SL('색·무늬 바꾸기', 'Colours and patterns'), true] as [string, string, string, string, boolean]] : []),
     ['jwibul', '🔥', SL('쥐불놀이', 'Fire spin'), night ? SL('무료 · 지금 할 수 있어요', 'Free · available now') : SL('무료 · 밤에만', 'Free · night only'), night],
     ['shield', '🛡️', SL('연속 기록 지키기', 'Streak saver'), `${SL('햇살', 'Sun')} ${PRICE.shield} · ${SL(`하루를 놓친 다음 날 · 이번 달 ${shieldsLeft()}번 남음`, `the day after a miss · ${shieldsLeft()} left this month`)}`, false],
   ];
