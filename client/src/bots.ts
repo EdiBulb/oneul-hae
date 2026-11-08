@@ -13,7 +13,8 @@ interface Bot { c: Char; label: THREE.Sprite; nick: string; seat: number; tag: s
 /** 산에서 돌아다니는 봇: 정상 전망대 ↔ 능선길 가게 (들고 나오기·의자에 앉기) */
 interface Walk { gx: number; gz: number; goal: 'spot' | 'door' | 'seat'; seat: number; item: number; wait: number; stuck: number }
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
-const MAX = 4;
+// 피드백: 유저가 가장 싫어하는 게 '봇' → 꺼 둠 (코드는 그대로, 다시 켜려면 4)
+const MAX = 0;
 
 export function createBots(opts: {
   scene: THREE.Scene;

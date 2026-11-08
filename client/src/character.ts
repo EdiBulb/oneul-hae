@@ -170,8 +170,9 @@ export function animChar(c: Char, dt: number) {
     }
     if (c.emote === 'clap') {
       // 두 손을 앞으로 모아 짝짝짝
-      const reach = clamp(k * 2, 0, 1), tap = Math.abs(Math.sin(c.emoteT * 13)) * 0.3;
-      aL = aR = 1.3 * reach; aLz = -(0.25 + tap) * reach; aRz = (0.25 + tap) * reach;
+      // 팔을 몸 안쪽으로 모아(z 회전) 손바닥이 가운데서 실제로 맞닿게, 짝짝짝 벌렸다 붙였다
+      const reach = clamp(k * 2, 0, 1), open = Math.abs(Math.sin(c.emoteT * 11)) * 0.38;
+      aL = aR = 1.25 * reach; aLz = (0.92 - open) * reach; aRz = -(0.92 - open) * reach;
     }
     if (c.emote === 'pet') {
       // 쪼그려 앉아 오른손으로 머리를 토닥토닥

@@ -259,9 +259,8 @@ function join() {
 }
 net.on('connect', () => { connected = true; $('conn').classList.remove('show'); join(); renderCounts(); });
 net.on('disconnect', () => {
-  life.setDog(null); connected = false; $('conn').classList.add('show'); clearRemotes(); renderCounts(); });
-net.on('connect_error', () => { $('conn').classList.add('show'); });
-$('conn').classList.add('show');
+  life.setDog(null); connected = false; clearRemotes(); renderCounts(); });
+// 연결 상태는 위쪽 접속자 칸에 '연결 중…'으로 보임 (따로 띄우면 버튼과 겹쳐서)
 
 net.on('welcome', w => {
   if (w.place !== place.id) return;
