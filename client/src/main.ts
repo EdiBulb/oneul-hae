@@ -524,7 +524,6 @@ cvs.addEventListener('pointermove', e => {
   const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 1 && eyeK > 0.5) { eye.tYaw = clamp(eye.tYaw - dx * 0.006, -1.7, 1.7); eye.tPitch = clamp(eye.tPitch + dy * 0.005, 0.12, 1.5); }
-  else if (ptrs.size === 1 && jwOn) { /* 쥐불놀이: 드래그는 깡통 돌리기 */ }
   else if (ptrs.size === 1) { cam.tYaw -= dx * 0.007; cam.tPitch = clamp(cam.tPitch + dy * 0.005, 0.04, 1.35); }
   else if (ptrs.size === 2 && pinch0) {
     const [a, b] = [...ptrs.values()];
@@ -2151,7 +2150,7 @@ function toggleJwibul() {
   if (!jwOn && !isNight()) { toast(SL('밤에만 할 수 있어요 🌙', 'Only at night 🌙')); return; }
   if (!jwOn && mySeat !== null) standUp();
   setJwibul(!jwOn);
-  if (jwOn) { jwSpeed = 7; toast(SL('화면에 손가락으로 동그라미를 그리면 더 빨리 돌아요', 'Draw circles on the screen to spin faster')); track('jwibul', { place: place.id }); }
+  if (jwOn) { jwSpeed = 7; toast(SL('화면을 톡톡 누르면 더 빨리 돌아요', 'Tap the screen to spin faster')); track('jwibul', { place: place.id }); }
 }
 $('jwibulBtn').onclick = toggleJwibul;
 function shootStar() {
@@ -2175,17 +2174,6 @@ net.on('sky', (id, kind, x, c) => {
   const r = remotes.get(id);
   if (r) ticker(kind === 'star' ? SL(`${localizeNick(r.info.nick)}님이 별똥별을 띄웠어요`, `${localizeNick(r.info.nick)} sent a shooting star`) : SL(`${localizeNick(r.info.nick)}님이 불꽃을 쐈어요`, `${localizeNick(r.info.nick)} set off a firework`));
 });
-// 쥐불놀이 중엔 화면 드래그가 카메라 대신 깡통을 돌림: 내 캐릭터 둘레로 원을 그릴수록 빨라짐
-let jwPrevAng: number | null = null;
-cvs.addEventListener('pointermove', e => {
-  if (!jwOn || !ptrs.has(e.pointerId)) { jwPrevAng = null; return; }
-  const p = sparkTmp.copy(me.root.position); p.y += 1.2; p.project(camera);
-  const cx = (p.x + 1) / 2 * innerWidth, cy = (1 - p.y) / 2 * innerHeight;
-  const a = Math.atan2(e.clientY - cy, e.clientX - cx);
-  if (jwPrevAng !== null) { let d = a - jwPrevAng; if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; jwSpeed = Math.min(24, jwSpeed + Math.abs(d) * 2.2); }
-  jwPrevAng = a;
-});
-cvs.addEventListener('pointerup', () => { jwPrevAng = null; });
 const canPos = new THREE.Vector3();
 // 내 캐릭터를 톡 누르면 옷 입기 (옷 버튼 대신)
 const tapRay = new THREE.Raycaster(), tapNdc = new THREE.Vector2();
@@ -2193,7 +2181,9 @@ let tapStart: { x: number; y: number; t: number } | null = null;
 cvs.addEventListener('pointerdown', e => { tapStart = { x: e.clientX, y: e.clientY, t: performance.now() }; });
 cvs.addEventListener('pointerup', e => {
   const t0 = tapStart; tapStart = null;
-  if (!t0 || jwOn || openSheet || Math.hypot(e.clientX - t0.x, e.clientY - t0.y) > 10 || performance.now() - t0.t > 450) return;
+  if (!t0 || openSheet || Math.hypot(e.clientX - t0.x, e.clientY - t0.y) > 10 || performance.now() - t0.t > 450) return;
+  // 쥐불놀이 중: 드래그는 평소처럼 시야 돌리기, 화면을 톡톡 누르면 깡통이 더 빨리 돎
+  if (jwOn) { jwSpeed = Math.min(24, jwSpeed + 3.2); return; }
   tapNdc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   tapRay.setFromCamera(tapNdc, camera);
   if (tapRay.intersectObject(me.inner, true).length) { openWardrobe(); track('wear_tap_me'); }
