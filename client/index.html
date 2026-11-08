@@ -73,7 +73,8 @@
   <header>
     <div class="hleft pe">
       <button class="iconbtn exitbtn" id="exitBtn" aria-label="해변에서 나가기" data-i18n-aria="exitAria" data-i18n-html="exit">‹<span class="exit-label"> 나가기</span></button>
-      <!-- 접속자 수 (진짜 사람만, 봇은 빼고). 달력처럼 보이던 로고 자리 -->
+      <img class="brand-logo" src="/logo.svg" alt="" width="30" height="30">
+      <!-- 접속자 수 (진짜 사람만, 봇은 빼고) -->
       <div class="viewers" id="viewers"><span class="dot off" id="liveDot"></span><b id="viewerCount">연결 중…</b><span id="viewerUnit"></span></div>
       <div class="brand" data-i18n-html="brand">오늘의 해<small>출근 전 1분, 같이 보는 해돋이</small></div>
     </div>
@@ -155,10 +156,13 @@
 <div class="sheet" id="sunSheet" role="dialog" aria-labelledby="sunTitle">
   <div class="sun-head"><div class="sun-big"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#5a2a08" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="#5a2a08"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></div><div><small id="sunTitle" data-i18n="sunMine">내 햇살</small><b id="sunTotal">0</b></div></div>
   <div class="sun-stats" id="sunStats"></div>
+  <!-- 햇살 도장 달력: 피드백으로 숨김 (코드는 그대로, hidden만 지우면 다시 나옴) -->
+  <div id="calBox" hidden>
   <div class="cal-nav"><button class="cal-btn" id="calPrev" aria-label="지난달">‹</button><b id="calTitle"></b><button class="cal-btn" id="calNext" aria-label="다음달">›</button></div>
   <div class="cal-week" id="calWeek"></div>
   <div class="cal" id="cal"></div>
   <div class="cal-legend" id="calLegend"></div>
+  </div>
   <div class="sun-goal" id="sunGoal"></div>
   <h3 class="sun-h" data-i18n="sunUse">햇살 쓰기</h3>
   <div class="sun-uses" id="sunUses"></div>

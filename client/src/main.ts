@@ -2124,7 +2124,7 @@ function renderSunSheet() {
   const streak = streakCount();
   $('sunStats').innerHTML = [
     [SL('연속', 'Streak'), SL(`${streak}일`, `${streak}d`), true],
-    [SL('이번 달 도장', 'Stamps this month'), String(inMonth.length), false],
+    [SL('이번 달 본 날', 'Days this month'), String(inMonth.length), false],
     [SL('LIVE로 본 날', 'LIVE days'), String(keys.filter(k => days[k] === 'live').length), false],
   ].map(([a, b, hi]) => `<div><small>${a}</small><b${hi ? ' class="hi"' : ''}>${b}</b></div>`).join('');
   $('calTitle').textContent = calMonth.toLocaleDateString(locale, { year: 'numeric', month: 'long' });
