@@ -752,7 +752,7 @@ function loop(t: number) {
   updateNight(dt);
   updateRamen(t);
   updateSparkles(dt);
-  if (sky.update(dt, t, alt, camera, lying)) showStarWish();
+  sky.update(dt, t, alt, camera, lying); // 별똥별은 풍경으로만 (소원 빌기 버튼은 뺌)
   const shell = shells.update(dt, t, me.root.position);
   if (shell) gotShell(shell.i, shell.kind);
   if (t - lastShellCheck > 60000) { lastShellCheck = t; if (shellKey() !== store.shells?.key) placeShells(); }
