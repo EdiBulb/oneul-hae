@@ -704,7 +704,10 @@ function updateUI(vnow: number, alt: number, t: number) {
   // 순환 중엔 해가 계속 뜨니 다시보기 버튼은 '실제 하늘 보기'를 켠 사람에게만
   const pill = !cyc && !live && !replay && !!info.next && store.replayPillOff !== dateKey(Date.now()) && (!has.peak(place.id) || summitReached);
   if ($('replayWrap').hidden === pill) $('replayWrap').hidden = !pill;
-  const expanded = Date.now() < expandedUntil;
+  // 해가 수평선 근처에 있는 동안(뜨기 직전~막 뜬 뒤)은 큰 안내 글씨를 접어 둠: 해를 가리지 않게.
+  // 남은 시간은 위쪽 작은 알약에 그대로 보임
+  const sunMoment = alt > -2.5 && alt < 4;
+  const expanded = Date.now() < expandedUntil && !sunMoment;
   $('center').classList.toggle('collapsed', !expanded);
   $('status').innerHTML = expanded ? full : `${compact}<span class="chev">▾</span>`;
   // 해가 떠오르는 장면을 5초 이상 보면 오늘 기록
