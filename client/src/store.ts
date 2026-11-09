@@ -23,6 +23,7 @@ interface Saved {
   golden?: boolean;
   /** 해 뜬 뒤 편지 쓰기를 물어본 날 (하루 한 번) */
   letterAskDay?: string;
+  afterSunDay?: string;
   /** 가게에서 들고 나온 날 (다음 날이 되면 내려놓음) */
   itemDay?: string;
   /** 햇살 포인트 */

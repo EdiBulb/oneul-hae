@@ -8,7 +8,7 @@ import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
 import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
-import { takePhoto } from './photo';
+import { grab, compose } from './photo';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
@@ -923,7 +923,7 @@ $('resetView').onclick = () => {
 
 let openSheet: HTMLElement | null = null;
 const back = $('sheetBack');
-function open(id: string) { openSheet = $(id); openSheet.classList.add('open'); back.classList.add('open'); back.classList.toggle('clear', id === 'outfitSheet'); document.body.classList.toggle('dressing', id === 'outfitSheet'); }
+function open(id: string) { $('inapp').hidden = true; openSheet = $(id); openSheet.classList.add('open'); back.classList.add('open'); back.classList.toggle('clear', id === 'outfitSheet'); document.body.classList.toggle('dressing', id === 'outfitSheet'); }
 function close() {
   // 모래에 쓰다가 닫으면 모래 위 미리보기도 지움
   if (openSheet?.id === 'sandSheet') { $('sandPreview').hidden = true; $('sand').classList.remove('previewing'); }
@@ -937,13 +937,18 @@ $('lanternBtn').hidden = !LANTERN_ON; $('seeWishesBlock').hidden = !LANTERN_ON;
 $('lanternBtn').onclick = () => open('wishSheet');
 
 // ================= 사진 =================
-let photoUrl = '', photoBlob: Blob | null = null;
-$('photoBtn').onclick = async () => {
-  meRing.visible = false;
-  const blob = await takePhoto(renderer.domElement, () => renderer.render(scene, camera), placeName(place), place.tz);
-  meRing.visible = true;
+let photoUrl = '', photoBlob: Blob | null = null, photoBase: HTMLCanvasElement | null = null, photoSun: { x: number; y: number } | null = null;
+let photoMode: 'sq' | 'full' = 'sq';
+/** 해가 화면 어디에 있는지 (0~1). 화면 밖이면 null */
+function sunOnScreen() {
+  const v = camera.position.clone().addScaledVector(world.sunDir, 500).project(camera);
+  if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) return null;
+  return { x: (v.x + 1) / 2, y: (1 - v.y) / 2 };
+}
+async function renderPhoto() {
+  if (!photoBase) return;
+  const blob = await compose(photoBase, photoMode, photoSun, placeName(place), place.tz, T.photoSeen(streakCount()));
   if (!blob) { toast(T.photoFail); return; }
-  const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
   if (photoUrl) URL.revokeObjectURL(photoUrl);
   photoBlob = blob; photoUrl = URL.createObjectURL(blob);
   ($('photoImg') as HTMLImageElement).src = photoUrl;
@@ -951,9 +956,22 @@ $('photoBtn').onclick = async () => {
   const save = $('photoSave') as HTMLAnchorElement; save.href = photoUrl; save.download = name;
   const file = new File([blob], name, { type: 'image/jpeg' });
   $('photoShare').hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
+  document.querySelectorAll<HTMLButtonElement>('#photoMode button').forEach(b => b.classList.toggle('on', b.dataset.m === photoMode));
+}
+async function snapPhoto(from: string) {
+  const was = meRing.visible; meRing.visible = meLabel.visible = false;
+  photoBase = grab(renderer.domElement, () => renderer.render(scene, camera));
+  meRing.visible = meLabel.visible = was;
+  photoSun = sunOnScreen();
+  // 해가 화면에 보이면 프사용 정사각형부터, 아니면 화면 그대로
+  photoMode = photoSun ? 'sq' : 'full';
+  const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
+  await renderPhoto();
   open('photoSheet');
-  track('photo_taken', { place: place.id });
-};
+  track('photo_taken', { place: place.id, from, mode: photoMode });
+}
+$('photoBtn').onclick = () => snapPhoto('button');
+document.querySelectorAll<HTMLButtonElement>('#photoMode button').forEach(b => b.onclick = () => { photoMode = b.dataset.m as 'sq' | 'full'; renderPhoto(); track('photo_mode', { mode: photoMode }); });
 $('photoShare').onclick = async () => {
   if (!photoBlob) return;
   const file = new File([photoBlob], 'oneul-hae.jpg', { type: 'image/jpeg' });
@@ -1551,6 +1569,8 @@ $('hintBtn').onclick = () => {
 function renderRealSky() { $('realSkyBtn').textContent = store.realSky ? T.realSkyOn : T.realSkyOff; }
 renderRealSky();
 $('realSkyBtn').onclick = () => { store.realSky = !store.realSky; save(); renderRealSky(); close(); toast(store.realSky ? T.realSkyToastOn : T.realSkyToastOff); track('real_sky', { on: !!store.realSky }); };
+$('langLink').textContent = T.langLink;
+$('langLink').onclick = () => $('langBtn').click();
 $('introBtn').onclick = () => { close(); setTimeout(openHint, 250); track('intro_reopened'); };
 world.buildLandmark(place);
 applyTerrain(place);
@@ -1971,7 +1991,7 @@ net.on('cheer', (key, total, people, from) => {
 let lastWindowKey = '';
 function sunRoseNow() {
   const key = lastWindowKey;
-  setTimeout(askLetter, 9000);
+  setTimeout(askAfterSun, 9000);
   // 5분 해도 오늘 도장(작은 도장) + 햇살 1 (하루 3번까지)
   if (cycling()) { markSeen('replay'); earnCycle(); }
   if (key) {
@@ -2004,6 +2024,27 @@ function askLetter() {
   $('letterAsk').hidden = false; track('letter_ask');
   setTimeout(() => { $('letterAsk').hidden = true; }, 12000);
 }
+/** 해가 뜬 직후 한 번: 사진 남기기 · 내일 알람 · 내일의 나에게 (감동한 순간이 알람을 켤 확률이 가장 높음) */
+let afterSunTimer = 0;
+function askAfterSun() {
+  const day = dateKey(Date.now());
+  if (store.afterSunDay === day) return;
+  if (openSheet) { setTimeout(askAfterSun, 4000); return; }
+  store.afterSunDay = day; save();
+  $('asAlarm').hidden = store.alarm.on;
+  $('asLetter').hidden = !!store.letter;
+  $('afterSun').hidden = false; track('after_sun_card', { alarmOn: store.alarm.on });
+  clearTimeout(afterSunTimer); afterSunTimer = window.setTimeout(() => { $('afterSun').hidden = true; }, 30000);
+}
+const hideAfterSun = () => { $('afterSun').hidden = true; clearTimeout(afterSunTimer); };
+$('afterSunX').onclick = () => { hideAfterSun(); track('after_sun_x'); };
+$('asPhoto').onclick = () => { hideAfterSun(); snapPhoto('after_sun'); };
+$('asAlarm').onclick = () => {
+  if (!store.alarm.on) { store.alarm.on = true; save(); chime(); renderAlarm(); }
+  $('asAlarm').hidden = true; toast(T.afterSunAlarmOn); track('alarm_toggled', { on: true, place: place.id, from: 'after_sun' });
+  if ($('asLetter').hidden) hideAfterSun();
+};
+$('asLetter').onclick = () => { hideAfterSun(); $('letterBtn').click(); track('letter_ask_yes', { from: 'after_sun' }); };
 $('letterAskYes').onclick = () => { $('letterAsk').hidden = true; $('letterBtn').click(); track('letter_ask_yes'); };
 $('letterAskNo').onclick = () => { $('letterAsk').hidden = true; };
 setInterval(updateLetterBtn, 500);

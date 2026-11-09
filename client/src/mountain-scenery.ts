@@ -11,6 +11,16 @@ import { createShops } from './mountain-shops';
 const lam = (c: number, extra: Partial<THREE.MeshLambertMaterialParameters> = {}) => new THREE.MeshLambertMaterial({ color: c, flatShading: true, ...extra });
 const rnd = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
 
+/** 한국 날짜로 계절. 주소에 ?season=spring 처럼 붙이면 미리 볼 수 있음 */
+export type Season = 'spring' | 'summer' | 'autumn' | 'late' | 'winter';
+export function seasonNow(): Season {
+  const q = new URLSearchParams(location.search).get('season');
+  if (q === 'spring' || q === 'summer' || q === 'autumn' || q === 'late' || q === 'winter') return q;
+  const m = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', month: 'numeric' }).format(new Date()));
+  // 천왕봉은 높아서 계절이 빨리 지나감: 5월 철쭉·진달래, 9~10월 단풍, 11월 억새와 서리, 12~3월 눈
+  return m === 4 || m === 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m === 9 || m === 10 ? 'autumn' : m === 11 ? 'late' : 'winter';
+}
+
 /** 먼 능선 한 겹: 위쪽이 들쭉날쭉한 세로 띠 */
 function ridge(dist: number, top: number, amp: number, color: number, seed: number) {
   const pts = 90, w = 3200, geo = new THREE.BufferGeometry();
@@ -57,6 +67,7 @@ const VARIANTS = {
 export type MountainId = keyof typeof VARIANTS;
 export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.Texture) {
   const V = VARIANTS[id];
+  const SEASON = seasonNow();
   const mountainY = (x: number, z: number) => mY(x, z, id);
   const g = new THREE.Group(); scene.add(g); g.visible = false;
   /** 가게 자리 근처엔 나무·덤불·돌을 두지 않음 */
@@ -66,7 +77,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   const W = 150, D = 76, geo = new THREE.PlaneGeometry(W, D, 110, 64);
   geo.rotateX(-Math.PI / 2); geo.translate(0, 0, D / 2 - 1.2);
   const p = geo.attributes.position, col: number[] = [];
-  const grass = new THREE.Color(V.grass), dry = new THREE.Color(V.dry), stone = new THREE.Color(V.stone), path = new THREE.Color(V.path), c = new THREE.Color();
+  const SNOW = new THREE.Color(0xeef2f7), grass = new THREE.Color(V.grass), dry = new THREE.Color(V.dry), stone = new THREE.Color(V.stone), path = new THREE.Color(V.path), c = new THREE.Color();
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), z = p.getZ(i);
     // 난간 앞쪽 가장자리는 아래로 뚝 떨어지는 절벽
@@ -75,6 +86,9 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
     if (Math.abs(x) < 1.6 + Math.sin(z * 0.5) * 0.4 && z > 1 && z < 40) c.copy(path);
     else if (z < SUMMIT.crestZ + 1 || n > 0.45 || Math.abs(x) > 9) c.copy(stone).lerp(dry, 0.15 + 0.2 * Math.max(0, n));
     else c.copy(grass).lerp(dry, 0.5 + 0.5 * n);
+    if (SEASON === 'winter' && (n > -0.15 || Math.abs(x) > 4)) c.lerp(SNOW, 0.55 + 0.35 * Math.max(0, n));
+    else if (SEASON === 'late') c.lerp(dry, 0.45);
+    else if (SEASON === 'summer') c.lerp(grass, 0.35);
     col.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -118,8 +132,47 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   }
   // 낮은 덤불
   // 가을 단풍 든 덤불 (살짝 어두운 붉은색·주황·갈색)
-  const bushMs = [lam(0x55693a), lam(0x8e3a22), lam(0xa65a26), lam(0x7a4a24), lam(0x9a6a2a)];
+  const BUSH: Record<Season, number[]> = {
+    spring: [0x55693a, 0xd8689c, 0x4f6a34, 0xe58ab4, 0xc94f86], // 철쭉·진달래
+    summer: [0x4f6a34, 0x5d7a3a, 0x44602e, 0x5d7a3a, 0x6b8440],
+    autumn: [0x55693a, 0x8e3a22, 0xa65a26, 0x7a4a24, 0x9a6a2a], // 단풍
+    late: [0x6a5a3e, 0x7a4a2a, 0x82704a, 0x5e5038, 0x8a6a40],
+    winter: [0x5a5248, 0x6a6258, 0x4e4a44, 0x625a50, 0x58524a],
+  };
+  const bushMs = BUSH[SEASON].map(c => lam(c));
   for (let i = 0; i < 34; i++) { const x = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 6), z = 4 + rnd() * 16; if (!clearOf(x, z)) continue; const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + rnd() * 0.4, 0), bushMs[i % bushMs.length]); b.scale.y = 0.6; b.position.set(x, mountainY(x, z) + 0.2, z); g.add(b); }
+
+  // ---------- 계절 ----------
+  const seasonG = new THREE.Group(); g.add(seasonG);
+  if (SEASON === 'spring') {
+    // 연분홍 꽃무더기 (철쭉·진달래): 길 양옆 비탈에
+    const fM = [lam(0xf08cb8), lam(0xe0609a), lam(0xf6b3d0)];
+    for (let i = 0; i < 70; i++) { const x = (rnd() < 0.5 ? -1 : 1) * (2.4 + rnd() * 8), z = 2 + rnd() * 26; if (!clearOf(x, z)) continue; const f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28 + rnd() * 0.3, 0), fM[i % 3]); f.scale.y = 0.55; f.position.set(x, mountainY(x, z) + 0.18, z); seasonG.add(f); }
+  } else if (SEASON === 'summer') {
+    const fM = lam(0xf2b233); // 원추리
+    for (let i = 0; i < 26; i++) { const x = (rnd() < 0.5 ? -1 : 1) * (2.5 + rnd() * 7), z = 3 + rnd() * 22; if (!clearOf(x, z)) continue; const s = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.6, 4), lam(0x4f6a34)); s.position.set(x, mountainY(x, z) + 0.3, z); seasonG.add(s); const f = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 6), fM); f.rotation.x = Math.PI; f.position.set(x, mountainY(x, z) + 0.62, z); seasonG.add(f); }
+  }
+  if (SEASON === 'autumn' || SEASON === 'late') {
+    // 억새: 가는 줄기 다발 + 끝에 은빛·금빛 이삭 (바람에 살랑)
+    const stemM = lam(SEASON === 'late' ? 0xb8a77a : 0x9a8a52), plumeM = new THREE.MeshLambertMaterial({ color: SEASON === 'late' ? 0xece4d2 : 0xe8cf94 });
+    for (let i = 0; i < 46; i++) {
+      const x = (rnd() < 0.5 ? -1 : 1) * (2.2 + rnd() * 8.5), z = 2 + rnd() * 27; if (!clearOf(x, z)) continue;
+      const tuft = new THREE.Group(); tuft.position.set(x, mountainY(x, z), z); tuft.userData.ph = rnd() * 6;
+      for (let k = 0; k < 5; k++) {
+        const h = 0.7 + rnd() * 0.5, a = (k / 5) * Math.PI * 2, lean = 0.12 + rnd() * 0.15;
+        const st = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.014, h, 3), stemM); st.position.set(Math.cos(a) * 0.08, h / 2, Math.sin(a) * 0.08); st.rotation.set(Math.sin(a) * lean, 0, -Math.cos(a) * lean); tuft.add(st);
+        const pl = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.32, 4), plumeM); pl.position.set(Math.cos(a) * (0.08 + h * lean), h + 0.1, Math.sin(a) * (0.08 + h * lean)); pl.rotation.copy(st.rotation); tuft.add(pl);
+      }
+      seasonG.add(tuft);
+    }
+  }
+  if (SEASON === 'winter' || SEASON === 'late') {
+    // 서리꽃(상고대)·눈: 나무와 바위 위에 하얀 덩어리를 얹음
+    const frostM = new THREE.MeshLambertMaterial({ color: 0xf4f7fb, flatShading: true });
+    const tops: THREE.Vector3[] = [];
+    g.traverse(o => { if (o instanceof THREE.Mesh && (o.geometry instanceof THREE.ConeGeometry || (o.geometry instanceof THREE.DodecahedronGeometry && o.position.y > -2))) tops.push(o.position.clone().setY(o.position.y + (o.geometry instanceof THREE.ConeGeometry ? 0.25 : o.scale.y * 0.75))); });
+    for (const t of tops) { if (SEASON === 'late' && rnd() < 0.6) continue; const f = new THREE.Mesh(new THREE.IcosahedronGeometry(SEASON === 'late' ? 0.16 : 0.3, 0), frostM); f.scale.y = 0.45; f.position.copy(t); seasonG.add(f); }
+  }
 
   // ---------- 전망대: 밧줄 난간 + 바위 의자 ----------
   const postM = lam(0x6e4f33), ropeM = new THREE.MeshLambertMaterial({ color: 0xd9c9a3 });
@@ -220,6 +273,8 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
     group: g,
     update(dt: number, night: number, low: THREE.Color, t = 0) {
       shops?.update(t, night);
+      // 억새가 바람에 살랑
+      for (const tuft of seasonG.children) if (tuft.userData.ph !== undefined) tuft.rotation.z = Math.sin(t * 1.3 + tuft.userData.ph) * 0.06;
       // 구름 덩어리가 아주 천천히 흘러감
       for (const [i, sp] of puffs.entries()) { sp.position.x += dt * (0.4 + (i % 5) * 0.12); if (sp.position.x > 600) sp.position.x -= 1200; }
       // 구름색: 낮엔 하얗게, 해 뜰 무렵엔 하늘 아래쪽 색(분홍·주황)이 물듦, 밤엔 푸르스름하게 어둡게

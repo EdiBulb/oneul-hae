@@ -81,9 +81,9 @@
     <div class="hright pe">
       <span class="conn" id="conn" data-i18n="connecting">연결 중…</span>
       <button class="iconbtn" id="soundBtn" aria-label="소리 끄기">🔊</button>
-      <button class="iconbtn" id="langBtn" aria-label="Language / 언어">EN</button>
+      <button class="iconbtn" id="langBtn" aria-label="Language / 언어" hidden>EN</button>
       <button class="sun-chip" id="sunChip" aria-label="햇살"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg><b id="sunNum">0</b><i class="sp s1"></i><i class="sp s2"></i><i class="sp s3"></i></button>
-      <button class="iconbtn" id="menuBtn" data-i18n="menu">기록·알람</button>
+      <button class="iconbtn menu-ic" id="menuBtn" aria-label="나의 아침 · 알람 · 설정" data-i18n-aria="menuAria"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
   </header>
   <nav class="chips pe" id="chips" aria-label="장소" data-i18n-aria="chipsAria"><button class="place-btn" id="placeBtn" aria-haspopup="dialog"><span id="placeBtnName"></span><em id="placeBtnCount"></em><i>▾</i></button></nav>
@@ -211,6 +211,7 @@
 </div>
 <div class="sheet" id="photoSheet" role="dialog" aria-labelledby="photoTitle">
   <h2 id="photoTitle" data-i18n="photoTitle">오늘의 해를 찍었어요</h2>
+  <div class="photo-mode" id="photoMode"><button data-m="sq" class="on" data-i18n="photoSq">프사용 정사각형</button><button data-m="full" data-i18n="photoFull">화면 그대로</button></div>
   <img class="photo-prev" id="photoImg" alt="방금 찍은 해변 사진" data-i18n-alt="photoAlt">
   <p class="lead" data-i18n="photoLead">사진을 길게 눌러도 저장할 수 있어요.</p>
   <div class="photo-btns">
@@ -278,6 +279,7 @@
     <button class="link" id="installMenuBtn" data-i18n="installMenuBtn">홈 화면에 앱으로 설치하기</button>
     <button class="link" id="introBtn" data-i18n="introBtn">처음 화면 다시 보기</button>
     <button class="link" id="realSkyBtn"></button>
+    <button class="link" id="langLink">English</button>
   </div>
   <div class="block" id="seeWishesBlock" hidden>
     <div class="row">
@@ -332,6 +334,8 @@
 </div>
 
 <div class="hint" id="hint">
+  <p class="story" data-i18n-html="story"><b>바쁜 하루가 시작되기 전,</b><br>나처럼 일찍 일어난 누군가와<br>같은 해를 맞는 산이에요.</p>
+  <p class="story-sub" data-i18n="storySub">해는 매일 아침 실제 일출 시각에 떠요</p>
   <h3 id="hintTitle" data-i18n="hintTitle">해변에 도착했어요</h3>
   <div class="how">
     <div class="how-row"><span class="how-ic">👆</span><span data-i18n-html="how2">화면 아무 데나 <b>쓱 밀면</b> 주변을 둘러봐요</span></div>
@@ -374,6 +378,15 @@
   <div class="sand-notice" data-i18n-html="sandNotice">모래 게시판의 글은 오늘 이 해변에 오는 <b>모두에게 보여요.</b> 이름은 남지 않고, 3시간 뒤 사라져요.</div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="after-sun" id="afterSun" hidden role="dialog" aria-labelledby="afterSunTitle">
+  <button class="letter-ask-x" id="afterSunX" aria-label="닫기">✕</button>
+  <b id="afterSunTitle" data-i18n="afterSunTitle">오늘의 해를 같이 봤어요</b>
+  <div class="as-btns">
+    <button class="as-btn" id="asPhoto"><i>📷</i><span data-i18n="asPhoto">프사용 사진 남기기</span></button>
+    <button class="as-btn" id="asAlarm"><i>⏰</i><span data-i18n="asAlarm">내일 아침도 깨워 주기</span></button>
+    <button class="as-btn" id="asLetter"><i>✉️</i><span data-i18n="asLetter">내일의 나에게 한 줄</span></button>
+  </div>
+</div>
 <div class="letter-ask" id="letterAsk" hidden>
   <span data-i18n="letterAsk">내일의 해에게 한 줄 남길래요?</span>
   <button class="btn primary" id="letterAskYes" data-i18n="letterAskYes">쓰기</button>

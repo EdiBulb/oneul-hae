@@ -21,6 +21,8 @@ export function inAppHint() {
     document.getElementById('inappText')!.textContent = ko ? '오른쪽 위 ⋯ 를 누르고 "외부 브라우저로 열기"를 고르면 더 부드러워요' : 'Tap ⋯ at the top right and choose "Open in browser" for a smoother view';
   }
   el.hidden = false;
+  // 화면을 오래 가리지 않게 10초 뒤 저절로 접힘
+  setTimeout(() => { el.hidden = true; }, 10000);
   document.getElementById('inappX')!.onclick = () => { el.hidden = true; try { sessionStorage.setItem('inappX', '1'); } catch { /* 무시 */ } };
   track('inapp_seen', { app, os: android ? 'android' : 'ios' });
 }
