@@ -38,6 +38,11 @@ interface Saved {
   itemBites?: number;
   /** 처음 해가 떴을 때 '울어 보기'를 배웠는지 */
   crowTaught?: boolean;
+  /** '밤이 되었네…'를 마지막으로 물어본 날 (하루 한 번) */
+  nightDay?: string;
+  /** 마고할미 옛날이야기: 다음에 들려줄 번호, 마지막으로 들은 날 */
+  taleNext?: number;
+  taleDay?: string;
   /** 통천문 '곧 정상' 혼잣말을 이미 했는지 (한 번만) */
   gateSaid?: boolean;
   installAskAt?: number;

@@ -687,6 +687,7 @@ function updateUI(vnow: number, alt: number, t: number) {
   if (crossed && !introSky) sunriseLegends(); // 해가 뜨는 순간 봉황 (아주 가끔은 푸른 학도)
   if (crossed && (live || cyc) && !introSky) { sunRoseNow(); }
   maybeDeliverOnLoad(alt, live, cyc);
+  nightCheck(alt);
   lastAltForBanner = alt;
   if (live && info.windowSR && info.windowSR - now < 60000 && info.windowSR > now && minuteWarned !== info.windowSR) {
     minuteWarned = info.windowSR; expandBanner(65000);
@@ -809,6 +810,51 @@ async function magoTalk(auto: boolean, forceFirst = false) {
     track('mago_install_ask', { yes });
     if (yes) showInstall(true); else { mago.talk(1.5); await talk([{ who: 'mago', text: T.magoInstallLater }]); }
   }
+  mago.look(magoHome); magoBusy = false;
+  if (!auto && isNight() && store.taleDay !== dateKey(Date.now())) await tellTale(false);
+}
+
+// ================= 밤: 해를 기다리며 할 것 =================
+let nightBusy = false, introEndAt = -1e9;
+/** 밤이 되면 하루 한 번 '밤이 되었네…' 하고 뭘 할지 고름 */
+function nightCheck(alt: number) {
+  if (alt >= -6 || introSky || introRunning || introSolo || nightBusy || magoBusy || lying || talking() || place.id !== 'jirisan') return;
+  if (store.nightDay === dateKey(Date.now()) || performance.now() - introEndAt < 20000 || document.querySelector('.sheet.open')) return;
+  store.nightDay = dateKey(Date.now()); save();
+  nightBusy = true;
+  void (async () => {
+    const pick = await ask('me', T.nightAsk, T.nightPick);
+    track('night_pick', { pick });
+    if (pick === 0) $('lieBtn').click();
+    else if (pick === 1) await goHearTale();
+    else await talk([{ who: 'me', text: T.nightWait }]);
+    nightBusy = false;
+  })();
+}
+/** 할미 곁으로 가서 옛날이야기 듣기 (멀리 있으면 암전 뒤 둥지로) */
+async function goHearTale() {
+  const p = me.root.position, m = mago.root.position;
+  if (Math.hypot(p.x - m.x, p.z - m.z) > 6) {
+    await fade(true);
+    if (mySeat !== null) standUp(); onCushion = false; lying = false;
+    const x = MAGO_AT.x + 1.4, z = MAGO_AT.z - 0.8; me.root.position.set(x, floorY(x, z), z);
+    setView(4.2, 0.2, Math.atan2(-(MAGO_AT.x - x), -(MAGO_AT.z - z)) + 0.5); // 내 등 뒤에서 할미를 비스듬히
+    await sleep(300); await fade(false);
+  }
+  await tellTale(true);
+}
+/** 옛날이야기 한 편 (순서대로, 하루 한 편). asked: 내가 먼저 청했는지 */
+async function tellTale(asked: boolean) {
+  if (magoBusy) return;
+  magoBusy = true;
+  const p = me.root.position, m = mago.root.position;
+  mago.look(faceAngle(p.x - m.x, p.z - m.z)); turnTo(me, faceAngle(m.x - p.x, m.z - p.z), 1);
+  if (!asked && await ask('mago', T.taleAsk, [T.taleYes, T.taleNo]) !== 0) { mago.look(magoHome); magoBusy = false; return; }
+  const i = (store.taleNext ?? 0) % T.tales.length;
+  track('tale', { i });
+  for (const text of T.tales[i]) { mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who: 'mago', text }]); }
+  await talk([{ who: 'mago', text: T.taleEnd }]);
+  store.taleNext = i + 1; store.taleDay = dateKey(Date.now()); save();
   mago.look(magoHome); magoBusy = false;
 }
 
@@ -1944,7 +1990,7 @@ async function storyIntro() {
   mago.root.position.set(MAGO_AT.x, mountainY(MAGO_AT.x, MAGO_AT.z, 'jirisan'), MAGO_AT.z); mago.look(magoHome);
   setView(saved.d, saved.p, saved.y);
   store.magoMet = true; store.hinted = true; store.magoDay = dateKey(Date.now()); save();
-  introSolo = false; document.body.classList.remove('in-intro');
+  introSolo = false; document.body.classList.remove('in-intro'); introEndAt = performance.now();
   if (introOffline) { introOffline = false; net.sendBuffer = []; net.connect(); } // 다시 보기 끝: 다시 들어감 (그사이 쌓인 신호는 버림)
   else if (connected && !myId) join(); // 처음 온 사람: 이제 들어감
   bots.fill();
