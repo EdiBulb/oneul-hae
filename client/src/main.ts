@@ -278,6 +278,8 @@ function aloneMsg() {
 
 /** 처음 온 사람: 인트로(부화 → 할미 → 정상 봉황 → 둥지)가 끝날 때까지 혼자. 다른 사람·봇·흔적 없음 */
 let introSolo = !store.hinted && place.id === 'jirisan';
+/** 다시 보기 동안엔 서버에서 잠깐 나가 있음 (다른 사람 화면에서 내가 사라짐) */
+let introOffline = false;
 function join() {
   if (introSolo) return; // 인트로 동안엔 혼자 (끝나면 들어감)
   net.emit('join', { place: place.id, uid: store.uid, nick: store.nick, look: store.look, woke: wokeToday() });
@@ -1946,7 +1948,8 @@ async function storyIntro() {
   setView(saved.d, saved.p, saved.y);
   store.magoMet = true; store.hinted = true; store.magoDay = dateKey(Date.now()); save();
   introSolo = false; document.body.classList.remove('in-intro');
-  if (connected && !myId) join(); // 처음이면 이제 들어감 (다시 보기는 이미 들어와 있음)
+  if (introOffline) { introOffline = false; net.sendBuffer = []; net.connect(); } // 다시 보기 끝: 다시 들어감 (그사이 쌓인 신호는 버림)
+  else if (connected && !myId) join(); // 처음 온 사람: 이제 들어감
   bots.fill();
   lastUI = 0;
   await sleep(400); await fade(false);
@@ -1982,6 +1985,7 @@ $('introBtn').onclick = async () => {
     if (mySeat !== null) standUp(); onCushion = false; lying = false; letGo(false);
     const x = NEST.x, z = NEST.z - 1.2; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = Math.PI;
     introSolo = true; bots.clear();
+    if (net.connected) { introOffline = true; net.disconnect(); } // 튜토리얼 동안 다른 사람에게 안 보이게
   }
   setTimeout(() => runIntro(true), 250);
 };
