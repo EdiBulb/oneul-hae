@@ -9,7 +9,7 @@ import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
 import { GATE, TRAIL, mountainY, trailX, benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
 import { grab, compose } from './photo';
-import { initTalk, say as talk, talking, ask, setSkip } from './talk';
+import { initTalk, say as talk, talking, ask, setSkip, skipAll } from './talk';
 import { createMago } from './mago';
 import { hatch, openEyes, fade } from './intro';
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -248,6 +248,7 @@ function clearRemotes() { [...remotes.keys()].forEach(removeRemote); }
 function updateRemotes(dt: number) {
   const e = 1 - Math.pow(0.002, dt);
   for (const r of remotes.values()) {
+    r.c.root.visible = !introSolo; // 인트로(다시 보기 포함) 동안엔 아무도 안 보임
     const p = r.c.root.position;
     const dx = r.tx - p.x, dz = r.tz - p.z, d = Math.hypot(dx, dz);
     // 서버에서 초당 8번 정도 오는 위치 사이를 부드럽게 채움
@@ -650,6 +651,7 @@ let lastTickerAt = 0, lastWokeNote = 0;
 /** 해변 소식: 잠깐 떴다가 4초 뒤 스르르 사라짐 (화면을 가리지 않도록) */
 let tickerTimer = 0;
 function ticker(msg: string) {
+  if (introSolo) return;
   const el = $('ticker');
   el.textContent = msg; el.classList.add('show');
   lastTickerAt = performance.now();
@@ -1865,6 +1867,7 @@ let introRunning = false;
 $('intro').addEventListener('pointerdown', () => amb.unlock());
 async function runIntro(first: boolean) {
   introRunning = true;
+  if (introSolo) magoBusy = true; // 눈 뜨는 사이에 할미가 다른 인사를 먼저 하지 않게
   if (introSolo) { document.body.classList.add('in-intro'); setIntroSky(-8 * 60000); } // 누구에게나 같은 '해 뜨기 직전 새벽'
   track('intro', { first });
   await hatch(first, T.introTap);
@@ -1943,7 +1946,7 @@ async function storyIntro() {
   setView(saved.d, saved.p, saved.y);
   store.magoMet = true; store.hinted = true; store.magoDay = dateKey(Date.now()); save();
   introSolo = false; document.body.classList.remove('in-intro');
-  if (connected) join();
+  if (connected && !myId) join(); // 처음이면 이제 들어감 (다시 보기는 이미 들어와 있음)
   bots.fill();
   lastUI = 0;
   await sleep(400); await fade(false);
@@ -1969,7 +1972,19 @@ renderRealSky();
 $('realSkyBtn').onclick = () => { store.realSky = !store.realSky; save(); renderRealSky(); close(); toast(store.realSky ? T.realSkyToastOn : T.realSkyToastOff); track('real_sky', { on: !!store.realSky }); };
 $('langLink').textContent = T.langLink;
 $('langLink').onclick = () => $('langBtn').click();
-$('introBtn').onclick = () => { close(); setTimeout(() => runIntro(true), 250); track('intro_reopened'); };
+// 처음 이야기 다시 보기: 처음 온 사람과 똑같이 (둥지에서 혼자, 새벽 → 정상 봉황 → 둥지)
+$('introBtn').onclick = async () => {
+  if (introRunning || introSolo) return;
+  close(); track('intro_reopened');
+  // 할미가 다른 말을 하던 중이면 끝내고 시작
+  for (let i = 0; i < 40 && (magoBusy || talking()); i++) { skipAll(); await sleep(150); }
+  if (place.id === 'jirisan') {
+    if (mySeat !== null) standUp(); onCushion = false; lying = false; letGo(false);
+    const x = NEST.x, z = NEST.z - 1.2; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = Math.PI;
+    introSolo = true; bots.clear();
+  }
+  setTimeout(() => runIntro(true), 250);
+};
 world.buildLandmark(place);
 applyTerrain(place);
 // 지형이 정해진 뒤 내 발 높이를 다시 맞춤 (둥지에서 시작할 때 공중에 뜨지 않게)
