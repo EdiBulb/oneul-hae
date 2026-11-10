@@ -197,9 +197,9 @@ const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
 const seenDays = () => Object.values(store.days).filter(v => v !== 'shield').length;
 store.look.g = growthOf(seenDays()); store.growthSeen ??= store.look.g;
 setGrowth(me, store.look.g);
-// 처음 온 날은 장터목 둥지에서 깨어나 마고할미를 만나고, 그다음부터는 정상 바로 아래에서 시작 (출근 전 1분)
+// 지리산은 언제나 장터목 둥지에서 깨어남 (바쁘면 옆의 '정상 가기' 버튼으로 바로)
 const spawn = () => {
-  if (place.id === 'jirisan' && !store.magoMet) { const x = NEST.x + (Math.random() - 0.5) * 0.6, z = NEST.z + (Math.random() - 0.5) * 0.6; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = 0; return; }
+  if (place.id === 'jirisan') { const x = NEST.x + (Math.random() - 0.5) * 0.6, z = NEST.z + (Math.random() - 0.5) * 0.6; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = 0; return; }
   const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z);
 };
 spawn();
@@ -871,7 +871,7 @@ function updateTrail() {
     const txt = T.trailChip(m, km); if (txt !== trailShown) { $('trailChip').textContent = txt; trailShown = txt; }
   }
   if ($('trailChip').hidden === show) $('trailChip').hidden = !show;
-  const b = $('toTopBtn'), top = on && p.z > TRAIL.gate + 4 && !lying && !talking();
+  const b = $('toTopBtn'), top = on && p.z > TRAIL.gate + 4 && !lying;
   if (b.hidden === top) b.hidden = !top;
   // 통천문 바위 틈을 지날 때 한 번 속마음
   if (on && !gateSaid && Math.abs(p.z - GATE.z) < 0.8 && Math.abs(p.x - GATE.x) < 1 && !talking()) { gateSaid = true; talk([{ who: 'me', text: T.gateThought }]); track('gate_passed'); }
@@ -880,8 +880,8 @@ function updateTrail() {
 $('toTopBtn').textContent = T.toTop;
 $('toTopBtn').onclick = () => {
   if (mySeat !== null) standUp(); onCushion = false; lying = false;
-  // 통천문을 막 빠져나온 곳으로 (정상 바로 아래)
-  const z = GATE.z - 3, x = GATE.x * 0.5; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = 0;
+  // 정상 바로 아래 (언덕만 넘으면 해가 보이는 곳)
+  const z = 11 + Math.random() * 2, x = (Math.random() - 0.5) * 3; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = 0;
   track('to_top');
 };
 
@@ -1736,7 +1736,7 @@ function installReady() { return Object.values(store.days).includes('live') || O
 function askInstallAfterSun() { /* 설치는 마고할미가 대화로 물어봄 */ }
 /** 첫 안내 카드: 산 정상이면 '걸어가 보세요'로 */
 function openHint() {
-  const peak = has.peak(place.id), nest = place.id === 'jirisan' && !store.magoMet;
+  const peak = has.peak(place.id), nest = place.id === 'jirisan';
   $('hintTitle').textContent = nest ? T.hintNestTitle : peak ? T.hintPeakTitle : (lang === 'ko' ? '해변에 도착했어요' : "You've arrived at the beach");
   if (peak) $('how3').innerHTML = nest ? T.hintNestHow : T.hintPeakHow; else applyHtml();
   $('hint').classList.add('open');
@@ -1747,7 +1747,7 @@ $('hintBtn').onclick = () => {
   $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner();
   // 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌
   const live = !!sunriseInfo(place, Date.now()).windowSR;
-  if (has.peak(place.id) && store.magoMet) setTimeout(() => toast(T.summitWalk), 700);
+  if (has.peak(place.id) && place.id !== 'jirisan') setTimeout(() => toast(T.summitWalk), 700);
   else if (!live && !cycling()) setTimeout(() => startReplay(true), 700);
 };
 // 메뉴에서 처음 화면 다시 보기 (시작하기를 누르면 첫 방문처럼 해돋이 다시보기까지)
