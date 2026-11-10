@@ -7,7 +7,7 @@ import { createAmbience, fetchWeather, windLabel, type Weather } from './ambienc
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
+import { GATE, TRAIL, benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
 import { grab, compose } from './photo';
 import { initTalk, say as talk, talking, ask } from './talk';
 import { createMago } from './mago';
@@ -592,7 +592,9 @@ function updateMe(dt: number) {
     // 조이스틱 위쪽 = 카메라가 바라보는 방향
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     const mx = rx * input.x + fx * input.y, mz = rz * input.x + fz * input.y;
-    const sp = 3.2 * dt;
+    // 등산로 오르막에서는 걸음이 살짝 느려짐
+    let sp = 3.2 * dt;
+    if (place.id === 'jirisan' && p.z > 14) { const up = floorY(p.x + mx * 0.5, p.z + mz * 0.5) - floorY(p.x, p.z); if (up > 0.03) sp *= Math.max(0.72, 1 - up * 2.2); }
     // 갈 수 있는 곳만: 막히면 벽을 따라 미끄러지듯
     const nx = p.x + mx * sp, nz = p.z + mz * sp;
     if (canStand(nx, nz)) { p.x = nx; p.z = nz; }
@@ -858,6 +860,30 @@ function updateMago(dt: number, t: number) {
   if (d < 3.4 && !magoBusy && store.hinted && !openSheet && store.magoDay !== dateKey(Date.now()) && !$('hint').classList.contains('open')) magoTalk(true);
 }
 
+// ================= 등산로: 높이·남은 거리, 통천문 속마음, 정상으로 바로 =================
+let gateSaid = false, trailShown = '';
+function updateTrail() {
+  const on = place.id === 'jirisan', p = me.root.position;
+  const show = on && p.z > 15;
+  if (show) {
+    const m = Math.round(1750 + (floorY(p.x, p.z) + 5.3) / 6.9 * 165), km = Math.max(0.1, p.z * 0.0175).toFixed(1);
+    const txt = T.trailChip(m, km); if (txt !== trailShown) { $('trailChip').textContent = txt; trailShown = txt; }
+  }
+  if ($('trailChip').hidden === show) $('trailChip').hidden = !show;
+  const b = $('toTopBtn'), top = on && p.z > TRAIL.gate + 4 && !lying && !talking();
+  if (b.hidden === top) b.hidden = !top;
+  // 통천문 바위 틈을 지날 때 한 번 속마음
+  if (on && !gateSaid && Math.abs(p.z - GATE.z) < 0.8 && Math.abs(p.x - GATE.x) < 1 && !talking()) { gateSaid = true; talk([{ who: 'me', text: T.gateThought }]); track('gate_passed'); }
+  if (p.z > GATE.z + 6) gateSaid = false;
+}
+$('toTopBtn').textContent = T.toTop;
+$('toTopBtn').onclick = () => {
+  if (mySeat !== null) standUp(); onCushion = false; lying = false;
+  // 통천문을 막 빠져나온 곳으로 (정상 바로 아래)
+  const z = GATE.z - 3, x = GATE.x * 0.5; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = 0;
+  track('to_top');
+};
+
 function loop(t: number) {
   const realDt = Math.min(0.5, (t - lastT) / 1000), dt = Math.min(0.05, realDt); lastT = t;
   const now = virtualNow();
@@ -865,6 +891,7 @@ function loop(t: number) {
   updateCamera(dt);
   updateMago(dt, t / 1000);
   updateHall(dt, t / 1000);
+  updateTrail();
   const cyc = cycling();
   const info = cyc ? null : sunriseInfo(place, now);
   const ref = cyc ? cycleRefs().sr : replay ? replay.sr : (info!.windowSR ?? info!.next ?? info!.last ?? now);

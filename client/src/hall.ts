@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { stable } from './stable-tex';
 import { textSprite, toon } from './character';
+import { trailX } from './beach-extras';
 
 // 병아리 청학당: 정상 아래 길가의 작은 정자. 학 훈장님 앞에 방석이 놓여 있고,
 // 방석에 앉아 오늘의 목표를 종이에 쓴다. 정자 앞(로컬 -z)이 길 쪽을 본다.
 
-export const HALL = { x: 5.6, z: 15.6, ry: Math.PI / 2, w: 3.6, d: 2.8 };
+export const HALL = { x: trailX(81) + 5.8, z: 81, ry: Math.PI / 2, w: 3.6, d: 2.8 };
 const toWorld = (lx: number, lz: number) => { const c = Math.cos(HALL.ry), s = Math.sin(HALL.ry); return { x: HALL.x + lx * c + lz * s, z: HALL.z - lx * s + lz * c }; };
 /** 방석 자리 (로컬 x) */
 const CUSHIONS = [-1.2, -0.4, 0.4, 1.2];

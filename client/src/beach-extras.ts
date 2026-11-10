@@ -47,17 +47,28 @@ const ss = (a: number, b: number, v: number) => { const t = clamp((v - a) / (b -
 /** 천왕봉 땅 높이: 뒤쪽 길은 내려가고, 앞으로 갈수록 올라가다 언덕을 넘으면 평평한 전망대 */
 /** 한라산 백록담 분화구 (걷는 길 왼쪽 위) */
 export const CRATER = { x: -17, z: 13, r: 7, depth: 4.5 };
+// ---------- 지리산 등산로: 장터목(z≈92) → 제석봉 고사목(z≈50) → 통천문(z≈21) → 매일 시작하는 곳(z≈12) → 천왕봉(z≈0) ----------
+export const TRAIL = { gate: 21, jeseok: 50, jang: 92, end: 102 };
+/** 등산로 가운데 x (내려갈수록 굽이침) */
+export const trailX = (z: number) => z < 16 ? 0 : Math.sin((z - 16) * 0.07) * 3.2 * Math.min(1, (z - 16) / 10);
+/** 등산로 높이 (z만): 매일 시작하는 곳 아래로 내려가다 제석봉에서 한 번 솟고 장터목 마당에서 평평 */
+const JIRI_KEYS: [number, number][] = [[14, 0], [22, -0.7], [36, -2.6], [50, -1.5], [64, -3.0], [86, -5.2], [102, -5.3]];
+function jiriTrailY(z: number) {
+  for (let i = 0; i < JIRI_KEYS.length - 1; i++) { const [z0, y0] = JIRI_KEYS[i], [z1, y1] = JIRI_KEYS[i + 1]; if (z <= z1) return y0 + (y1 - y0) * ss(z0, z1, z); }
+  return JIRI_KEYS[JIRI_KEYS.length - 1][1];
+}
 export function mountainY(x: number, z: number, id: PlaceId = terrain) {
   let y: number;
-  if (z >= 14) y = -(z - 14) * 0.12;
+  const jiri = id === 'jirisan';
+  if (z >= 14) y = jiri ? jiriTrailY(z) : -(z - 14) * 0.12;
   else if (z >= SUMMIT.crestZ) y = 3.0 * ss(14, SUMMIT.crestZ, z);
   // 언덕(3m)을 넘으면 1.4m 아래 전망대: 도착 자리에서는 난간과 발아래 풍경이 안 보임
   else y = 3.0 - 1.4 * ss(SUMMIT.crestZ, 1.4, z);
-  const ax = Math.abs(x);
+  const ax = Math.abs(jiri ? x - trailX(z) : x);
   // 능선 위를 걷는 느낌: 길에서 멀어질수록 양옆이 아래로 떨어지고(벽 없음), 멀리 운해 속으로 잠김
   const edge = z < SUMMIT.crestZ ? 5.6 : 7;
   y -= Math.pow(Math.max(0, ax - edge), 1.35) * 0.22;
-  y -= Math.pow(Math.max(0, z - 42), 1.4) * 0.3;
+  y -= Math.pow(Math.max(0, z - (jiri ? TRAIL.end + 2 : 42)), 1.4) * 0.3;
   y += Math.sin(x * 0.9 + z * 0.4) * 0.06;
   if (id === 'hallasan') {
     // 분화구: 가장자리는 둥글게 솟고, 안쪽은 움푹 꺼짐
@@ -73,12 +84,17 @@ const chairPair = (lx: number, lz: number) => [
   { lx: lx - 0.75, lz, ry: -Math.PI / 2, h: 0.45, kind: 'chair' as const, ox: 0, oz: 0.8 },
   { lx: lx + 0.75, lz, ry: Math.PI / 2, h: 0.45, kind: 'chair' as const, ox: 0, oz: 0.8 },
 ];
+/** 통천문 바위: 길 가운데 좁은 틈(폭 1.8m)만 지나갈 수 있음 */
+export const GATE = { x: trailX(TRAIL.gate), z: TRAIL.gate, gap: 0.9, w: 3.2, d: 2.4 };
+export function inGateRock(x: number, z: number) { const dx = Math.abs(x - GATE.x); return Math.abs(z - GATE.z) < GATE.d / 2 && dx > GATE.gap && dx < GATE.gap + GATE.w; }
+/** 장터목 마당 기준 (길 가운데) */
+export const JANG = { x: trailX(TRAIL.jang), z: TRAIL.jang };
 // 장터목 마당: 낡은 커피 리어카(알아서 드세요) + 돌 대피소 매점(김밥 창구 · 막걸리 창구)
 const crate = (lx: number, lz: number, ry: number) => ({ lx, lz, ry, h: 0.36, kind: 'chair' as const, ox: Math.sin(ry) * 0.7, oz: Math.cos(ry) * 0.7 });
 export const SHOPS: Shop[] = [
-  { id: 'cart', item: 2, x: -4.6, z: 20, ry: Math.PI / 2, w: 2.3, d: 1.2, door: 0, noTable: true, seats: [crate(-2.0, 1.3, 0.6), crate(2.0, 1.4, -0.5)] },
-  { id: 'hut', item: 1, x: 5.6, z: 25.5, ry: -Math.PI / 2, w: 4.2, d: 2.6, door: -0.9, noTable: true, seats: [crate(-3.0, 1.6, 0.4), crate(3.0, 1.7, -0.3), crate(3.3, 0.6, -1.2)] },
-  { id: 'hutM', item: 3, x: 5.6, z: 25.5, ry: -Math.PI / 2, w: 4.2, d: 2.6, door: 0.9, window: true, seats: [] },
+  { id: 'cart', item: 2, x: trailX(88) - 4.4, z: 88, ry: Math.PI / 2, w: 2.3, d: 1.2, door: 0, noTable: true, seats: [crate(-2.0, 1.3, 0.6), crate(2.0, 1.4, -0.5)] },
+  { id: 'hut', item: 1, x: trailX(93) + 5.6, z: 93, ry: -Math.PI / 2, w: 4.2, d: 2.6, door: -0.9, noTable: true, seats: [crate(-3.0, 1.6, 0.4), crate(3.0, 1.7, -0.3), crate(3.3, 0.6, -1.2)] },
+  { id: 'hutM', item: 3, x: trailX(93) + 5.6, z: 93, ry: -Math.PI / 2, w: 4.2, d: 2.6, door: 0.9, window: true, seats: [] },
 ];
 /** 평상 (막걸리 주막 앞) 크기·위치: 가게 쪽 좌표 */
 export const PYEONGSANG = { lx: 3.2, lz: 0.15, w: 2.0, d: 2.2, h: 0.42 };
@@ -206,7 +222,8 @@ export function canStand(x: number, z: number) {
   if (onPier(x, z)) return true;
   if (PEAK.includes(terrain)) {
     // 난간 너머(절벽)·양옆 바위·표지석에는 못 감
-    if (z < SUMMIT.edgeZ || z > 38 || Math.abs(x) > 11) return false;
+    if (z < SUMMIT.edgeZ || z > (terrain === 'jirisan' ? TRAIL.end : 38) || Math.abs(terrain === 'jirisan' ? x - trailX(z) : x) > 11) return false;
+    if (terrain === 'jirisan' && inGateRock(x, z)) return false;
     if (z < SUMMIT.crestZ - 0.5 && Math.abs(x) > 5.2) return false;
     if (terrain === 'jirisan' && insideShop(x, z)) return false;
     if (Math.hypot(x - SUMMIT.stone.x, z - SUMMIT.stone.z) < 0.6) return false;
