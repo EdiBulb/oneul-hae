@@ -24,6 +24,7 @@ import { createBots } from './bots';
 import { createFireflies, createLeaves } from './sky-extras';
 import { createBirds } from './birds';
 import { createLegends } from './legend';
+import { createFeed, FEED_AT, FEED_R } from './feed';
 import { createNightFx, FIRE_COLORS } from './night-fx';
 import { inAppHint } from './inapp';
 import { LANTERN_COLORS, LANTERN_PATTERNS, createLanterns } from './lanterns';
@@ -328,6 +329,7 @@ net.on('emote', (id, e) => {
   r.c.emote = e; r.c.emoteT = 0;
   const near = r.c.root.position.distanceTo(me.root.position);
   if (e === 'yaho') yahoFrom(r.c);
+  if (e === 'peck') remotePecked(id, r.c.root.position.x, r.c.root.position.z);
   if (e === 'crow') { amb.crow(growthStage(r.c), clamp(0.4 - near / 40, 0, 0.35)); voiceBubble(r.c, 0.75); }
   if (e === 'clap') { amb.clap(clamp(1.1 - near / 18, 0, 0.8)); if (near < 12) ticker(T.clapBy(localizeNick(r.info.nick))); }
   // 가까운 사람이 커피를 들면 같이 누르라고 알려 줌
@@ -697,7 +699,7 @@ function updateUI(vnow: number, alt: number, t: number) {
   if (crossed && itemOf(outfitOf(me)) && !lying) { me.emote = 'raise'; me.emoteT = 0; if (connected) net.emit('emote', 'raise'); }
   else if (crossed && !lying && !store.crowTaught) { $('crowHint').hidden = false; setTimeout(() => { $('crowHint').hidden = true; }, 25000); }
   else if (crossed && !lying) setTimeout(() => crow('sunrise'), 700); // 해 뜨는 순간 다 같이 울기
-  if (crossed && !introSky) sunriseLegends(); // 해가 뜨는 순간 봉황 (아주 가끔은 푸른 학도)
+  if (crossed && !introSky) { sunriseLegends(); setTimeout(() => void morningFeed(), 6000); } // 해가 뜨는 순간 봉황 (아주 가끔은 푸른 학도)
   if (crossed && (live || cyc) && !introSky) { sunRoseNow(); }
   maybeDeliverOnLoad(alt, live, cyc);
   nightCheck(alt);
@@ -1066,29 +1068,70 @@ function updateHold(dt: number, moving: boolean) {
   if (b.hidden === show) b.hidden = !show;
   const label = holdTo ? T.holdLet : T.holdBtn; if (b.textContent !== label) b.textContent = label;
 }
-// 병아리 카페: 장터목 리어카 옆 모이 그릇
-const CAFE = { x: trailX(84.5) - 3.4, z: 84.5 };
-const cafe = new THREE.Group(); scene.add(cafe);
-{
-  const y = mountainY(CAFE.x, CAFE.z, 'jirisan'); cafe.position.set(CAFE.x, y, CAFE.z);
-  const wood = new THREE.MeshLambertMaterial({ color: 0x7a5532, flatShading: true });
-  const trough = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.45, 0.22, 14, 1, true), wood); trough.position.y = 0.12; cafe.add(trough);
-  const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.46, 14), wood); bottom.rotation.x = -Math.PI / 2; bottom.position.y = 0.02; cafe.add(bottom);
-  const grain = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16), new THREE.MeshLambertMaterial({ color: 0xf2d27a })); grain.rotation.x = -Math.PI / 2; grain.position.y = 0.17; cafe.add(grain);
-  const gm = new THREE.MeshLambertMaterial({ color: 0xe8c25a });
-  for (let i = 0; i < 26; i++) { const g = new THREE.Mesh(new THREE.SphereGeometry(0.025, 5, 4), gm); const a = Math.random() * 6.28, r = 0.6 + Math.random() * 0.6; g.position.set(Math.cos(a) * r, 0.03, Math.sin(a) * r); cafe.add(g); }
-  const sg = textSprite('🌾 ' + T.cafeSign, 0.55); sg.position.y = 1.2; cafe.add(sg);
-}
-let peckN = 0;
+// ================= 멍석 모이 마당 (장터목) =================
+// 평소엔 참새가 쪼고, 해가 뜨면 마고할미가 와서 모이를 뿌림. 같이 쪼면 더 고소함.
+const CAFE = FEED_AT;
+const feed = createFeed(scene, CAFE.x, CAFE.z, mountainY(CAFE.x, CAFE.z, 'jirisan'), T.feedSign);
+let peckN = 0, myPeckAt = -1e9, feedTrip = false, magoAtFeedUntil = 0, feedSaidToday = false;
+const remotePeck = new Map<string, number>();
+const nearFeed = (x: number, z: number, m = 1.1) => Math.hypot(x - CAFE.x, z - CAFE.z) < FEED_R + m;
 $('peckBtn').onclick = () => {
   if (me.state === 'lie') return;
-  me.root.rotation.y = faceAngle(CAFE.x - me.root.position.x, CAFE.z - me.root.position.z);
+  const p = me.root.position;
+  me.root.rotation.y = faceAngle(CAFE.x - p.x, CAFE.z - p.z);
   doEmote('peck'); [0, 200, 400, 600].forEach(ms => setTimeout(() => amb.blip(260 + Math.random() * 60), ms));
+  setTimeout(() => feed.peck(p.x, p.z), 500);
+  myPeckAt = performance.now();
+  // 다른 병아리가 3초 안에 같이 쪼았으면: 반짝 + 속마음 (하루 한 번)
+  const together = [...remotePeck.entries()].some(([id, at]) => performance.now() - at < 3000 && remotes.has(id));
+  if (together) { feed.shine(); if (store.feedTogetherDay !== dateKey(Date.now())) { store.feedTogetherDay = dateKey(Date.now()); save(); setTimeout(() => talk([{ who: 'me', text: T.feedTogether }]), 1600); track('feed_together'); return; } }
   if (++peckN % 3 === 1) setTimeout(() => talk([{ who: 'me', text: T.peckThought[Math.floor(Math.random() * T.peckThought.length)] }]), 1800);
 };
-function updateCafe() {
-  const here = place.id === 'jirisan'; cafe.visible = here;
-  const show = here && !lying && Math.hypot(me.root.position.x - CAFE.x, me.root.position.z - CAFE.z) < 1.7;
+/** 다른 사람이 쪼면: 그 자리 모이가 줄고, 내가 3초 안에 쪼았으면 반짝 */
+function remotePecked(id: string, x: number, z: number) {
+  if (!nearFeed(x, z, 1.4)) return;
+  remotePeck.set(id, performance.now());
+  setTimeout(() => feed.peck(x, z), 500);
+  if (performance.now() - myPeckAt < 3000) feed.shine();
+}
+/** 해가 뜨면: 할미가 둥지에서 모이 마당으로 날아와 뿌리고, 한동안 곁에 있다가 돌아감 */
+async function morningFeed() {
+  if (place.id !== 'jirisan' || feedTrip) return;
+  if (magoBusy || introSolo) { feed.scatter(CAFE.x + FEED_R, CAFE.z, 380); return; }
+  feedTrip = true; magoBusy = true;
+  const from = mago.root.position.clone(), side = new THREE.Vector3(CAFE.x + FEED_R + 0.8, 0, CAFE.z + 0.4);
+  side.y = mountainY(side.x, side.z, 'jirisan');
+  const glide = async (a: THREE.Vector3, b: THREE.Vector3, ms: number) => { const t0 = performance.now(); mago.look(faceAngle(b.x - a.x, b.z - a.z)); while (performance.now() - t0 < ms) { const k = (performance.now() - t0) / ms, e = k * k * (3 - 2 * k); mago.root.position.lerpVectors(a, b, e); mago.root.position.y += Math.sin(k * Math.PI) * 0.8; await sleep(16); } mago.root.position.copy(b); };
+  await glide(from, side, 4000);
+  mago.look(faceAngle(CAFE.x - side.x, CAFE.z - side.z));
+  for (let w = 0; w < 4; w++) { mago.talk(0.6); feed.scatter(side.x - 0.3, side.z, 110); await sleep(420); }
+  // 한동안 곁에 머묾: 그사이 다가오면 한마디 (하루 한 번)
+  magoAtFeedUntil = performance.now() + 75000;
+  while (performance.now() < magoAtFeedUntil) {
+    const p = me.root.position;
+    if (!feedSaidToday && store.feedLineDay !== dateKey(Date.now()) && nearFeed(p.x, p.z, 1.6) && !talking() && !hallMoving) {
+      store.feedLineDay = dateKey(Date.now()); save(); feedSaidToday = true;
+      mago.look(faceAngle(p.x - side.x, p.z - side.z));
+      const others = [...remotes.values()].some(r => nearFeed(r.c.root.position.x, r.c.root.position.z, 2));
+      const line = others ? T.feedLineTogether : T.feedLine;
+      mago.talk(5); await talk([{ who: 'mago', text: line }]);
+      mago.look(faceAngle(CAFE.x - side.x, CAFE.z - side.z));
+      track('feed_line', { others });
+    }
+    await sleep(400);
+  }
+  await glide(side, new THREE.Vector3(MAGO_AT.x, mountainY(MAGO_AT.x, MAGO_AT.z, 'jirisan'), MAGO_AT.z), 4000);
+  mago.look(magoHome); magoBusy = false; feedTrip = false;
+}
+const feedChicks: THREE.Vector3[] = [];
+function updateCafe(dt: number, t: number) {
+  const here = place.id === 'jirisan'; feed.root.visible = here;
+  if (here) {
+    feedChicks.length = 0; feedChicks.push(me.root.position);
+    for (const r of remotes.values()) feedChicks.push(r.c.root.position);
+    feed.update(dt, t, feedChicks);
+  }
+  const show = here && !lying && nearFeed(me.root.position.x, me.root.position.z, 0.9);
   const b = $('peckBtn'); if (b.hidden === show) b.hidden = !show;
 }
 
@@ -1101,7 +1144,7 @@ function loop(t: number) {
   updateMago(dt, t / 1000);
   updateHall(dt, t / 1000);
   updateTrail();
-  updateCafe();
+  updateCafe(dt, t / 1000);
   const cyc = cycling();
   const info = cyc ? null : sunriseInfo(place, now);
   const ref = cyc || introSky ? cycleRefs().sr : replay ? replay.sr : (info!.windowSR ?? info!.next ?? info!.last ?? now);
@@ -2881,4 +2924,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { me, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { me, feedNow: () => morningFeed(), feedLeft: () => feed.left, cafe: CAFE, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

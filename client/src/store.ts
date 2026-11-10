@@ -40,6 +40,9 @@ interface Saved {
   crowTaught?: boolean;
   /** '밤이 되었네…'를 마지막으로 물어본 날 (하루 한 번) */
   nightDay?: string;
+  /** 모이 마당: 할미 명대사를 들은 날, 같이 쪼아 본 날 */
+  feedLineDay?: string;
+  feedTogetherDay?: string;
   /** 마고할미 옛날이야기: 다음에 들려줄 번호, 마지막으로 들은 날 */
   taleNext?: number;
   taleDay?: string;

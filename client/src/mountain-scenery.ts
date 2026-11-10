@@ -5,6 +5,7 @@ import { CRATER, GATE, SHOPS, SUMMIT, SUMMIT_ROCKS, TRAIL, mountainY as mY, trai
 import { koreanPine } from './place-scenery';
 import { createShops } from './mountain-shops';
 import { HALL } from './hall';
+import { FEED_AT, FEED_R } from './feed';
 /** 둥지 · 마고할미 (장터목 마당 아래쪽) */
 export const NEST = { x: trailX(98) - 0.8, z: 98 };
 
@@ -74,7 +75,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   const mountainY = (x: number, z: number) => mY(x, z, id);
   const g = new THREE.Group(); scene.add(g); g.visible = false;
   /** 가게 자리 근처엔 나무·덤불·돌을 두지 않음 */
-  const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 3.4 && Math.hypot(x - NEST.x, z - NEST.z) > 2.6);
+  const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 5.8 && Math.hypot(x - FEED_AT.x, z - FEED_AT.z) > FEED_R + 1.4 && Math.hypot(x - NEST.x, z - NEST.z) > 2.6);
 
   // ---------- 정상 땅 (바위와 풀이 섞인 능선) ----------
   const jiri = id === 'jirisan';
