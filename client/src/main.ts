@@ -901,6 +901,21 @@ $('warpBtn').onclick = () => {
 /** 오늘이 푸른 학이 오는 날인지 (날짜로 정해서 모두에게 같은 날, 대략 일주일에 한 번) */
 function craneToday() { const k = dateKey(Date.now()); let h = 7; for (const ch of k) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 7 === 3; }
 let legendDay = '';
+/** 첫날 처음 정상에 올라오면: 봉황이 한 번 지나가고 '…엄마인가?' */
+let firstPhoenixBusy = false;
+function firstPhoenix() {
+  if (firstPhoenixBusy || store.phoenixSeen || !store.magoMet || place.id !== 'jirisan' || me.root.position.z > 13 || talking() || legends.flying() || magoBusy) return;
+  firstPhoenixBusy = true;
+  setTimeout(() => {
+    // 정상 쪽(해 뜨는 쪽) 하늘을 보게 하고 그 앞을 가로지름
+    turnTo(me, 0, 1); setView(6, 0.12, 0);
+    const dir = new THREE.Vector3(0, 0.09, -1).normalize();
+    legends.fly('phoenix', camera, dir, () => {
+      store.phoenixSeen = true; save(); track('phoenix_seen', { first: true, intro: true });
+      talk(T.phoenixFirst.map(text => ({ who: 'me' as const, text })));
+    });
+  }, 1800);
+}
 function sunriseLegends() {
   const day = dateKey(Date.now()) + (cycling() ? ':' + Math.floor(Date.now() / 300000) : '');
   if (legendDay === day) return; legendDay = day;
@@ -1001,6 +1016,7 @@ function loop(t: number) {
   updateMago(dt, t / 1000);
   updateHall(dt, t / 1000);
   updateTrail();
+  firstPhoenix();
   updateCafe();
   const cyc = cycling();
   const info = cyc ? null : sunriseInfo(place, now);
