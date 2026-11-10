@@ -884,7 +884,7 @@ function updateMago(dt: number, t: number) {
 }
 
 // ================= 등산로: 높이·남은 거리, 통천문 속마음, 정상으로 바로 =================
-let gateSaid = false, trailShown = '';
+let gateSaid = !!store.gateSaid, trailShown = ''; // 통천문 혼잣말은 평생 한 번만
 function updateTrail() {
   const on = place.id === 'jirisan', p = me.root.position;
   const show = on && p.z > 15;
@@ -898,8 +898,7 @@ function updateTrail() {
   $('warpBtn').hidden = !on;
   if ($('warpBtn').dataset.to !== want) { $('warpBtn').dataset.to = want; $('warpIc').textContent = up ? '⛰️' : '🪺'; $('warpLabel').textContent = up ? T.toTop : T.toNest; }
   // 통천문 바위 틈을 지날 때 한 번 속마음
-  if (on && !gateSaid && Math.abs(p.z - GATE.z) < 0.8 && Math.abs(p.x - GATE.x) < 1 && !talking()) { gateSaid = true; talk([{ who: 'me', text: T.gateThought }]); track('gate_passed'); }
-  if (p.z > GATE.z + 6) gateSaid = false;
+  if (on && !gateSaid && Math.abs(p.z - GATE.z) < 0.8 && Math.abs(p.x - GATE.x) < 1 && !talking()) { gateSaid = true; store.gateSaid = true; save(); talk([{ who: 'me', text: T.gateThought }]); track('gate_passed'); }
 }
 $('warpBtn').onclick = () => {
   if (mySeat !== null) standUp(); onCushion = false; lying = false; letGo(false);

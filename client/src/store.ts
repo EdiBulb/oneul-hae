@@ -38,6 +38,8 @@ interface Saved {
   itemBites?: number;
   /** 처음 해가 떴을 때 '울어 보기'를 배웠는지 */
   crowTaught?: boolean;
+  /** 통천문 '곧 정상' 혼잣말을 이미 했는지 (한 번만) */
+  gateSaid?: boolean;
   installAskAt?: number;
   /** 가게에서 들고 나온 날 (다음 날이 되면 내려놓음) */
   itemDay?: string;
