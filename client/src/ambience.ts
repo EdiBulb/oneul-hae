@@ -288,6 +288,14 @@ export function createAmbience() {
         burst(t, 0.05, 'bandpass', rand(1800, 2600), 1.4, 0.55 * vol);
       }
     },
+    /** 대화창 글자 톡톡 */
+    blip(pitch: number) {
+      if (!ctx || ctx.state !== 'running') return;
+      const c = ctx, t = c.currentTime + 0.005, o = c.createOscillator(), g = c.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(pitch, t); o.frequency.exponentialRampToValueAtTime(pitch * 1.25, t + 0.05);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05, t + 0.006); g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+      o.connect(g).connect(fxBus); o.start(t); o.stop(t + 0.08);
+    },
     /** 병아리·닭 울음: 단계마다 다름 (1 삐, 2 삐약, 3 삐약삐약, 4 꼭꼬, 5 꼬끼오) */
     crow(stage: number, vol = 1) {
       if (!ctx || ctx.state !== 'running' || stage <= 0 || vol <= 0.01) return;

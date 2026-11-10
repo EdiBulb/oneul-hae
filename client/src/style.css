@@ -495,3 +495,18 @@
 .photo-mode{display:flex;gap:6px;margin:4px 0 10px}
 .photo-mode button{flex:1;font:inherit;font-size:13px;font-weight:700;padding:8px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--ink-dim)}
 .photo-mode button.on{background:rgba(255,192,112,.18);border-color:rgba(255,192,112,.6);color:#ffd9a0}
+
+/* 대화창: 크림색 말풍선 + 비스듬한 이름표 + 통통 튀는 ▼ */
+.talk{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);z-index:45;width:min(520px,94vw);min-height:108px;background:#fff8e6;color:#5b4532;border-radius:44px / 36px;padding:26px 26px 22px;box-shadow:0 6px 0 #ead9b8,0 16px 36px rgba(0,0,0,.35);cursor:pointer;-webkit-user-select:none;user-select:none}
+.talk[hidden]{display:none}
+.talk.pop{animation:talkPop .28s cubic-bezier(.3,1.5,.6,1)}
+@keyframes talkPop{from{transform:translate(-50%,14px) scale(.94);opacity:.4}to{transform:translate(-50%,0) scale(1);opacity:1}}
+.talk-name{position:absolute;left:22px;top:-16px;transform:rotate(-4deg);background:#c9b6ea;color:#3e2e5a;font-family:'Gaegu','Noto Sans KR',sans-serif;font-weight:700;font-size:19px;padding:4px 16px 3px;border-radius:999px;box-shadow:0 3px 0 rgba(0,0,0,.12)}
+.talk[data-who="me"] .talk-name{background:#ffd27a;color:#5a3608}
+.talk[data-who="crane"] .talk-name{background:#9fd3c7;color:#1f4a40}
+.talk-text{font-size:17.5px;font-weight:500;line-height:1.62;letter-spacing:-.01em;white-space:pre-line;min-height:56px}
+.talk[data-who="me"] .talk-text{color:#7a6448}
+.talk[data-who="me"]::before{content:'';position:absolute;left:34px;bottom:-16px;width:16px;height:16px;border-radius:50%;background:#fff8e6;box-shadow:-14px 12px 0 -4px #fff8e6}
+.talk-next{position:absolute;left:50%;bottom:8px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:10px solid #f0a33a;transform:translateX(-50%);opacity:0}
+.talk.ready .talk-next{opacity:1;animation:talkNext .7s ease-in-out infinite}
+@keyframes talkNext{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,4px)}}

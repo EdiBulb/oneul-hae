@@ -149,7 +149,7 @@ const ko = {
   photoSeen: (n: number) => n > 1 ? `오늘도 해 봤다 · ${n}일째` : '오늘도 해 봤다',
   langLink: 'English',
   voices: ['…', '삐!', '삐약!', '삐약삐약!', '꼭꼬!', '꼬끼오!'],
-  growUp: ['', '"오… 껍질이 벗겨졌네?"', '"몸집이 좀 커진 것 같은데?"', '"깃털 색이 변하네?"', '"목소리가 좀 변한 것 같은데?"', '"네 녀석, 어미를 닮아 가는구나." · 마고할미'],
+  growUp: [[], [['me', '어…? 머리가 가벼워졌어.\n껍질이 벗겨졌네?']], [['me', '몸집이 좀 커진 것 같은데?']], [['me', '깃털 색이 변하네…?\n머리 위가 간질간질해.']], [['me', '목소리가 좀 변한 것 같은데?\n꼭… 꼬…?']], [['me', '오늘따라 목청이 시원하게 트이네.'], ['mago', '네 녀석, 어미를 닮아 가는구나.']]] as [('me' | 'mago'), string][][],
   afterSunAlarmOn: '내일 아침 해 뜨기 5분 전에 깨워 드릴게요',
   shareText: (p: string) => `오늘의 해 · ${p}`,
   // 풍등
@@ -348,7 +348,7 @@ const en: Dict = {
   photoSeen: (n: number) => n > 1 ? `Saw the sun again · day ${n}` : 'Saw the sun today',
   langLink: '한국어',
   voices: ['…', 'Peep!', 'Cheep!', 'Cheep cheep!', 'Bawk!', 'Cock-a-doodle-doo!'],
-  growUp: ['', '"Oh… my shell came off?"', '"Did I just get a little bigger?"', '"My feathers are changing colour?"', '"My voice sounds different…"', '"You\'re growing up like your mother." · Grandma Mago'],
+  growUp: [[], [['me', 'Huh…? My head feels lighter.\nMy shell came off?']], [['me', 'Did I just get a little bigger?']], [['me', 'My feathers are changing colour…?\nMy head feels tingly.']], [['me', 'My voice sounds different…\nBawk… b-bawk?']], [['me', 'My voice feels so clear today.'], ['mago', 'You\'re growing up just like your mother.']]] as [('me' | 'mago'), string][][],
   afterSunAlarmOn: "We'll wake you 5 minutes before tomorrow's sunrise",
   shareText: (p: string) => `Today's Sun · ${p}`,
   lanternWait: 'You can release one lantern every 3 seconds',
