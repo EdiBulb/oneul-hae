@@ -11,7 +11,8 @@ import { GATE, TRAIL, mountainY, trailX, benchAt, benchSeats, canStand, createBo
 import { grab, compose } from './photo';
 import { initTalk, say as talk, talking, ask, setSkip } from './talk';
 import { createMago } from './mago';
-import { hatch, openEyes } from './intro';
+import { hatch, openEyes, fade } from './intro';
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 import { NEST } from './mountain-scenery';
 import { createHall, HALL } from './hall';
 import { initGoal, writeGoal, sendToSun } from './goal';
@@ -181,7 +182,11 @@ function cycleTime() {
 /** 지금 순환 중인지 (LIVE·다시보기·'실제 하늘 보기'가 아니면) */
 const cycling = () => !replay && !store.realSky && !sunriseInfo(place, Date.now()).windowSR;
 
+/** 인트로 동안: 모두에게 똑같은 아침 (실제 시각과 상관없이). base = 그날 해돋이 기준 몇 ms, rate = 흐르는 빠르기 */
+let introSky: { at: number; base: number; rate: number } | null = null;
+function setIntroSky(offsetMs: number | null, rate = 0) { introSky = offsetMs === null ? null : { at: Date.now(), base: cycleRefs().sr + offsetMs, rate }; }
 const virtualNow = () => {
+  if (introSky) return introSky.base + (Date.now() - introSky.at) * introSky.rate;
   if (!replay) return cycling() ? cycleTime() : Date.now();
   const k = Math.min(1, (Date.now() - replay.start) / replay.duration);
   return replay.sr + replay.from + k * replay.span;
@@ -270,7 +275,10 @@ function aloneMsg() {
   return n > 0 ? T.aloneVisited(n) : T.alone;
 }
 
+/** 처음 온 사람: 인트로(부화 → 할미 → 정상 봉황 → 둥지)가 끝날 때까지 혼자. 다른 사람·봇·흔적 없음 */
+let introSolo = !store.hinted && place.id === 'jirisan';
 function join() {
+  if (introSolo) return; // 인트로 동안엔 혼자 (끝나면 들어감)
   net.emit('join', { place: place.id, uid: store.uid, nick: store.nick, look: store.look, woke: wokeToday() });
 }
 net.on('connect', () => { connected = true; $('conn').classList.remove('show'); join(); renderCounts(); });
@@ -666,14 +674,14 @@ function updateUI(vnow: number, alt: number, t: number) {
   // 해가 지평선을 넘는 순간, 해 뜨기 1분 전에는 자동으로 펼침
   // 첫 프레임(-90)은 '해가 막 뜬 것'으로 치지 않음 (낮에 들어오자마자 박수·햇살이 나오지 않게)
   const crossed = lastAltForBanner > -89 && lastAltForBanner < 0 && alt >= 0;
-  if (crossed && (live || replay)) { expandBanner(10000); bots.clap(); }
+  if (crossed && (live || replay) && !introSky) { expandBanner(10000); bots.clap(); }
   else if (crossed && cyc) { bots.clap(); }
   // 가게에서 들고 나온 게 있으면 해 뜨는 순간 하늘로 번쩍
   if (crossed && itemOf(outfitOf(me)) && !lying) { me.emote = 'raise'; me.emoteT = 0; if (connected) net.emit('emote', 'raise'); }
   else if (crossed && !lying && !store.crowTaught) { $('crowHint').hidden = false; setTimeout(() => { $('crowHint').hidden = true; }, 25000); }
   else if (crossed && !lying) setTimeout(() => crow('sunrise'), 700); // 해 뜨는 순간 다 같이 울기
-  if (crossed) sunriseLegends(); // 해가 뜨는 순간 봉황 (아주 가끔은 푸른 학도)
-  if (crossed && (live || cyc)) { sunRoseNow(); }
+  if (crossed && !introSky) sunriseLegends(); // 해가 뜨는 순간 봉황 (아주 가끔은 푸른 학도)
+  if (crossed && (live || cyc) && !introSky) { sunRoseNow(); }
   maybeDeliverOnLoad(alt, live, cyc);
   lastAltForBanner = alt;
   if (live && info.windowSR && info.windowSR - now < 60000 && info.windowSR > now && minuteWarned !== info.windowSR) {
@@ -901,21 +909,6 @@ $('warpBtn').onclick = () => {
 /** 오늘이 푸른 학이 오는 날인지 (날짜로 정해서 모두에게 같은 날, 대략 일주일에 한 번) */
 function craneToday() { const k = dateKey(Date.now()); let h = 7; for (const ch of k) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 7 === 3; }
 let legendDay = '';
-/** 첫날 처음 정상에 올라오면: 봉황이 한 번 지나가고 '…엄마인가?' */
-let firstPhoenixBusy = false;
-function firstPhoenix() {
-  if (firstPhoenixBusy || store.phoenixSeen || !store.magoMet || place.id !== 'jirisan' || me.root.position.z > 13 || talking() || legends.flying() || magoBusy) return;
-  firstPhoenixBusy = true;
-  setTimeout(() => {
-    // 정상 쪽(해 뜨는 쪽) 하늘을 보게 하고 그 앞을 가로지름
-    turnTo(me, 0, 1); setView(6, 0.12, 0);
-    const dir = new THREE.Vector3(0, 0.09, -1).normalize();
-    legends.fly('phoenix', camera, dir, () => {
-      store.phoenixSeen = true; save(); track('phoenix_seen', { first: true, intro: true });
-      talk(T.phoenixFirst.map(text => ({ who: 'me' as const, text })));
-    });
-  }, 1800);
-}
 function sunriseLegends() {
   const day = dateKey(Date.now()) + (cycling() ? ':' + Math.floor(Date.now() / 300000) : '');
   if (legendDay === day) return; legendDay = day;
@@ -1016,11 +1009,10 @@ function loop(t: number) {
   updateMago(dt, t / 1000);
   updateHall(dt, t / 1000);
   updateTrail();
-  firstPhoenix();
   updateCafe();
   const cyc = cycling();
   const info = cyc ? null : sunriseInfo(place, now);
-  const ref = cyc ? cycleRefs().sr : replay ? replay.sr : (info!.windowSR ?? info!.next ?? info!.last ?? now);
+  const ref = cyc || introSky ? cycleRefs().sr : replay ? replay.sr : (info!.windowSR ?? info!.next ?? info!.last ?? now);
   const alt = world.update(now, place, ref, camera, t, cyc);
   amb.setAlt(alt);
   updateRemotes(dt);
@@ -1873,12 +1865,13 @@ let introRunning = false;
 $('intro').addEventListener('pointerdown', () => amb.unlock());
 async function runIntro(first: boolean) {
   introRunning = true;
+  if (introSolo) { document.body.classList.add('in-intro'); setIntroSky(-8 * 60000); } // 누구에게나 같은 '해 뜨기 직전 새벽'
   track('intro', { first });
   await hatch(first, T.introTap);
   if (first) await talk(T.wake.map(text => ({ who: 'me' as const, text })));
   await openEyes(first);
   introRunning = false;
-  if (first && place.id === 'jirisan') setTimeout(storyIntro, 400); // 눈을 뜨자마자 할미와 첫 이야기
+  if (introSolo) setTimeout(storyIntro, 400); // 눈을 뜨자마자 할미와 첫 이야기
   else if (!store.hinted) openHint();
   else expandBanner();
 }
@@ -1910,21 +1903,53 @@ async function storyIntro() {
   // ---- 여기부터는 건너뛰어도 꼭 ----
   if (skipped) track('story', { step: 'skipped' });
   setSkip(null); skipped = false;
-  const nx = sunriseInfo(place, Date.now()).next;
-  if (nx) await say('mago', S.sun(dayName(nx, place.tz), hm(nx, place.tz)));
   await say('mago', S.walk);
   // 걷기 연습: 조금 걸을 때까지 손가락 안내
   $('walkHintText').textContent = S.walkHint; $('walkHint').hidden = false;
   const from = me.root.position.clone(), t0 = performance.now();
-  while (me.root.position.distanceTo(from) < 1.2 && performance.now() - t0 < 12000) await new Promise(r => setTimeout(r, 200));
+  while (me.root.position.distanceTo(from) < 1.2 && performance.now() - t0 < 12000) await sleep(200);
   $('walkHint').hidden = true;
   await say('mago', S.good);
-  const a3 = await pick(S.how, S.ask3);
+  await say('mago', S.together);
+  // ---- 정상: 할미와 함께 해돋이와 봉황을 봄 (모두에게 똑같은 장면) ----
+  track('story', { step: 'summit' });
+  await fade(true);
+  if (mySeat !== null) standUp(); onCushion = false; lying = false;
+  { const z = 12, x = 0; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = 0;
+    const mx = x + 1.3, mz = z + 0.5; mago.root.position.set(mx, mountainY(mx, mz, 'jirisan'), mz); mago.look(0); }
+  setIntroSky(-20000, 1); // 20초 뒤 해가 지평선을 넘음
+  const sd = world.sunDir, yaw = Math.atan2(-sd.x, -sd.z);
+  turnTo(me, faceAngle(sd.x, sd.z), 1); mago.look(faceAngle(sd.x, sd.z));
+  setView(6, 0.12, yaw);
+  await sleep(300); await fade(false);
+  await say('mago', S.watch);
+  const sr = cycleRefs().sr;
+  while (virtualNow() < sr + 2500) await sleep(200);
+  await sleep(1500);
+  await new Promise<void>(res => legends.fly('phoenix', camera, world.sunDir, () => res()));
+  store.phoenixSeen = true; save(); track('phoenix_seen', { first: true, intro: true });
+  await talk(T.phoenixFirst.map(text => ({ who: 'me' as const, text })));
+  { const p = me.root.position, m = mago.root.position; mago.look(faceAngle(p.x - m.x, p.z - m.z)); turnTo(me, faceAngle(m.x - p.x, m.z - p.z), 1); }
+  await say('mago', S.saw);
+  await say('mago', S.saw2);
+  const nx = sunriseInfo(place, Date.now()).next;
+  if (nx) await say('mago', S.sun(dayName(nx, place.tz), hm(nx, place.tz)));
+  await say('mago', S.home);
+  // ---- 둥지로: 여기서부터 진짜 (실제 시각, 다른 사람들) ----
+  await fade(true);
+  setIntroSky(null); lastAltForBanner = -90; $('crowHint').hidden = true; // 실제 시각으로 돌아온 첫 순간은 '해가 막 뜸'으로 치지 않음
+  { const x = NEST.x, z = NEST.z - 1.2; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = Math.PI; }
+  mago.root.position.set(MAGO_AT.x, mountainY(MAGO_AT.x, MAGO_AT.z, 'jirisan'), MAGO_AT.z); mago.look(magoHome);
+  setView(saved.d, saved.p, saved.y);
   store.magoMet = true; store.hinted = true; store.magoDay = dateKey(Date.now()); save();
-  if (a3 === 1) { await say('mago', S.carry); $('warpBtn').dataset.to = 'top'; $('warpBtn').click(); }
-  else await say('mago', S.walkUp);
-  mago.look(magoHome); magoBusy = false;
-  track('story', { step: 'done', carried: a3 === 1 });
+  introSolo = false; document.body.classList.remove('in-intro');
+  if (connected) join();
+  bots.fill();
+  lastUI = 0;
+  await sleep(400); await fade(false);
+  await talk([{ who: 'me', text: S.real }]);
+  magoBusy = false;
+  track('story', { step: 'done' });
   expandBanner();
 }
 runIntro(!store.hinted);
@@ -2517,7 +2542,7 @@ const bots = createBots({
   sunSoon: () => lastAltForBanner > -3 && lastAltForBanner < 0.3,
   onLantern: (pos, nick) => { if (!LANTERN_ON) return; lanterns.launch(pos, undefined, true); ticker(T.lanternBy(nick)); },
 });
-bots.fill();
+if (!introSolo) bots.fill();
 
 
 // ================= 햇살 포인트 =================

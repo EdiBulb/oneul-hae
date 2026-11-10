@@ -21,6 +21,9 @@ export async function hatch(first: boolean, tapHint: string): Promise<void> {
   await wait(first ? 500 : 150);
 }
 
+/** 검게 덮었다가 걷기 (장면 전환) */
+export async function fade(on: boolean) { $('fade').classList.toggle('on', on); await wait(750); }
+
 /** 눈꺼풀이 열리며 화면이 보임 (깜빡 한 번) */
 export async function openEyes(slow: boolean) {
   const el = $('intro');

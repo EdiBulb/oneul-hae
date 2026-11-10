@@ -592,3 +592,9 @@ body.waking canvas{animation:wakeBlur 2.3s ease-out}
 .crow-hint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 150px);transform:translateX(-50%);z-index:30;font:inherit;font-size:17px;font-weight:800;color:#2a1404;background:linear-gradient(180deg,#ffd27a,#ff9a3d);border:none;border-radius:999px;padding:13px 22px;box-shadow:0 8px 28px rgba(255,150,60,.55);animation:crowPulse 1.1s ease-in-out infinite}
 .crow-hint[hidden]{display:none}
 @keyframes crowPulse{50%{transform:translateX(-50%) scale(1.07)}}
+
+/* 장면 전환용 검은 막 */
+.fade{position:fixed;inset:0;z-index:43;background:#000;opacity:0;pointer-events:none;transition:opacity .7s ease}
+.fade.on{opacity:1;pointer-events:auto}
+/* 인트로 동안: 위쪽 안내·장소·높이 칩을 숨겨 장면에 집중 */
+body.in-intro header,body.in-intro #center,body.in-intro #chips,body.in-intro #trailChip,body.in-intro #photoBtn,body.in-intro .zbtns,body.in-intro #goalChip{visibility:hidden}
