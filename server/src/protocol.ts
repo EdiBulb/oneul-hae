@@ -11,7 +11,7 @@ export interface Look { body: number; hat: number; g?: number }
 export type St = 0 | 1 | 2 | 3;
 
 /** cheers = 모닝커피 짠. 혼자면 한 모금 마시고, 가까운 사람과 3초 안에 같이 누르면 컵을 부딪친다 */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap' | 'dig' | 'eat' | 'dance' | 'yaho' | 'raise' | 'crow';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap' | 'dig' | 'eat' | 'dance' | 'yaho' | 'raise' | 'crow' | 'hop' | 'peck';
 
 /** [id, x, z, ry, st] — 자주 오가므로 객체 대신 배열 */
 export type Move = [string, number, number, number, St];
@@ -95,6 +95,7 @@ export interface ServerToClient {
   /** 0.1초마다 방 안에서 움직인 사람들의 위치를 한 번에 묶어서 보낸다 */
   tick: (batch: Move[]) => void;
   emote: (id: string, e: Emote) => void;
+  hold: (id: string, to: string | null) => void;
   /** 같이 해 띄우기: 이번 해돋이(key)의 응원 합계와 응원한 사람 수. from은 방금 응원한 사람 (없으면 null) */
   cheer: (key: string, total: number, people: number, from: string | null) => void;
   /** 물수제비: 던진 사람이 정한 튀는 횟수를 모두가 똑같이 본다 */
@@ -123,6 +124,7 @@ export interface ClientToServer {
   join: (p: JoinPayload) => void;
   s: (x: number, z: number, ry: number, st: St) => void;
   emote: (e: Emote) => void;
+  hold: (to: string | null) => void;
   cheer: (key: string) => void;
   skip: (n: number) => void;
   /** 소원 문구는 고른 소원이거나, 직접 쓴 소원 중 "다른 사람에게도 보여주기"를 체크한 것만 보낸다 */

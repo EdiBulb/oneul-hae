@@ -31,7 +31,8 @@ const PLACES: Record<PlaceId, { tz: string }> = {
 /** 방석 22개 + 모닥불 통나무 4개 × 2자리 + 데크 끝 3자리 */
 const SEAT_COUNT = 56; // 해변 방석 22 + 높은 자리 20 + 지리산 가게 의자·평상 11 (+여유)
 // 해변 + 얕은 물 + 바다로 뻗은 데크(z -26까지). 세부 모양은 클라이언트가 막는다
-const BOUNDS = { minX: -22, maxX: 22, minZ: -26, maxZ: 17 };
+// 지리산 등산로가 장터목(z≈102)까지 이어져서 maxZ를 넉넉히 (예전엔 17이라 정상 뒤쪽 사람이 남에게 z=17에 붙어 보였음)
+const BOUNDS = { minX: -22, maxX: 22, minZ: -26, maxZ: 110 };
 /** 짠: 이 거리(m) 안에서, 이 시간(ms) 안에 둘 다 눌러야 컵이 부딪친다 */
 const CHEERS_DIST = 3, CHEERS_WINDOW = 3000;
 
@@ -60,6 +61,7 @@ interface SocketData {
   cheersAt: number;
   lastBlanket: number;
   lastCheer: number;
+  lastHold?: number;
 }
 type IO = Server<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
 type Sock = Socket<ClientToServer, ServerToClient, Record<string, never>, SocketData>;
@@ -282,7 +284,7 @@ io.on('connection', (socket: Sock) => {
 
   socket.on('emote', (e: Emote) => {
     const c = socket.data.channel, now = Date.now();
-    if (!c || !['stretch', 'wave', 'cheers', 'clap', 'dig', 'eat', 'dance', 'yaho', 'raise', 'crow'].includes(e) || now - socket.data.lastEmote < 800) return;
+    if (!c || !['stretch', 'wave', 'cheers', 'clap', 'dig', 'eat', 'dance', 'yaho', 'raise', 'crow', 'hop', 'peck'].includes(e) || now - socket.data.lastEmote < 800) return;
     socket.data.lastEmote = now;
     if (e === 'cheers') {
       const partner = findCheersPartner(socket, c, now);
@@ -296,6 +298,14 @@ io.on('connection', (socket: Sock) => {
       socket.data.cheersAt = now;
     }
     socket.to(c.key).emit('emote', socket.id, e);
+  });
+
+  // 손잡기: to = 손잡은 상대 id (놓으면 null). 같은 방 사람에게만 알림
+  socket.on('hold', (to: string | null) => {
+    const c = socket.data.channel, now = Date.now();
+    if (!c || (to !== null && typeof to !== 'string') || now - (socket.data.lastHold ?? 0) < 300) return;
+    socket.data.lastHold = now;
+    socket.to(c.key).emit('hold', socket.id, to === null ? null : String(to).slice(0, 40));
   });
 
   socket.on('lantern', (x, z, text, style) => {

@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage, setGoalPaper } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage, setGoalPaper, setLamp } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { GATE, TRAIL, mountainY, benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
+import { GATE, TRAIL, mountainY, trailX, benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
 import { grab, compose } from './photo';
 import { initTalk, say as talk, talking, ask } from './talk';
 import { createMago } from './mago';
@@ -298,7 +298,11 @@ net.on('welcome', w => {
   else ticker(aloneMsg());
 });
 net.on('joined', p => { addRemote(p); ticker(T.joined(localizeNick(p.nick))); });
-net.on('left', id => removeRemote(id));
+net.on('left', id => { if (holdTo === id) letGo(false); holds.delete(id); removeRemote(id); });
+net.on('hold', (id, to) => {
+  if (to === null) holds.delete(id); else holds.set(id, to);
+  if (to === myId) toast(T.heldBy);
+});
 net.on('tick', batch => {
   for (const [id, x, z, ry, st] of batch) {
     const r = remotes.get(id); // 내 위치도 묶음에 들어 있지만 remotes에 없으니 건너뜀
@@ -905,14 +909,98 @@ function sunriseLegends() {
   }), 1800);
 }
 
+// ================= 같이 하기: 헤드랜턴 · 손잡기 · 모이 쪼기 =================
+/** 손잡기: 누가 누구 손을 잡았는지 (잡은 사람 id → 상대 id). 잡은 사람이 상대를 따라감 */
+const holds = new Map<string, string>();
+let holdTo: string | null = null;
+function letGo(tell = true) {
+  if (!holdTo) return;
+  holdTo = null; me.inner.userData.hold = 0; if (connected) net.emit('hold', null);
+  if (tell) toast(T.holdOff);
+}
+function nearestRemote(max: number) {
+  let best: Remote | null = null, bd = max, bid = '';
+  for (const [id, r] of remotes) { const d = Math.hypot(r.c.root.position.x - me.root.position.x, r.c.root.position.z - me.root.position.z); if (d < bd) { bd = d; best = r; bid = id; } }
+  return best ? { r: best, id: bid } : null;
+}
+$('holdBtn').onclick = () => {
+  if (holdTo) { letGo(); return; }
+  const n = nearestRemote(1.8); if (!n) return;
+  if (mySeat !== null) standUp(); onCushion = false; lying = false;
+  holdTo = n.id; if (connected) net.emit('hold', n.id);
+  toast(T.holding); track('hold_hands');
+};
+/** 상대의 어느 쪽에 서 있는지 (-1 왼쪽 / 1 오른쪽, 상대가 보는 방향 기준) */
+function sideOf(of: THREE.Object3D, p: THREE.Vector3) { const ry = of.rotation.y, fx = -Math.sin(ry), fz = -Math.cos(ry), dx = p.x - of.position.x, dz = p.z - of.position.z; return fx * dz - fz * dx > 0 ? 1 : -1; }
+function updateHold(dt: number, moving: boolean) {
+  if (holdTo) {
+    const r = remotes.get(holdTo);
+    if (!r || moving) letGo(!!r);
+    else {
+      // 상대 옆(0.9m)으로 따라감
+      const L = r.c.root, side = sideOf(L, me.root.position), ry = L.rotation.y;
+      const tx = L.position.x + Math.cos(ry) * 0.9 * -side, tz = L.position.z - Math.sin(ry) * 0.9 * -side;
+      const p = me.root.position, dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
+      if (d > 0.08) { const st = Math.min(d, 3.6 * dt); p.x += dx / d * st; p.z += dz / d * st; p.y = floorY(p.x, p.z); me.state = 'walk'; me.root.rotation.y = faceAngle(dx, dz); }
+      else { me.state = 'idle'; me.root.rotation.y += (ry - me.root.rotation.y) * Math.min(1, dt * 6); }
+      if (d > 6) letGo(); // 너무 멀어지면 (순간이동 등) 놓음
+      me.inner.userData.hold = -side; // 상대 쪽 날개
+    }
+  }
+  // 다른 사람들 손잡은 모습: 잡은 사람과 잡힌 사람 모두 서로 쪽 날개를 뻗음
+  for (const r of remotes.values()) r.c.inner.userData.hold = 0;
+  if (!holdTo) me.inner.userData.hold = 0;
+  for (const [a, b] of holds) {
+    const A = a === myId ? me : remotes.get(a)?.c, B = b === myId ? me : remotes.get(b)?.c;
+    if (!A || !B) continue;
+    A.inner.userData.hold = sideOf(A.root, B.root.position); B.inner.userData.hold = sideOf(B.root, A.root.position);
+  }
+  const n = !holdTo && !lying ? nearestRemote(1.8) : null, b = $('holdBtn'), show = !!holdTo || !!n;
+  if (b.hidden === show) b.hidden = !show;
+  const label = holdTo ? T.holdLet : T.holdBtn; if (b.textContent !== label) b.textContent = label;
+}
+/** 헤드랜턴: 어두울수록 밝게 (해가 높이 뜨면 꺼짐) */
+function updateLamps() {
+  const k = Math.max(0, Math.min(1, (5 - lastAltForBanner) / 6));
+  setLamp(me, k); for (const r of remotes.values()) setLamp(r.c, k);
+}
+// 병아리 카페: 장터목 리어카 옆 모이 그릇
+const CAFE = { x: trailX(84.5) - 3.4, z: 84.5 };
+const cafe = new THREE.Group(); scene.add(cafe);
+{
+  const y = mountainY(CAFE.x, CAFE.z, 'jirisan'); cafe.position.set(CAFE.x, y, CAFE.z);
+  const wood = new THREE.MeshLambertMaterial({ color: 0x7a5532, flatShading: true });
+  const trough = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.45, 0.22, 14, 1, true), wood); trough.position.y = 0.12; cafe.add(trough);
+  const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.46, 14), wood); bottom.rotation.x = -Math.PI / 2; bottom.position.y = 0.02; cafe.add(bottom);
+  const grain = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16), new THREE.MeshLambertMaterial({ color: 0xf2d27a })); grain.rotation.x = -Math.PI / 2; grain.position.y = 0.17; cafe.add(grain);
+  const gm = new THREE.MeshLambertMaterial({ color: 0xe8c25a });
+  for (let i = 0; i < 26; i++) { const g = new THREE.Mesh(new THREE.SphereGeometry(0.025, 5, 4), gm); const a = Math.random() * 6.28, r = 0.6 + Math.random() * 0.6; g.position.set(Math.cos(a) * r, 0.03, Math.sin(a) * r); cafe.add(g); }
+  const sg = textSprite('🌾 ' + T.cafeSign, 0.55); sg.position.y = 1.2; cafe.add(sg);
+}
+let peckN = 0;
+$('peckBtn').onclick = () => {
+  if (me.state === 'lie') return;
+  me.root.rotation.y = faceAngle(CAFE.x - me.root.position.x, CAFE.z - me.root.position.z);
+  doEmote('peck'); [0, 200, 400, 600].forEach(ms => setTimeout(() => amb.blip(260 + Math.random() * 60), ms));
+  if (++peckN % 3 === 1) setTimeout(() => talk([{ who: 'me', text: T.peckThought[Math.floor(Math.random() * T.peckThought.length)] }]), 1800);
+};
+function updateCafe() {
+  const here = place.id === 'jirisan'; cafe.visible = here;
+  const show = here && !lying && Math.hypot(me.root.position.x - CAFE.x, me.root.position.z - CAFE.z) < 1.7;
+  const b = $('peckBtn'); if (b.hidden === show) b.hidden = !show;
+}
+
 function loop(t: number) {
   const realDt = Math.min(0.5, (t - lastT) / 1000), dt = Math.min(0.05, realDt); lastT = t;
   const now = virtualNow();
   updateMe(dt);
+  updateHold(dt, Math.hypot(input.x, input.y) > 0.12);
   updateCamera(dt);
   updateMago(dt, t / 1000);
   updateHall(dt, t / 1000);
   updateTrail();
+  updateLamps();
+  updateCafe();
   const cyc = cycling();
   const info = cyc ? null : sunriseInfo(place, now);
   const ref = cyc ? cycleRefs().sr : replay ? replay.sr : (info!.windowSR ?? info!.next ?? info!.last ?? now);
@@ -1036,6 +1124,7 @@ function crow(from: string) {
   track('crow', { stage: growthStage(me), from });
 }
 $('crowBtn').onclick = () => crow('button');
+$('hopBtn').onclick = () => { if (me.state === 'lie' || onCushion) return; doEmote('hop'); amb.blip(700); setTimeout(() => amb.blip(820), 120); };
 /** 해를 본 날이 쌓여 단계가 오르면: 몸이 바뀌고 속마음 한 줄 */
 initTalk({ blip: p => amb.blip(p), ko: lang === 'ko' });
 let growLock = false; // 테스트용: 단계를 손으로 고정
@@ -1046,7 +1135,7 @@ setInterval(() => {
   if (g > (store.growthSeen ?? 0)) { store.growthSeen = g; setTimeout(() => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), 6000); track('grew', { stage: g }); }
   save();
 }, 3000);
-const doEmote = (e: 'stretch' | 'wave' | 'cheers' | 'clap') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
+const doEmote = (e: 'stretch' | 'wave' | 'cheers' | 'clap' | 'hop' | 'peck') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
 $('stretchBtn').onclick = () => doEmote('stretch');
 $('seatFindBtn').onclick = () => {
   setTray(false);

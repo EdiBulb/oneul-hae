@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 export type CharState = 'idle' | 'walk' | 'sit' | 'lie';
 /** clink = 다른 사람과 커피잔을 부딪치는 동작 (서버가 짝을 지어 줄 때만) */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet' | 'dance' | 'yaho' | 'raise' | 'crow';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet' | 'dance' | 'yaho' | 'raise' | 'crow' | 'hop' | 'peck';
 
 export interface Char {
   root: THREE.Group;
@@ -195,7 +195,7 @@ export function disposeChar(c: Char) {
 }
 
 /** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
-const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0, yaho: 2.2, raise: 3.2, crow: 2.0 };
+const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0, yaho: 2.2, raise: 3.2, crow: 2.0, hop: 0.9, peck: 1.8 };
 export function animChar(c: Char, dt: number) {
   c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
   let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
@@ -237,10 +237,19 @@ export function animChar(c: Char, dt: number) {
       y += 0.03 * Math.sin(Math.PI * clamp((u - 0.3) / 0.25, 0, 1));
     }
     if (c.emote === 'clap') {
-      // 두 손을 앞으로 모아 짝짝짝
-      // 팔을 몸 안쪽으로 모아(z 회전) 손바닥이 가운데서 실제로 맞닿게, 짝짝짝 벌렸다 붙였다
-      const reach = clamp(k * 2, 0, 1), open = Math.abs(Math.sin(c.emoteT * 11)) * 0.38;
-      aL = aR = 1.25 * reach; aLz = (0.92 - open) * reach; aRz = -(0.92 - open) * reach;
+      // 날개가 짧아 앞에서 못 맞닿으니, 펭귄처럼 날개로 몸통 아래(허벅지 쪽)를 탁탁 침
+      const reach = clamp(k * 2, 0, 1), out = Math.abs(Math.sin(c.emoteT * 10)) * 0.75 * reach;
+      aL = aR = -0.12 * reach; aLz = -out; aRz = out; lL = lR = 0.12 * out; y += 0.02 * out;
+    }
+    if (c.emote === 'hop') {
+      // 파닥 점프: 날개를 퍼덕이며 폴짝
+      const up = Math.sin(clamp(c.emoteT / 0.9, 0, 1) * Math.PI), fl = Math.sin(c.emoteT * 34) * 0.5;
+      y += up * 0.85; aLz = -(1.1 + fl); aRz = 1.1 + fl; lL = lR = -0.5 * up;
+    }
+    if (c.emote === 'peck') {
+      // 모이 쪼기: 몸을 앞으로 콕콕
+      const d = Math.max(0, Math.sin(c.emoteT * 9)) * k;
+      rx = 0.75 * d; y -= 0.05 * d; aLz = -0.35 * k; aRz = 0.35 * k;
     }
     if (c.emote === 'pet') {
       // 쪼그려 앉아 오른손으로 머리를 토닥토닥
@@ -294,6 +303,9 @@ export function animChar(c: Char, dt: number) {
     (c.steam.material as THREE.MeshBasicMaterial).opacity = 0.35 * (1 - s);
   }
   const e = 1 - Math.pow(0.0005, dt);
+  // 손잡기: 상대 쪽 날개를 옆으로 뻗음
+  const hs = c.inner.userData.hold as number | undefined;
+  if (hs && !c.emote && c.state !== 'lie') { if (hs < 0) c.armL.rotation.z += (-1.0 - c.armL.rotation.z) * e; else c.armR.rotation.z += (1.0 - c.armR.rotation.z) * e; }
   // 울 때 부리 벌리기
   const low = c.inner.getObjectByName('beakLow');
   if (low) low.rotation.x = c.emote === 'crow' ? -0.6 * clamp(Math.sin(Math.PI * clamp(c.emoteT / 2, 0, 1)) * 2.2, 0, 1) : 0;
@@ -628,6 +640,27 @@ export function setGoalPaper(c: Char, on: boolean) {
   }
   p.visible = on;
   for (const n of SHOP_ITEMS) if (n) { const it = c.armR.getObjectByName(n); if (it && on) it.visible = false; }
+}
+/** 헤드랜턴: 이마의 작은 불빛과 앞쪽 땅을 비추는 빛 (밤·새벽에만) */
+let lampTex: THREE.Texture | null = null;
+export function setLamp(c: Char, k: number) {
+  let L = c.inner.getObjectByName('lamp') as THREE.Group | undefined;
+  if (!L) {
+    if (!lampTex) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d')!; const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,252,230,1)'); gr.addColorStop(0.3, 'rgba(255,240,190,.55)'); gr.addColorStop(1, 'rgba(255,230,170,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); lampTex = new THREE.CanvasTexture(cv); }
+    L = new THREE.Group(); L.name = 'lamp'; c.inner.add(L);
+    const p = onBody(0, 0.55, -0.83, 1.02); L.position.copy(p);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(CHICK.r * 0.86, 0.018, 4, 24), new THREE.MeshLambertMaterial({ color: 0x2a2a30 })); band.rotation.x = Math.PI / 2 - 0.25; band.position.set(0, CHICK.y + CHICK.r * 0.5 - p.y, -p.z); L.add(band);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.05), new THREE.MeshLambertMaterial({ color: 0x3a3a40 })); L.add(box);
+    const bulb = new THREE.Mesh(new THREE.CircleGeometry(0.025, 10), new THREE.MeshBasicMaterial({ color: 0xfffbe0 })); bulb.position.z = -0.026; bulb.rotation.y = Math.PI; L.add(bulb);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: lampTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.setScalar(0.55); glow.position.z = -0.05; glow.name = 'lampGlow'; L.add(glow);
+    // 앞쪽 땅을 비추는 빛줄기 (원뿔)
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.2, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2c8, transparent: true, opacity: 0.08, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    beam.rotation.x = -Math.PI / 2 - 0.45; beam.position.set(0, -0.45, -1.0); beam.name = 'beam'; L.add(beam);
+    const spot = new THREE.Sprite(new THREE.SpriteMaterial({ map: lampTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.35 })); spot.scale.set(1.2, 0.6, 1); spot.position.set(0, -p.y + 0.05, -1.8); spot.name = 'spot'; L.add(spot);
+  }
+  L.visible = k > 0.02;
+  if (L.visible) { (L.getObjectByName('lampGlow') as THREE.Sprite).material.opacity = k; ((L.getObjectByName('beam') as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.04 * k; (L.getObjectByName('spot') as THREE.Sprite).material.opacity = 0.35 * k; }
+  // 모자를 쓰면 띠가 모자 위로 보이도록 조금 바깥
 }
 export const outfitOf = (c: Char) => ((c.inner.getObjectByName('outfit')?.userData.mask as number) ?? 0);
 /** 받는 순간 왼손에 꽃 보이기 */
