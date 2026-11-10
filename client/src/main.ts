@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage, setGoalPaper, setLamp } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage, setGoalPaper } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
@@ -880,18 +880,20 @@ function updateTrail() {
     const txt = T.trailChip(m, km); if (txt !== trailShown) { $('trailChip').textContent = txt; trailShown = txt; }
   }
   if ($('trailChip').hidden === show) $('trailChip').hidden = !show;
-  const b = $('toTopBtn'), top = on && p.z > TRAIL.gate + 4 && !lying;
-  if (b.hidden === top) b.hidden = !top;
+  // 행동 메뉴의 순간이동: 아래쪽(둥지 가까이)이면 '정상으로 바로', 위쪽(정상 가까이)이면 '둥지로 바로'
+  const up = p.z > TRAIL.jeseok, want = up ? 'top' : 'nest';
+  $('warpBtn').hidden = !on;
+  if ($('warpBtn').dataset.to !== want) { $('warpBtn').dataset.to = want; $('warpIc').textContent = up ? '⛰️' : '🪺'; $('warpLabel').textContent = up ? T.toTop : T.toNest; }
   // 통천문 바위 틈을 지날 때 한 번 속마음
   if (on && !gateSaid && Math.abs(p.z - GATE.z) < 0.8 && Math.abs(p.x - GATE.x) < 1 && !talking()) { gateSaid = true; talk([{ who: 'me', text: T.gateThought }]); track('gate_passed'); }
   if (p.z > GATE.z + 6) gateSaid = false;
 }
-$('toTopBtn').textContent = T.toTop;
-$('toTopBtn').onclick = () => {
-  if (mySeat !== null) standUp(); onCushion = false; lying = false;
-  // 정상 바로 아래 (언덕만 넘으면 해가 보이는 곳)
-  const z = 11 + Math.random() * 2, x = (Math.random() - 0.5) * 3; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = 0;
-  track('to_top');
+$('warpBtn').onclick = () => {
+  if (mySeat !== null) standUp(); onCushion = false; lying = false; letGo(false);
+  const toTop = $('warpBtn').dataset.to !== 'nest';
+  if (toTop) { const z = 11 + Math.random() * 2, x = (Math.random() - 0.5) * 3; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = 0; } // 정상 바로 아래
+  else { const x = NEST.x + (Math.random() - 0.5) * 0.6, z = NEST.z - 1.2; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = Math.PI; } // 둥지 앞
+  track(toTop ? 'to_top' : 'to_nest');
 };
 
 // ================= 전설의 새: 봉황 · 푸른 학 =================
@@ -963,11 +965,6 @@ function updateHold(dt: number, moving: boolean) {
   if (b.hidden === show) b.hidden = !show;
   const label = holdTo ? T.holdLet : T.holdBtn; if (b.textContent !== label) b.textContent = label;
 }
-/** 헤드랜턴: 어두울수록 밝게 (해가 높이 뜨면 꺼짐) */
-function updateLamps() {
-  const k = Math.max(0, Math.min(1, (5 - lastAltForBanner) / 6));
-  setLamp(me, k); for (const r of remotes.values()) setLamp(r.c, k);
-}
 // 병아리 카페: 장터목 리어카 옆 모이 그릇
 const CAFE = { x: trailX(84.5) - 3.4, z: 84.5 };
 const cafe = new THREE.Group(); scene.add(cafe);
@@ -1003,7 +1000,6 @@ function loop(t: number) {
   updateMago(dt, t / 1000);
   updateHall(dt, t / 1000);
   updateTrail();
-  updateLamps();
   updateCafe();
   const cyc = cycling();
   const info = cyc ? null : sunriseInfo(place, now);
