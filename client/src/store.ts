@@ -32,6 +32,8 @@ interface Saved {
   /** 오늘의 목표 종이 (청학당에서 쓴 그림), 학 훈장님과 인사한 날, 마고할미가 앱 설치를 물어본 때 */
   goal?: { day: string; img: string; sent?: boolean };
   craneDay?: string;
+  /** 봉황을 처음 본 적 있는지 (처음엔 '…엄마?') */
+  phoenixSeen?: boolean;
   installAskAt?: number;
   /** 가게에서 들고 나온 날 (다음 날이 되면 내려놓음) */
   itemDay?: string;
