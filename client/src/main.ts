@@ -11,6 +11,7 @@ import { GATE, TRAIL, mountainY, trailX, benchAt, benchSeats, canStand, createBo
 import { grab, compose } from './photo';
 import { initTalk, say as talk, talking, ask } from './talk';
 import { createMago } from './mago';
+import { hatch, openEyes } from './intro';
 import { NEST } from './mountain-scenery';
 import { createHall } from './hall';
 import { initGoal, writeGoal, sendToSun } from './goal';
@@ -771,11 +772,14 @@ function magoLines(again: boolean): string[] {
   if (Object.keys(store.days).length && !store.days[yest]) return [T.magoMissed];
   return [T.magoHello];
 }
-async function magoTalk(auto: boolean) {
-  if (magoBusy || talking()) return;
+async function magoTalk(auto: boolean, forceFirst = false) {
+  if (magoBusy) return;
+  // 처음 이야기는 다른 대화(속마음 등)가 끝나기를 기다렸다가 꼭 함
+  if (forceFirst) { magoBusy = true; while (talking()) await new Promise(r => setTimeout(r, 300)); }
+  else if (talking()) return;
   magoBusy = true;
   const today = dateKey(Date.now()), again = store.magoDay === today && !!store.magoMet;
-  const lines = magoLines(again);
+  const lines = forceFirst ? T.magoFirst : magoLines(again);
   store.magoDay = today; save();
   // 서로 마주 보기
   const p = me.root.position, m = mago.root.position;
@@ -863,7 +867,7 @@ function updateMago(dt: number, t: number) {
   if (b.hidden === show) b.hidden = !show;
   mago.showHint(!magoBusy && store.magoDay !== dateKey(Date.now()));
   // 하루 한 번: 가까이 오면 먼저 말을 걸어 줌 (첫 방문 안내 카드가 닫힌 뒤에만)
-  if (d < 3.4 && !magoBusy && store.hinted && !openSheet && store.magoDay !== dateKey(Date.now()) && !$('hint').classList.contains('open')) magoTalk(true);
+  if (d < 3.4 && !magoBusy && !introRunning && store.hinted && !openSheet && store.magoDay !== dateKey(Date.now()) && !$('hint').classList.contains('open')) magoTalk(true);
 }
 
 // ================= 등산로: 높이·남은 거리, 통천문 속마음, 정상으로 바로 =================
@@ -1851,8 +1855,23 @@ function openHint() {
   if (peak) $('how3').innerHTML = nest ? T.hintNestHow : T.hintPeakHow; else applyHtml();
   $('hint').classList.add('open');
 }
-if (!store.hinted) openHint();
-else expandBanner();
+// ================= 인트로: 알이 깨지고 → (처음이면) 어둠 속 '여기는… 어디지?' → 눈을 뜨면 마고할미 =================
+let introRunning = false;
+$('intro').addEventListener('pointerdown', () => amb.unlock());
+async function runIntro(first: boolean) {
+  introRunning = true;
+  track('intro', { first });
+  await hatch(first, T.introTap);
+  if (first) await talk(T.wake.map(text => ({ who: 'me' as const, text })));
+  await openEyes(first);
+  introRunning = false;
+  if (first && place.id === 'jirisan') {
+    // 눈을 뜨자마자 할미가 먼저 말을 검 → 다 듣고 나면 조작 안내
+    setTimeout(async () => { await magoTalk(true, true); if (!store.hinted) openHint(); }, 500);
+  } else if (!store.hinted) openHint();
+  else expandBanner();
+}
+runIntro(!store.hinted);
 $('hintBtn').onclick = () => {
   $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner();
   // 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌
@@ -1866,7 +1885,7 @@ renderRealSky();
 $('realSkyBtn').onclick = () => { store.realSky = !store.realSky; save(); renderRealSky(); close(); toast(store.realSky ? T.realSkyToastOn : T.realSkyToastOff); track('real_sky', { on: !!store.realSky }); };
 $('langLink').textContent = T.langLink;
 $('langLink').onclick = () => $('langBtn').click();
-$('introBtn').onclick = () => { close(); setTimeout(openHint, 250); track('intro_reopened'); };
+$('introBtn').onclick = () => { close(); setTimeout(() => runIntro(true), 250); track('intro_reopened'); };
 world.buildLandmark(place);
 applyTerrain(place);
 // 지형이 정해진 뒤 내 발 높이를 다시 맞춤 (둥지에서 시작할 때 공중에 뜨지 않게)

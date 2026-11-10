@@ -285,7 +285,7 @@
       <button class="switch" id="inviteBtn" data-i18n="inviteBtn">친구 부르기</button>
     </div>
     <button class="link" id="installMenuBtn" data-i18n="installMenuBtn">홈 화면에 앱으로 설치하기</button>
-    <button class="link" id="introBtn" data-i18n="introBtn">처음 화면 다시 보기</button>
+    <button class="link" id="introBtn" data-i18n="introBtn">처음 이야기 다시 보기</button>
     <button class="link" id="realSkyBtn"></button>
     <button class="link" id="langLink">English</button>
   </div>
@@ -397,6 +397,12 @@
   </div>
 </div>
 <button class="goal-chip" id="goalChip" hidden aria-label="오늘의 목표 보기">📜</button>
+<!-- 인트로: 알이 깨지고 눈을 뜸 -->
+<div class="intro" id="intro" hidden>
+  <div class="egg" id="introEgg"><i class="e-top"></i><i class="e-bot"></i><svg class="e-crack" viewBox="0 0 120 150"><polyline points="2,78 14,70 26,80 38,69 50,80 62,69 74,80 86,69 98,80 110,70 118,78"/></svg></div>
+  <p class="intro-hint" id="introHint" hidden></p>
+  <i class="lid lid-top"></i><i class="lid lid-bot"></i>
+</div>
 <!-- 대화창 (마고할미·속마음) -->
 <div class="talk" id="talk" hidden role="dialog" aria-live="polite"><span class="talk-name" id="talkName"></span><p class="talk-text" id="talkText"></p><div class="talk-choices" id="talkChoices" hidden></div><i class="talk-next" aria-hidden="true"></i></div>
 <div class="after-sun" id="afterSun" hidden role="dialog" aria-labelledby="afterSunTitle">
