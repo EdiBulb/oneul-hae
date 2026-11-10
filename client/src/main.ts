@@ -9,11 +9,11 @@ import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
 import { GATE, TRAIL, mountainY, trailX, benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
 import { grab, compose } from './photo';
-import { initTalk, say as talk, talking, ask } from './talk';
+import { initTalk, say as talk, talking, ask, setSkip } from './talk';
 import { createMago } from './mago';
 import { hatch, openEyes } from './intro';
 import { NEST } from './mountain-scenery';
-import { createHall } from './hall';
+import { createHall, HALL } from './hall';
 import { initGoal, writeGoal, sendToSun } from './goal';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
@@ -670,6 +670,7 @@ function updateUI(vnow: number, alt: number, t: number) {
   else if (crossed && cyc) { bots.clap(); }
   // 가게에서 들고 나온 게 있으면 해 뜨는 순간 하늘로 번쩍
   if (crossed && itemOf(outfitOf(me)) && !lying) { me.emote = 'raise'; me.emoteT = 0; if (connected) net.emit('emote', 'raise'); }
+  else if (crossed && !lying && !store.crowTaught) { $('crowHint').hidden = false; setTimeout(() => { $('crowHint').hidden = true; }, 25000); }
   else if (crossed && !lying) setTimeout(() => crow('sunrise'), 700); // 해 뜨는 순간 다 같이 울기
   if (crossed) sunriseLegends(); // 해가 뜨는 순간 봉황 (아주 가끔은 푸른 학도)
   if (crossed && (live || cyc)) { sunRoseNow(); }
@@ -1861,13 +1862,59 @@ async function runIntro(first: boolean) {
   if (first) await talk(T.wake.map(text => ({ who: 'me' as const, text })));
   await openEyes(first);
   introRunning = false;
-  if (first && place.id === 'jirisan') {
-    // 눈을 뜨자마자 할미가 먼저 말을 검 → 다 듣고 나면 조작 안내
-    setTimeout(async () => { await magoTalk(true, true); if (!store.hinted) openHint(); }, 500);
-  } else if (!store.hinted) openHint();
+  if (first && place.id === 'jirisan') setTimeout(storyIntro, 400); // 눈을 뜨자마자 할미와 첫 이야기
+  else if (!store.hinted) openHint();
   else expandBanner();
 }
+/** 첫날 이야기: 병아리가 묻고 할미가 답함 (선택지). 건너뛰면 꼭 필요한 것(해의 규칙·걷기·길 고르기)만 */
+async function storyIntro() {
+  const S = T.story;
+  magoBusy = true; let skipped = false;
+  while (talking()) await new Promise(r => setTimeout(r, 300));
+  setSkip(() => { skipped = true; });
+  const p = me.root.position, m = mago.root.position;
+  mago.look(faceAngle(p.x - m.x, p.z - m.z)); turnTo(me, faceAngle(m.x - p.x, m.z - p.z), 1);
+  const say = async (who: 'mago' | 'say', text: string) => { if (skipped) return; if (who === 'mago') mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who, text }]); };
+  const pick = async (text: string, ch: string[]) => { if (skipped) return -1; mago.talk(3); return ask('mago', text, ch); };
+  track('story', { step: 'start' });
+  const a1 = await pick(S.hello, S.ask1);
+  await say('mago', a1 === 1 ? S.who : S.where);
+  await say('say', S.mom);
+  await say('mago', S.momGone);
+  const a2 = await pick(S.momVoice, S.ask2);
+  await say('mago', a2 === 1 ? S.again : S.phoenix);
+  await say('mago', S.crane);
+  // 청학당 쪽을 잠깐 비춤
+  const saved = { d: cam.tDist, p: cam.tPitch, y: cam.tYaw };
+  if (!skipped) setView(11, 0.42, Math.atan2(-(HALL.x - me.root.position.x), -(HALL.z - me.root.position.z)));
+  await say('mago', S.hall);
+  await say('mago', S.send);
+  setView(saved.d, saved.p, saved.y);
+  await say('mago', S.grow);
+  // ---- 여기부터는 건너뛰어도 꼭 ----
+  if (skipped) track('story', { step: 'skipped' });
+  setSkip(null); skipped = false;
+  const nx = sunriseInfo(place, Date.now()).next;
+  if (nx) await say('mago', S.sun(dayName(nx, place.tz), hm(nx, place.tz)));
+  await say('mago', S.walk);
+  // 걷기 연습: 조금 걸을 때까지 손가락 안내
+  $('walkHintText').textContent = S.walkHint; $('walkHint').hidden = false;
+  const from = me.root.position.clone(), t0 = performance.now();
+  while (me.root.position.distanceTo(from) < 1.2 && performance.now() - t0 < 12000) await new Promise(r => setTimeout(r, 200));
+  $('walkHint').hidden = true;
+  await say('mago', S.good);
+  const a3 = await pick(S.how, S.ask3);
+  store.magoMet = true; store.hinted = true; store.magoDay = dateKey(Date.now()); save();
+  if (a3 === 1) { await say('mago', S.carry); $('warpBtn').dataset.to = 'top'; $('warpBtn').click(); }
+  else await say('mago', S.walkUp);
+  mago.look(magoHome); magoBusy = false;
+  track('story', { step: 'done', carried: a3 === 1 });
+  expandBanner();
+}
 runIntro(!store.hinted);
+// 처음 해가 떴을 때는 저절로 울지 않고 '울어 보기'를 가르쳐 줌
+$('crowHintText').textContent = T.crowHint;
+$('crowHint').onclick = () => { $('crowHint').hidden = true; store.crowTaught = true; save(); crow('first'); };
 $('hintBtn').onclick = () => {
   $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner();
   // 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌

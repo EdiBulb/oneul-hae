@@ -36,6 +36,8 @@ interface Saved {
   phoenixSeen?: boolean;
   /** 들고 있는 먹을거리가 몇 입 남았는지 (0이 되면 다 먹고 내려놓음) */
   itemBites?: number;
+  /** 처음 해가 떴을 때 '울어 보기'를 배웠는지 */
+  crowTaught?: boolean;
   installAskAt?: number;
   /** 가게에서 들고 나온 날 (다음 날이 되면 내려놓음) */
   itemDay?: string;

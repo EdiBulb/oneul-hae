@@ -1,11 +1,11 @@
 // 대화창: 동그란 말풍선 + 이름표 + 한 글자씩 나오는 글씨 + 톡톡 소리.
 // 누르면 글씨가 바로 다 나오고, 한 번 더 누르면 다음 줄 / 닫힘.
 
-export type Speaker = 'mago' | 'me' | 'crane';
+export type Speaker = 'mago' | 'me' | 'say' | 'crane';
 export interface Line { who: Speaker; text: string; choices?: string[] }
-const NAME: Record<Speaker, [string, string]> = { mago: ['마고할미', 'Grandma Mago'], me: ['나 (속마음)', 'Me (thinking)'], crane: ['학 훈장님', 'Master Crane'] };
+const NAME: Record<Speaker, [string, string]> = { mago: ['마고할미', 'Grandma Mago'], me: ['나 (속마음)', 'Me (thinking)'], say: ['나', 'Me'], crane: ['학 훈장님', 'Master Crane'] };
 /** 말하는 사람마다 목소리 높이 (톡톡 소리) */
-const PITCH: Record<Speaker, number> = { mago: 330, me: 880, crane: 520 };
+const PITCH: Record<Speaker, number> = { mago: 330, me: 880, say: 880, crane: 520 };
 
 let box: HTMLElement, nameEl: HTMLElement, textEl: HTMLElement, choiceEl: HTMLElement, cur: Line | null = null, picked: ((i: number) => void) | null = null;
 let queue: Line[] = [], typing = 0, full = '', shown = 0, done: (() => void) | null = null, autoT = 0;
@@ -14,7 +14,7 @@ let blip: ((pitch: number) => void) | null = null, isKo = true;
 export function initTalk(opts: { blip: (pitch: number) => void; ko: boolean }) {
   blip = opts.blip; isKo = opts.ko;
   box = document.getElementById('talk')!; nameEl = document.getElementById('talkName')!; textEl = document.getElementById('talkText')!; choiceEl = document.getElementById('talkChoices')!;
-  box.addEventListener('pointerdown', e => { e.stopPropagation(); if ((e.target as HTMLElement).closest('#talkChoices')) return; next(); });
+  box.addEventListener('pointerdown', e => { e.stopPropagation(); if ((e.target as HTMLElement).closest('#talkChoices')) return; if ((e.target as HTMLElement).closest('#talkSkip')) { const cb = skipCb; skipAll(); cb?.(); return; } next(); });
 }
 
 /** 줄 여러 개를 차례로 보여 주고, 다 닫히면 끝남 */
@@ -27,6 +27,13 @@ export function say(lines: Line[]): Promise<void> {
   });
 }
 export const talking = () => box && !box.hidden;
+/** 건너뛰기: 켜 두면 대화창 오른쪽 위에 '건너뛰기'가 보이고, 누르면 지금 대화를 모두 닫고 cb 호출 */
+let skipCb: (() => void) | null = null;
+export function setSkip(cb: (() => void) | null) { skipCb = cb; const s = document.getElementById('talkSkip'); if (s) s.hidden = !cb; }
+export function skipAll() {
+  clearInterval(typing); clearTimeout(autoT); queue = []; picked?.(-1); picked = null; cur = null;
+  box.hidden = true; const d = done; done = null; d?.();
+}
 /** 한 줄 말하고 고르게 함 (동물의 숲처럼 말풍선 옆 선택지). 고른 번호를 돌려줌 */
 export function ask(who: Speaker, text: string, choices: string[]): Promise<number> {
   return new Promise(res => {
