@@ -9,7 +9,8 @@ import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
 import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
 import { grab, compose } from './photo';
-import { initTalk, say as talk } from './talk';
+import { initTalk, say as talk, talking } from './talk';
+import { createMago } from './mago';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
@@ -738,11 +739,58 @@ function updateUI(vnow: number, alt: number, t: number) {
 
 // ================= 루프 =================
 let lastT = performance.now(), lastUI = 0;
+// ================= 마고할미 (지리산 산신령) =================
+const MAGO_AT = { x: -3.6, z: 10.6 };
+const mago = createMago(T.magoName);
+mago.root.position.set(MAGO_AT.x, floorY(MAGO_AT.x, MAGO_AT.z), MAGO_AT.z);
+const magoHome = faceAngle(0 - MAGO_AT.x, 12.5 - MAGO_AT.z); mago.root.rotation.y = magoHome; mago.look(magoHome);
+scene.add(mago.root);
+($('magoBtn') as HTMLButtonElement).textContent = T.magoBtn;
+let magoMore = Math.floor(Math.random() * 7), magoBusy = false;
+/** 내 기록에 따라 할 말을 고름. again = 오늘 이미 인사한 뒤 또 말을 걸 때 */
+function magoLines(again: boolean): string[] {
+  if (!store.magoMet) return T.magoFirst;
+  if (again) return [T.magoMore[magoMore++ % T.magoMore.length]];
+  const today = dateKey(Date.now()), yest = dateKey(Date.now() - 86400000), n = streakCount();
+  if (store.days[today]) return [T.magoSeen];
+  if (n >= 2) return [T.magoStreak(n + (store.days[yest] && !store.days[today] ? 1 : 0))];
+  if (Object.keys(store.days).length && !store.days[yest]) return [T.magoMissed];
+  return [T.magoHello];
+}
+async function magoTalk(auto: boolean) {
+  if (magoBusy || talking()) return;
+  magoBusy = true;
+  const today = dateKey(Date.now()), again = store.magoDay === today && !!store.magoMet;
+  const lines = magoLines(again);
+  store.magoDay = today; save();
+  // 서로 마주 보기
+  const p = me.root.position, m = mago.root.position;
+  mago.look(faceAngle(p.x - m.x, p.z - m.z));
+  if (!auto) { if (mySeat !== null) standUp(); turnTo(me, faceAngle(m.x - p.x, m.z - p.z), 1); }
+  track('mago_talk', { auto, first: !store.magoMet, again });
+  for (const text of lines) { mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who: 'mago', text }]); }
+  store.magoMet = true; save();
+  mago.look(magoHome); magoBusy = false;
+}
+$('magoBtn').onclick = () => magoTalk(false);
+function updateMago(dt: number, t: number) {
+  const here = place.id === 'jirisan';
+  mago.root.visible = here; if (!here) { $('magoBtn').hidden = true; return; }
+  mago.update(dt, t);
+  const d = Math.hypot(me.root.position.x - MAGO_AT.x, me.root.position.z - MAGO_AT.z);
+  const b = $('magoBtn'), show = !lying && !magoBusy && d < (b.hidden ? 2.6 : 3.2);
+  if (b.hidden === show) b.hidden = !show;
+  mago.showHint(!magoBusy && store.magoDay !== dateKey(Date.now()));
+  // 하루 한 번: 가까이 오면 먼저 말을 걸어 줌 (첫 방문 안내 카드가 닫힌 뒤에만)
+  if (d < 3.4 && !magoBusy && store.hinted && !openSheet && store.magoDay !== dateKey(Date.now()) && !$('hint').classList.contains('open')) magoTalk(true);
+}
+
 function loop(t: number) {
   const realDt = Math.min(0.5, (t - lastT) / 1000), dt = Math.min(0.05, realDt); lastT = t;
   const now = virtualNow();
   updateMe(dt);
   updateCamera(dt);
+  updateMago(dt, t / 1000);
   const cyc = cycling();
   const info = cyc ? null : sunriseInfo(place, now);
   const ref = cyc ? cycleRefs().sr : replay ? replay.sr : (info!.windowSR ?? info!.next ?? info!.last ?? now);
@@ -2063,7 +2111,7 @@ let afterSunTimer = 0;
 function askAfterSun() {
   const day = dateKey(Date.now());
   if (store.afterSunDay === day) return;
-  if (openSheet) { setTimeout(askAfterSun, 4000); return; }
+  if (openSheet || talking()) { setTimeout(askAfterSun, 4000); return; }
   store.afterSunDay = day; save();
   $('asAlarm').hidden = store.alarm.on;
   $('asLetter').hidden = !!store.letter;
@@ -2392,4 +2440,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { me, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { me, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

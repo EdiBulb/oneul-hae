@@ -89,7 +89,7 @@ function toonGrad() {
   gradTex.minFilter = gradTex.magFilter = THREE.NearestFilter; gradTex.needsUpdate = true;
   return gradTex;
 }
-const toon = (c: number) => new THREE.MeshToonMaterial({ color: c, gradientMap: toonGrad() });
+export const toon = (c: number) => new THREE.MeshToonMaterial({ color: c, gradientMap: toonGrad() });
 const FEATHER = 0xffd84a, FEATHER2 = 0xf2c43c, BEAK = 0xff9a2a;
 /** 구 위의 한 점 (몸 비율 반영) */
 const onBody = (x: number, y: number, z: number, k = 1) => new THREE.Vector3(x, y, z).normalize().multiply(new THREE.Vector3(CHICK.sx, CHICK.sy, CHICK.sz)).multiplyScalar(CHICK.r * k).add(new THREE.Vector3(0, CHICK.y, 0));
