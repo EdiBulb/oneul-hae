@@ -466,8 +466,9 @@ function applyJwibul(c: Char, mask: number) {
 }
 
 // ---------- 성장 단계 ----------
-/** 해를 본 날 수 → 단계 (0 알에서 막 깸 … 5 다 자란 닭) */
-export const GROWTH_DAYS = [0, 1, 3, 7, 14, 30];
+/** 해를 본 날 수 → 단계 (0 알에서 막 깸 … 5 다 자란 닭). 30번째 해에 봉황 (모습은 아직 준비 중) */
+export const GROWTH_DAYS = [0, 1, 3, 7, 14, 20];
+export const PHOENIX_AT = 30;
 export const growthOf = (days: number) => GROWTH_DAYS.reduce((g, d, i) => (days >= d ? i : g), 0);
 const GROWTH = [
   { s: 0.86, w: 0, comb: 0, wat: 0, tail: 0 },

@@ -598,3 +598,21 @@ body.waking canvas{animation:wakeBlur 2.3s ease-out}
 .fade.on{opacity:1;pointer-events:auto}
 /* 인트로 동안: 위쪽 안내·장소·높이 칩을 숨겨 장면에 집중 */
 body.in-intro header,body.in-intro #center,body.in-intro #chips,body.in-intro #trailChip,body.in-intro #photoBtn,body.in-intro .zbtns,body.in-intro #goalChip{visibility:hidden}
+
+/* ---------- 메뉴: 둥지 일기 ---------- */
+.grow-now{display:flex;align-items:center;gap:12px}
+.grow-ic{font-size:34px;line-height:1}
+.grow-now b{font-family:'Gowun Batang',serif;font-size:19px;color:var(--ink)}
+.grow-bar{height:6px;border-radius:6px;background:var(--line);overflow:hidden;margin-top:10px}
+.grow-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd27a,#ff9a4a);transition:width .6s}
+.grow-next{margin-top:6px}
+.grow-next em{font-style:normal;color:#ffc36b;font-weight:700}
+.wk-label{margin:14px 0 6px;color:var(--ink-faint)}
+.my-name{margin-bottom:8px}
+.menu-list{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.menu-list .li{display:flex;align-items:center;gap:10px;width:100%;font:inherit;font-size:14px;color:var(--ink);background:none;border:none;border-top:1px solid var(--line);padding:12px 14px;text-align:left;cursor:pointer}
+.menu-list .li:first-child{border-top:none}
+.menu-list .li:active{background:rgba(255,248,239,.06)}
+.menu-list .ic{width:22px;text-align:center}
+.menu-list .v{margin-left:auto;font-size:12px;color:var(--ink-faint)}
+.menu-list .v::after{content:" ›"}

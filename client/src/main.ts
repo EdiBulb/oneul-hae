@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage, setGoalPaper } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage, GROWTH_DAYS, PHOENIX_AT, setGoalPaper } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
@@ -1378,17 +1378,11 @@ function startReplay(quick: boolean) {
   if (!lying) setView(Math.max(cam.tDist, 6.4), has.peak(place.id) ? 0.46 : 0.22, 0);
   track('replay_started', { place: place.id, quick });
 }
-$('replayBtn').onclick = () => { close(); startReplay(false); };
 $('replayPill').onclick = () => startReplay(true);
 $('replayX').onclick = () => { store.replayPillOff = dateKey(Date.now()); save(); $('replayWrap').hidden = true; track('replay_pill_closed'); };
 async function copy(text: string, done: string) {
   try { await navigator.clipboard.writeText(text); toast(done); } catch { toast(text); }
 }
-$('copyBtn').onclick = () => {
-  track('share_copied', { streak: streakCount() });
-  const n = streakCount();
-  copy(`${T.sawToday(placeName(place), n)}\n${location.origin}`, T.copied);
-};
 $('inviteBtn').onclick = () => { track('invite_copied'); }; $('inviteBtn').addEventListener('click', () => copy(`${T.invite} ${location.origin}`, T.inviteCopied));
 
 let toastTimer = 0;
@@ -1410,8 +1404,18 @@ function renderStreak() {
     el.innerHTML = `<i class="${v ?? ''}"></i>${i === 0 ? T.today : names[new Date(t).getDay()]}`;
     week.appendChild(el);
   }
-  const n = streakCount();
-  $('streakText').innerHTML = n ? T.streak(n) : T.streakEmpty;
+  renderGrowth();
+}
+/** 둥지 일기: 지금 단계, 해를 맞은 횟수, 다음 변화까지 */
+function renderGrowth() {
+  const steps = [...GROWTH_DAYS, PHOENIX_AT], n = seenDays();
+  const g = steps.reduce((s, d, i) => (n >= d ? i : s), 0), next = steps[g + 1];
+  $('growIc').textContent = T.stageIcon[g]; $('growName').textContent = T.stageName[g];
+  $('growCount').innerHTML = T.growCount(n);
+  if (next === undefined) { $('growBar').style.width = '100%'; $('growNext').innerHTML = T.growDone; return; }
+  const from = steps[g];
+  $('growBar').style.width = `${Math.round((n - from) / (next - from) * 100)}%`;
+  $('growNext').innerHTML = T.growNext(next - n, g + 1);
 }
 
 // ================= 알람 =================
@@ -1456,11 +1460,6 @@ $('alarmBtn').onclick = () => {
   track('alarm_toggled', { on: store.alarm.on, place: place.id });
   if (store.alarm.on) { chime(); toast(T.alarmToggledOn); }
   renderAlarm();
-};
-$('demoBtn').onclick = () => {
-  close();
-  const info = sunriseInfo(place, Date.now());
-  openWake((info.last ?? info.next!) - 5 * 60000, true);
 };
 $('wakeBtn').onclick = () => {
   const demo = $('wake').dataset.demo === '1';
@@ -1536,7 +1535,6 @@ $('installGo').onclick = async () => {
   close();
 };
 $('installLater').onclick = () => { store.installSnooze = Date.now(); save(); close(); };
-$('installMenuBtn').onclick = () => { close(); setTimeout(() => showInstall(true), 300); };
 
 // ================= 후원 =================
 // Vercel 환경 변수 VITE_SUPPORT_URL에 후원 페이지 주소를 넣으면 메뉴에 버튼이 나타남
@@ -1969,10 +1967,10 @@ $('hintBtn').onclick = () => {
   else if (!live && !cycling()) setTimeout(() => startReplay(true), 700);
 };
 // 메뉴에서 처음 화면 다시 보기 (시작하기를 누르면 첫 방문처럼 해돋이 다시보기까지)
-function renderRealSky() { $('realSkyBtn').textContent = store.realSky ? T.realSkyOn : T.realSkyOff; }
+function renderRealSky() { $('realSkyLabel').textContent = store.realSky ? T.realSkyOn : T.realSkyOff; }
 renderRealSky();
 $('realSkyBtn').onclick = () => { store.realSky = !store.realSky; save(); renderRealSky(); close(); toast(store.realSky ? T.realSkyToastOn : T.realSkyToastOff); track('real_sky', { on: !!store.realSky }); };
-$('langLink').textContent = T.langLink;
+$('langLabel').textContent = T.langLink;
 $('langLink').onclick = () => $('langBtn').click();
 // 처음 이야기 다시 보기: 처음 온 사람과 똑같이 (둥지에서 혼자, 새벽 → 정상 봉황 → 둥지)
 $('introBtn').onclick = async () => {
@@ -2454,7 +2452,6 @@ setInterval(() => { const w = cheerWindow(); if (w) lastWindowKey = w.key; }, 50
 // 편지는 이 기기에만 저장. 다음 날 처음 해가 뜰 때 해가 다시 가져다줌.
 const todayKey = () => dateKey(Date.now());
 function updateLetterBtn() { if (!$('letterBtn').hidden) $('letterBtn').hidden = true; } // 편지는 해 뜬 뒤 물어보기 + 기록·알람 메뉴로 옮김
-$('letterMenuBtn').onclick = () => { close(); $('letterBtn').click(); };
 function askLetter() {
   if (store.letter || openSheet || store.letterAskDay === dateKey(Date.now())) return;
   store.letterAskDay = dateKey(Date.now()); save();
