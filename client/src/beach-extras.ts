@@ -41,6 +41,8 @@ export const has = {
 export const BUS_STOP = { x: -12, z: 1.2 };
 /** 지리산 천왕봉: 정상 직전 능선(z 11~14)에 나타나서, 바위 언덕(z 3)을 넘으면 절벽 끝 전망대(z 0~1.6) */
 export const SUMMIT = { edgeZ: -0.05, deckY: 1.6, crestZ: 3, stone: { x: -4.4, z: 2.4 } };
+/** 정상 바위 자리 6곳 (평평한 데크 대신 들쭉날쭉한 화강암 위) */
+export const SUMMIT_ROCKS: [number, number][] = [[-3.6, 0.9], [-2.1, 1.7], [-0.7, 0.6], [1.0, 1.5], [2.5, 0.75], [3.9, 1.8]];
 const ss = (a: number, b: number, v: number) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 /** 천왕봉 땅 높이: 뒤쪽 길은 내려가고, 앞으로 갈수록 올라가다 언덕을 넘으면 평평한 전망대 */
 /** 한라산 백록담 분화구 (걷는 길 왼쪽 위) */
@@ -66,19 +68,17 @@ export function mountainY(x: number, z: number, id: PlaceId = terrain) {
 }
 // ---------- 지리산 능선길 가게 (정상 뒤쪽 길을 따라 카페 → 김밥 → 막걸리) ----------
 /** 가게 하나: 가운데 (x, z), 앞(문)이 ry 방향. 가게 쪽 좌표 lx(옆), lz(앞이 +) */
-export interface Shop { id: 'cafe' | 'kimbap' | 'jumak'; item: 1 | 2 | 3; x: number; z: number; ry: number; w: number; d: number; door: number; seats: { lx: number; lz: number; ry: number; h: number; kind: 'chair' | 'floor'; ox: number; oz: number }[] }
+export interface Shop { id: 'cart' | 'hut' | 'hutM'; item: 1 | 2 | 3; /** 같은 건물의 두 번째 창구 (건물·충돌 없음) */ window?: boolean; noTable?: boolean; x: number; z: number; ry: number; w: number; d: number; door: number; seats: { lx: number; lz: number; ry: number; h: number; kind: 'chair' | 'floor'; ox: number; oz: number }[] }
 const chairPair = (lx: number, lz: number) => [
   { lx: lx - 0.75, lz, ry: -Math.PI / 2, h: 0.45, kind: 'chair' as const, ox: 0, oz: 0.8 },
   { lx: lx + 0.75, lz, ry: Math.PI / 2, h: 0.45, kind: 'chair' as const, ox: 0, oz: 0.8 },
 ];
+// 장터목 마당: 낡은 커피 리어카(알아서 드세요) + 돌 대피소 매점(김밥 창구 · 막걸리 창구)
+const crate = (lx: number, lz: number, ry: number) => ({ lx, lz, ry, h: 0.36, kind: 'chair' as const, ox: Math.sin(ry) * 0.7, oz: Math.cos(ry) * 0.7 });
 export const SHOPS: Shop[] = [
-  { id: 'cafe', item: 2, x: -5.4, z: 18, ry: Math.PI / 2, w: 4.2, d: 3.2, door: 1.1, seats: [...chairPair(3.4, 0.9), ...chairPair(3.4, -1.1)] },
-  { id: 'kimbap', item: 1, x: 5.3, z: 24.5, ry: -Math.PI / 2, w: 3.8, d: 2.4, door: 0, seats: [...chairPair(3.2, 0.6), ...chairPair(-3.2, 0.6)] },
-  { id: 'jumak', item: 3, x: -5.6, z: 31.5, ry: Math.PI / 2, w: 4.6, d: 3.4, door: 0, seats: [
-    { lx: 2.75, lz: 0.9, ry: 0, h: 0.5, kind: 'floor', ox: 0, oz: 1.3 },
-    { lx: 3.65, lz: 0.9, ry: 0, h: 0.5, kind: 'floor', ox: 0, oz: 1.3 },
-    { lx: 3.2, lz: -0.6, ry: Math.PI, h: 0.5, kind: 'floor', ox: 0, oz: -1.2 },
-  ] },
+  { id: 'cart', item: 2, x: -4.6, z: 20, ry: Math.PI / 2, w: 2.3, d: 1.2, door: 0, noTable: true, seats: [crate(-2.0, 1.3, 0.6), crate(2.0, 1.4, -0.5)] },
+  { id: 'hut', item: 1, x: 5.6, z: 25.5, ry: -Math.PI / 2, w: 4.2, d: 2.6, door: -0.9, noTable: true, seats: [crate(-3.0, 1.6, 0.4), crate(3.0, 1.7, -0.3), crate(3.3, 0.6, -1.2)] },
+  { id: 'hutM', item: 3, x: 5.6, z: 25.5, ry: -Math.PI / 2, w: 4.2, d: 2.6, door: 0.9, window: true, seats: [] },
 ];
 /** 평상 (막걸리 주막 앞) 크기·위치: 가게 쪽 좌표 */
 export const PYEONGSANG = { lx: 3.2, lz: 0.15, w: 2.0, d: 2.2, h: 0.42 };
@@ -95,7 +95,7 @@ function insideShop(x: number, z: number) {
   for (const s of SHOPS) {
     const [lx, lz] = worldToShop(s, x, z);
     if (Math.abs(lx) < s.w / 2 + 0.25 && lz < s.d / 2 + 0.2 && lz > -s.d / 2 - 0.4) return true;
-    if (s.id === 'jumak' && Math.abs(lx - PYEONGSANG.lx) < PYEONGSANG.w / 2 && Math.abs(lz - PYEONGSANG.lz) < PYEONGSANG.d / 2 - 0.1) return true;
+    if (s.window || s.noTable) continue;
     for (let i = 0; i < s.seats.length; i += 2) { // 테이블 (의자 두 개 사이)
       if (s.seats[i].kind !== 'chair') continue;
       const tx = (s.seats[i].lx + s.seats[i + 1].lx) / 2, tz = s.seats[i].lz;
@@ -133,10 +133,7 @@ export function benchSeats() {
     out.push({ x, z, ry: Math.PI, y: groundY(z) + 0.44, bench: true, kind: 'bus', sx: x, sz: z + 0.75, places: ['hyangho'] });
   }
   // 36~41: 천왕봉 절벽 끝 바위 6자리, 해 뜨는 쪽(-z)을 바라봄 → 일어나면 뒤로 한 걸음
-  for (let i = 0; i < 6; i++) {
-    const x = -3.75 + i * 1.5, z = 0.75;
-    out.push({ x, z, ry: 0, y: SUMMIT.deckY + 0.42, bench: true, kind: 'rock', sx: x, sz: 1.7, places: [...PEAK] });
-  }
+  for (const [x, z] of SUMMIT_ROCKS) out.push({ x, z, ry: 0, y: mountainY(x, z, 'jirisan') + 0.4, bench: true, kind: 'rock', sx: x, sz: z + 0.9, places: [...PEAK] });
   // 42~: 지리산 능선길 가게 앞 의자·평상 (가게 쪽 좌표를 월드로 바꿔서)
   for (const s of SHOPS) for (const t of s.seats) {
     const [x, z] = shopToWorld(s, t.lx, t.lz), [sx, sz] = shopToWorld(s, t.lx + t.ox, t.lz + t.oz);

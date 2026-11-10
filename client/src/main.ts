@@ -11,6 +11,7 @@ import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createP
 import { grab, compose } from './photo';
 import { initTalk, say as talk, talking, ask } from './talk';
 import { createMago } from './mago';
+import { NEST } from './mountain-scenery';
 import { createHall } from './hall';
 import { initGoal, writeGoal, sendToSun } from './goal';
 import { createCastles } from './castles';
@@ -196,7 +197,11 @@ const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
 const seenDays = () => Object.values(store.days).filter(v => v !== 'shield').length;
 store.look.g = growthOf(seenDays()); store.growthSeen ??= store.look.g;
 setGrowth(me, store.look.g);
-const spawn = () => { const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z); };
+// 처음 온 날은 장터목 둥지에서 깨어나 마고할미를 만나고, 그다음부터는 정상 바로 아래에서 시작 (출근 전 1분)
+const spawn = () => {
+  if (place.id === 'jirisan' && !store.magoMet) { const x = NEST.x + (Math.random() - 0.5) * 0.6, z = NEST.z + (Math.random() - 0.5) * 0.6; me.root.position.set(x, floorY(x, z), z); me.root.rotation.y = 0; return; }
+  const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z);
+};
 spawn();
 scene.add(me.root);
 const meLabel = textSprite(T.me, 0.75); meLabel.position.y = 1.62; me.root.add(meLabel);
@@ -742,10 +747,10 @@ function updateUI(vnow: number, alt: number, t: number) {
 // ================= 루프 =================
 let lastT = performance.now(), lastUI = 0;
 // ================= 마고할미 (지리산 산신령) =================
-const MAGO_AT = { x: -3.6, z: 10.6 };
+const MAGO_AT = { x: NEST.x - 1.9, z: NEST.z - 0.6 }; // 장터목 둥지 옆
 const mago = createMago(T.magoName);
 mago.root.position.set(MAGO_AT.x, floorY(MAGO_AT.x, MAGO_AT.z), MAGO_AT.z);
-const magoHome = faceAngle(0 - MAGO_AT.x, 12.5 - MAGO_AT.z); mago.root.rotation.y = magoHome; mago.look(magoHome);
+const magoHome = faceAngle(NEST.x - MAGO_AT.x, NEST.z - 1.5 - MAGO_AT.z); mago.root.rotation.y = magoHome; mago.look(magoHome);
 scene.add(mago.root);
 ($('magoBtn') as HTMLButtonElement).textContent = T.magoBtn;
 let magoMore = Math.floor(Math.random() * 7), magoBusy = false;
@@ -1703,9 +1708,9 @@ function installReady() { return Object.values(store.days).includes('live') || O
 function askInstallAfterSun() { /* 설치는 마고할미가 대화로 물어봄 */ }
 /** 첫 안내 카드: 산 정상이면 '걸어가 보세요'로 */
 function openHint() {
-  const peak = has.peak(place.id);
-  $('hintTitle').textContent = peak ? T.hintPeakTitle : (lang === 'ko' ? '해변에 도착했어요' : "You've arrived at the beach");
-  if (peak) $('how3').innerHTML = T.hintPeakHow; else applyHtml();
+  const peak = has.peak(place.id), nest = place.id === 'jirisan' && !store.magoMet;
+  $('hintTitle').textContent = nest ? T.hintNestTitle : peak ? T.hintPeakTitle : (lang === 'ko' ? '해변에 도착했어요' : "You've arrived at the beach");
+  if (peak) $('how3').innerHTML = nest ? T.hintNestHow : T.hintPeakHow; else applyHtml();
   $('hint').classList.add('open');
 }
 if (!store.hinted) openHint();
@@ -1714,7 +1719,7 @@ $('hintBtn').onclick = () => {
   $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner();
   // 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌
   const live = !!sunriseInfo(place, Date.now()).windowSR;
-  if (has.peak(place.id)) setTimeout(() => toast(T.summitWalk), 700);
+  if (has.peak(place.id) && store.magoMet) setTimeout(() => toast(T.summitWalk), 700);
   else if (!live && !cycling()) setTimeout(() => startReplay(true), 700);
 };
 // 메뉴에서 처음 화면 다시 보기 (시작하기를 누르면 첫 방문처럼 해돋이 다시보기까지)
@@ -1815,7 +1820,7 @@ function updateShops(dt: number) {
   if (shopVisit) {
     // 가게 안에 들어가 있는 짧은 시간: 캐릭터를 숨겼다가 '띵동'과 함께 들고 나옴
     shopVisit.t += dt;
-    if (shopVisit.t > 0.9) {
+    if (shopVisit.t > 0.5) {
       me.inner.visible = true; setShopItem(shopVisit.item); amb.ding();
       toast(SL(...ITEM_TOAST[shopVisit.item])); track('shop_item', { item: shopVisit.item });
       shopVisit = null; nextNibble = 3;
@@ -1828,7 +1833,8 @@ function updateShops(dt: number) {
   if (!here) { shopAt = null; }
   else if (shopAt !== here.id && mySeat === null && !lying && !jwOn) {
     shopAt = here.id;
-    if (itemOf(store.outfit ?? 0) !== here.item) { shopVisit = { item: here.item, t: 0 }; me.inner.visible = false; }
+    // 리어카·창구라 안으로 들어가지 않고 그 자리에서 받아 듦
+    if (itemOf(store.outfit ?? 0) !== here.item) { shopVisit = { item: here.item, t: 0 }; }
   }
   // 들고 있으면 가끔 한 입·한 모금
   if (itemOf(outfitOf(me)) && !me.emote && me.state !== 'walk' && !lying && (nextNibble -= dt) <= 0) {

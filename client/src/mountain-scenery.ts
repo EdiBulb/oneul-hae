@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { stable } from './stable-tex';
 import { textSprite } from './character';
-import { CRATER, SHOPS, SUMMIT, mountainY as mY, worldToShop } from './beach-extras';
+import { CRATER, SHOPS, SUMMIT, SUMMIT_ROCKS, mountainY as mY, worldToShop } from './beach-extras';
 import { koreanPine } from './place-scenery';
 import { createShops } from './mountain-shops';
 import { HALL } from './hall';
+/** 둥지 · 마고할미 (장터목 마당 아래쪽) */
+export const NEST = { x: -1.6, z: 32.5 };
 
 // 지리산 천왕봉: 정상 직전 바위 능선에 도착 → 언덕을 넘으면 절벽 끝 전망대.
 // 발아래는 운해(구름 바다), 그 위로 겹겹이 이어진 능선이 봉우리만 내밀고 있다.
@@ -72,7 +74,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   const mountainY = (x: number, z: number) => mY(x, z, id);
   const g = new THREE.Group(); scene.add(g); g.visible = false;
   /** 가게 자리 근처엔 나무·덤불·돌을 두지 않음 */
-  const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 3.4 && Math.hypot(x + 3.6, z - 10.6) > 1.6);
+  const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 3.4 && Math.hypot(x - NEST.x, z - NEST.z) > 2.6);
 
   // ---------- 정상 땅 (바위와 풀이 섞인 능선) ----------
   const W = 150, D = 76, geo = new THREE.PlaneGeometry(W, D, 110, 64);
@@ -175,21 +177,37 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
     for (const t of tops) { if (SEASON === 'late' && rnd() < 0.6) continue; const f = new THREE.Mesh(new THREE.IcosahedronGeometry(SEASON === 'late' ? 0.16 : 0.3, 0), frostM); f.scale.y = 0.45; f.position.copy(t); seasonG.add(f); }
   }
 
-  // ---------- 전망대: 밧줄 난간 + 바위 의자 ----------
-  const postM = lam(0x6e4f33), ropeM = new THREE.MeshLambertMaterial({ color: 0xd9c9a3 });
-  // 양옆 밧줄 난간: 벽 대신 낮은 난간으로 길을 막고 시야는 트이게
-  for (const sx of [-1, 1]) {
-    for (let z = 0; z <= SUMMIT.crestZ + 0.01; z += 1.0) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.0, 6), postM); post.position.set(sx * 5.35, mY(sx * 5.35, z, id) + 0.5, z - 0.05); g.add(post); }
-    for (const yy of [0.55, 0.95]) {
-      const a = new THREE.Vector3(sx * 5.35, mY(sx * 5.35, -0.05, id) + yy, -0.05), b = new THREE.Vector3(sx * 5.35, mY(sx * 5.35, SUMMIT.crestZ, id) + yy, SUMMIT.crestZ - 0.05);
-      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, a.distanceTo(b), 6), ropeM); rope.position.copy(a).lerp(b, 0.5); rope.lookAt(b); rope.rotateX(Math.PI / 2); g.add(rope);
-    }
+  // ---------- 정상: 데크·난간 없이 층층이 쪼개진 화강암 (해만 보는 곳) ----------
+  const graniteM = [lam(0x6b6660), lam(0x77716a), lam(0x5f5a54)];
+  const slab = (x: number, z: number, sx: number, sy: number, sz: number, ry: number, top: number) => {
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), graniteM[Math.floor(rnd() * 3)]);
+    m.scale.set(sx, sy, sz); m.rotation.set((rnd() - 0.5) * 0.25, ry, (rnd() - 0.5) * 0.25);
+    m.position.set(x, mY(x, z, id) + top - sy * 0.8, z); g.add(m); return m;
+  };
+  // 넓적한 판석 (땅에 반쯤 묻혀 위만 살짝): 디딤돌처럼
+  for (let i = 0; i < 22; i++) { const x = (rnd() - 0.5) * 9.6, z = 0.2 + rnd() * 2.8; slab(x, z, 0.5 + rnd() * 0.7, 0.18 + rnd() * 0.12, 0.4 + rnd() * 0.5, rnd() * 3, 0.06 + rnd() * 0.08); }
+  // 앉는 바위 6곳 (윗면이 앉는 높이)
+  for (const [x, z] of SUMMIT_ROCKS) slab(x, z, 0.42 + rnd() * 0.12, 0.42, 0.38 + rnd() * 0.1, rnd() * 3, 0.36);
+  // 절벽 끝을 알려 주는 낮은 바위 줄 (난간 대신)
+  for (let i = 0; i < 9; i++) { const x = -4.6 + i * 1.15 + (rnd() - 0.5) * 0.3; slab(x, -0.15, 0.32 + rnd() * 0.2, 0.3, 0.25, rnd() * 3, 0.18 + rnd() * 0.12); }
+  // 바위 틈 억새 몇 포기
+  const tuftM = lam(0xb9a37a), plM = new THREE.MeshLambertMaterial({ color: 0xf1e2c4 });
+  for (let i = 0; i < 10; i++) {
+    const x = (rnd() < 0.5 ? -1 : 1) * (1.5 + rnd() * 3.4), z = 0.3 + rnd() * 2.6, tf = new THREE.Group(); tf.position.set(x, mY(x, z, id), z);
+    for (let k = 0; k < 4; k++) { const a = k * 1.6, h = 0.45 + rnd() * 0.3; const st = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.01, h, 3), tuftM); st.position.set(Math.cos(a) * 0.04, h / 2, Math.sin(a) * 0.04); st.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25); tf.add(st); const pl = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.18, 4), plM); pl.position.set(Math.cos(a) * (0.04 + h * 0.25), h + 0.05, Math.sin(a) * (0.04 + h * 0.25)); pl.rotation.copy(st.rotation); tf.add(pl); }
+    g.add(tf);
   }
-  for (let x = -5; x <= 5.01; x += 1.25) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.0, 6), postM); post.position.set(x, SUMMIT.deckY + 0.5, SUMMIT.edgeZ - 0.05); g.add(post); }
-  for (const y of [0.55, 0.95]) { const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 10.1, 6), ropeM); rope.rotation.z = Math.PI / 2; rope.position.set(0, SUMMIT.deckY + y, SUMMIT.edgeZ - 0.05); g.add(rope); }
-  for (let i = 0; i < 6; i++) {
-    const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 0.42, 7), rockM[i % 3]);
-    seat.position.set(-3.75 + i * 1.5, SUMMIT.deckY + 0.21, 0.75); seat.rotation.y = i; g.add(seat);
+  const postM = lam(0x6e4f33);
+
+  // ---------- 둥지: 모든 병아리가 태어나고 매일 아침 깨어나는 곳 ----------
+  if (id === 'jirisan') {
+    const nest = new THREE.Group(); nest.position.set(NEST.x, mY(NEST.x, NEST.z, id), NEST.z); g.add(nest);
+    const twig = lam(0x8a6438), twig2 = lam(0x6a4a2a);
+    for (let i = 0; i < 26; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.9 + (i % 3) * 0.06, 0.06, 4, 18, Math.PI * (1.1 + rnd() * 0.6)), i % 2 ? twig : twig2); t.rotation.set(Math.PI / 2 + (rnd() - 0.5) * 0.35, 0, rnd() * 6.28); t.position.y = 0.12 + (i % 4) * 0.05; nest.add(t); }
+    const bed = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.7, 0.12, 18), lam(0xc9a96a)); bed.position.y = 0.08; nest.add(bed);
+    // 껍데기 조각들 (막 깨어난 흔적)
+    const shellM = lam(0xfbf6ea);
+    for (let i = 0; i < 6; i++) { const sh = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6, 0, Math.PI, 0, Math.PI / 2), shellM); sh.position.set((rnd() - 0.5) * 1.1, 0.16, (rnd() - 0.5) * 1.1); sh.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3); nest.add(sh); }
   }
 
   // ---------- 정상 표지석과 안내판 ----------
@@ -216,7 +234,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
       const x = c.getContext('2d')!;
       x.fillStyle = '#7a5532'; x.fillRect(0, 0, 512, 256);
       x.fillStyle = '#fff6e0'; x.textAlign = 'center'; x.font = '900 52px "Noto Sans KR", sans-serif';
-      x.fillText('☕ 구름 카페', 256, 70); x.fillText('🍙 천왕 김밥', 256, 140); x.fillText('🍶 산 막걸리', 256, 210);
+      x.fillText('↓ 장터목', 256, 62); x.font = '800 40px "Noto Sans KR", sans-serif'; x.fillText('커피 리어카 · 대피소 매점', 256, 132); x.fillText('청학당 · 둥지', 256, 196);
       const t = stable(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace; return t;
     })();
     const sm = new THREE.MeshLambertMaterial({ map: shopSign });
