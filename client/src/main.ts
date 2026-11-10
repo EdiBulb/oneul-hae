@@ -1965,8 +1965,19 @@ const ITEM_TOAST: Record<number, [string, string]> = {
   3: ['🍶 막걸리 한 주전자 들고 나왔어요', 'Got a kettle of makgeolli'],
 };
 let shopVisit: { item: number; t: number } | null = null, shopAt: string | null = null, nextNibble = 8;
+/** 다 먹고(마시고) 내려놓기: 속마음 한 줄 */
+function finishItem() {
+  const it = itemOf(outfitOf(me)); if (!it) return;
+  setShopItem(0); talk([{ who: 'me', text: T.finished[it] }]); track('item_finished', { item: it });
+}
+$('finishBtn').onclick = () => {
+  if (!itemOf(outfitOf(me)) || lying) return;
+  // 남은 걸 냠냠 세 번에 다 먹고 내려놓음
+  [0, 900, 1800].forEach(ms => setTimeout(() => { me.emote = 'eat'; me.emoteT = 0; if (connected) net.emit('emote', 'eat'); }, ms));
+  setTimeout(finishItem, 2600);
+};
 function setShopItem(k: number) {
-  store.outfit = withItem(store.outfit ?? 0, k); store.itemDay = dateKey(Date.now()); save();
+  store.outfit = withItem(store.outfit ?? 0, k); store.itemDay = dateKey(Date.now()); store.itemBites = k ? 6 : 0; save();
   setOutfit(me, store.outfit | (outfitOf(me) & TEMP));
   if (connected) net.emit('outfit', outfitOf(me));
 }
@@ -1994,7 +2005,14 @@ function updateShops(dt: number) {
   // 들고 있으면 가끔 한 입·한 모금
   if (itemOf(outfitOf(me)) && !me.emote && me.state !== 'walk' && !lying && (nextNibble -= dt) <= 0) {
     nextNibble = 8 + Math.random() * 7; me.emote = 'eat'; me.emoteT = 0; if (connected) net.emit('emote', 'eat');
+    // 한 입씩 줄어들다 다 먹으면 내려놓음
+    store.itemBites = (store.itemBites ?? 6) - 1; save();
+    if (store.itemBites <= 0) setTimeout(finishItem, 1800);
   }
+  // 행동 메뉴: 들고 있을 때만 '다 먹기 / 다 마시기'
+  const it = itemOf(outfitOf(me)), fb = $('finishBtn');
+  if (fb.hidden === !!it) fb.hidden = !it;
+  if (it && fb.dataset.k !== String(it)) { fb.dataset.k = String(it); $('finishIc').textContent = it === 1 ? '🍙' : it === 2 ? '☕' : '🍶'; $('finishLabel').textContent = T.finish[it]; }
 }
 
 // ================= 옷장 =================

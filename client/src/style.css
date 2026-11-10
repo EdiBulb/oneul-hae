@@ -577,3 +577,6 @@
 @keyframes lidTopF{to{transform:translateY(-102%)}}@keyframes lidBotF{to{transform:translateY(102%)}}
 body.waking canvas{animation:wakeBlur 2.3s ease-out}
 @keyframes wakeBlur{0%{filter:blur(10px) brightness(.6)}100%{filter:none}}
+
+.tile.on{background:linear-gradient(180deg,#ffc070,#ff8a3d);color:#2a1404}
+.tile[hidden]{display:none}

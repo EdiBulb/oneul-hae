@@ -34,6 +34,8 @@ interface Saved {
   craneDay?: string;
   /** 봉황을 처음 본 적 있는지 (처음엔 '…엄마?') */
   phoenixSeen?: boolean;
+  /** 들고 있는 먹을거리가 몇 입 남았는지 (0이 되면 다 먹고 내려놓음) */
+  itemBites?: number;
   installAskAt?: number;
   /** 가게에서 들고 나온 날 (다음 날이 되면 내려놓음) */
   itemDay?: string;
