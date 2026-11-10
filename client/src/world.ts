@@ -185,6 +185,7 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
   }
 
   // ---------- 조명 ----------
+  let indoor = false;
   const hemi = new THREE.HemisphereLight(0xffffff, 0x3a2c24, 0.5); scene.add(hemi);
   const sunLight = new THREE.DirectionalLight(0xffffff, 0.8); scene.add(sunLight);
   const moon = new THREE.AmbientLight(0x8a9ad8, 0.35); scene.add(moon);
@@ -302,8 +303,10 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     sunLight.color.copy(sunCol);
     sunLight.intensity = clamp((alt + 2) / 8, 0, 1) * 0.95 * (1 - 0.5 * dawn) * Math.PI;
     sunLight.position.copy(sunDir).multiplyScalar(50);
+    // 실내(청학당): 바깥 시각과 상관없이 따뜻하게 밝은 방
+    if (indoor) { hemi.color.setRGB(1, 0.95, 0.86); hemi.intensity = 1.05 * Math.PI; moon.intensity = 0; sunLight.color.setRGB(1, 0.92, 0.8); sunLight.intensity = 0.55 * Math.PI; sunLight.position.set(-20, 40, -12); }
     return alt;
   }
 
-  return { seats, buildLandmark, update, setGround, skyLow: low, sunDir, setGolden(v: number) { gold = Math.max(0, Math.min(1, v)); } };
+  return { seats, buildLandmark, update, setGround, skyLow: low, sunDir, setIndoor(v: boolean) { indoor = v; }, setGolden(v: number) { gold = Math.max(0, Math.min(1, v)); } };
 }

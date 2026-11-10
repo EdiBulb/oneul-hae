@@ -40,6 +40,11 @@ export const has = {
 /** 향호 버스정류장: 바다를 등지고 육지 쪽을 보는 정류장 */
 export const BUS_STOP = { x: -12, z: 1.2 };
 /** 지리산 천왕봉: 정상 직전 능선(z 11~14)에 나타나서, 바위 언덕(z 3)을 넘으면 절벽 끝 전망대(z 0~1.6) */
+/** 청학당 실내: 정상 절벽 너머(아무도 못 가는 곳) 아래 깊이 따로 지은 방. 문턱을 밟으면 여기로 순간이동.
+ *  서버 범위(z -26 이상) 안이라 서버를 고칠 필요 없음. 문은 -z 쪽, 훈장님은 +z 쪽 */
+export const INDOOR = { x: 0, z: -14, y: -300, w: 11, d: 9 };
+/** 실내 구역 (절벽 너머 전체: 카메라도 여기선 실내 기준) */
+export const isIndoor = (x: number, z: number) => terrain === 'jirisan' && z < -6 && Math.abs(x - INDOOR.x) < 20;
 export const SUMMIT = { edgeZ: -0.05, deckY: 1.6, crestZ: 3, stone: { x: -4.4, z: 2.4 } };
 /** 정상 바위 자리 6곳 (평평한 데크 대신 들쭉날쭉한 화강암 위) */
 export const SUMMIT_ROCKS: [number, number][] = [[-3.6, 0.9], [-2.1, 1.7], [-0.7, 0.6], [1.0, 1.5], [2.5, 0.75], [3.9, 1.8]];
@@ -193,6 +198,7 @@ export function floorY(x: number, z: number) {
     const k = clamp((j.start - z) / 1.6, 0, 1); // 콘크리트 계단 경사
     return groundY(z) * (1 - k) + j.top * k;
   }
+  if (isIndoor(x, z)) return INDOOR.y;
   if (PEAK.includes(terrain)) return mountainY(x, z);
   if (onPier(x, z)) {
     const k = clamp((PIER.start - z) / 2, 0, 1); // 처음 2m는 경사로
@@ -203,6 +209,7 @@ export function floorY(x: number, z: number) {
 }
 /** 카메라가 있어도 되는 곳인지 (건물 안이면 false). 높이 4.5m 위는 자유 */
 export function camOpen(x: number, y: number, z: number) {
+  if (isIndoor(x, z)) return true;
   // 산: 카메라가 바위 언덕 속으로 들어가지 않게
   if (PEAK.includes(terrain)) {
     if (terrain === 'jirisan') for (const s of SHOPS) {
@@ -219,6 +226,7 @@ export function camOpen(x: number, y: number, z: number) {
   return true;
 }
 export function canStand(x: number, z: number) {
+  if (isIndoor(x, z)) return Math.abs(x - INDOOR.x) < INDOOR.w / 2 - 0.4 && z > INDOOR.z - INDOOR.d / 2 + 0.2 && z < INDOOR.z + INDOOR.d / 2 - 0.4 && !(Math.abs(x - INDOOR.x) < 1.8 && z > INDOOR.z + INDOOR.d / 2 - 2.3);
   if (onPier(x, z)) return true;
   if (PEAK.includes(terrain)) {
     // 난간 너머(절벽)·양옆 바위·표지석에는 못 감

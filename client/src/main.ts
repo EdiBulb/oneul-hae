@@ -7,7 +7,7 @@ import { createAmbience, fetchWeather, windLabel, type Weather } from './ambienc
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { GATE, TRAIL, mountainY, trailX, benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
+import { GATE, TRAIL, INDOOR, isIndoor, mountainY, trailX, benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
 import { grab, compose } from './photo';
 import { initTalk, say as talk, talking, ask, setSkip, skipAll } from './talk';
 import { createMago } from './mago';
@@ -476,8 +476,21 @@ function fadeMe(k: number) {
 }
 /** 카메라가 내려갈 수 있는 가장 낮은 각도. 그보다 더 밀면 하늘을 올려다봄 */
 const LOOK_MIN = 0.04;
+/** 걸어갈 수 있는 곳: 땅 + 청학당 외관 벽은 못 뚫음 (계단은 들어가는 입구) */
+const canGo = (x: number, z: number) => canStand(x, z) && !(place.id === 'jirisan' && !isIndoor(x, z) && hall.blocks(x, z) && !hall.atStairs(x, z));
+const inCamPos = new THREE.Vector3(), inLook = new THREE.Vector3();
 function updateCamera(dt: number) {
   const e = 1 - Math.pow(0.004, dt);
+  // 청학당 실내: 앞벽·천장을 잘라 둔 방을 문 쪽 위에서 들여다봄 (동물의 숲 실내처럼)
+  if (place.id === 'jirisan' && indoorNow()) {
+    const p = me.root.position;
+    inLook.set(INDOOR.x + (p.x - INDOOR.x) * 0.35, INDOOR.y + 0.8, INDOOR.z + 0.2 + (p.z - INDOOR.z) * 0.3);
+    inCamPos.set(inLook.x - 1.2, INDOOR.y + 7.4, inLook.z - 7.6);
+    if (camera.position.distanceTo(inCamPos) > 20) camera.position.copy(inCamPos); else camera.position.lerp(inCamPos, 1 - Math.pow(0.02, dt));
+    camera.lookAt(inLook); fadeMe(1);
+    cam.yaw = cam.tYaw = Math.PI; // 조이스틱 '위'가 훈장님 쪽이 되게
+    return;
+  }
   cam.yaw += (cam.tYaw - cam.yaw) * e; cam.pitch += (cam.tPitch - cam.pitch) * e; cam.dist += (cam.tDist - cam.dist) * e;
   const p = me.root.position;
   target.set(p.x, p.y + (mySeat !== null ? 1.0 : 1.3), p.z);
@@ -614,9 +627,9 @@ function updateMe(dt: number) {
     if (place.id === 'jirisan' && p.z > 14) { const up = floorY(p.x + mx * 0.5, p.z + mz * 0.5) - floorY(p.x, p.z); if (up > 0.03) sp *= Math.max(0.72, 1 - up * 2.2); }
     // 갈 수 있는 곳만: 막히면 벽을 따라 미끄러지듯
     const nx = p.x + mx * sp, nz = p.z + mz * sp;
-    if (canStand(nx, nz)) { p.x = nx; p.z = nz; }
-    else if (canStand(nx, p.z)) p.x = nx;
-    else if (canStand(p.x, nz)) p.z = nz;
+    if (canGo(nx, nz)) { p.x = nx; p.z = nz; }
+    else if (canGo(nx, p.z)) p.x = nx;
+    else if (canGo(p.x, nz)) p.z = nz;
     p.y = floorY(p.x, p.z); me.state = 'walk'; turnTo(me, faceAngle(mx, mz), dt);
     const surf = prints.step('me', p.x, p.z, me.root.rotation.y);
     if (surf) amb.step(surf === 'grass' ? 'sand' : surf);
@@ -860,7 +873,30 @@ async function tellTale(asked: boolean) {
 
 // ================= 병아리 청학당 (오늘의 목표 쓰기) =================
 // 땅 높이는 지리산 지형으로 직접 계산 (시작할 때는 아직 지형이 바뀌기 전이라 floorY를 쓰면 공중에 뜸)
-const hall = createHall((x, z) => mountainY(x, z, 'jirisan')); scene.add(hall.root);
+const hall = createHall((x, z) => mountainY(x, z, 'jirisan')); scene.add(hall.root, hall.inner);
+let hallMoving = false;
+/** 지금 청학당 안(실내)인지 */
+const indoorNow = () => isIndoor(me.root.position.x, me.root.position.z);
+/** 계단 ↔ 실내 문턱: 어두워졌다가 이름이 뜨고 다른 공간으로 */
+async function hallDoor(goIn: boolean) {
+  if (hallMoving) return;
+  hallMoving = true;
+  if (mySeat !== null) standUp(); onCushion = false; lying = false; letGo(false);
+  if (talking()) skipAll(); // 하던 말은 접고 넘어감
+  $('fade').classList.toggle('named', goIn);
+  await fade(true);
+  const s = goIn ? hall.inSpot() : hall.outSpot();
+  me.root.position.set(s.x, floorY(s.x, s.z), s.z); me.root.rotation.y = s.face;
+  if (goIn) { savedView = { d: cam.tDist, p: cam.tPitch, y: cam.tYaw }; cam.yaw = cam.tYaw = Math.PI; }
+  else { cam.tYaw = cam.yaw = s.face; if (savedView) setView(savedView.d, savedView.p); camLook.set(s.x - Math.sin(s.face) * 6, me.root.position.y + 1.3, s.z - Math.cos(s.face) * 6); }
+  hallGreeted = false;
+  track(goIn ? 'hall_enter' : 'hall_exit');
+  await sleep(goIn ? 700 : 250);
+  await fade(false);
+  $('fade').classList.remove('named');
+  hallMoving = false;
+}
+let savedView: { d: number; p: number; y: number } | null = null;
 initGoal();
 let onCushion = false, hallBusy = false, inHall = false, hallGreeted = false, hallSaidAt = -1e9;
 const goalToday = () => store.goal?.day === dateKey(Date.now()) ? store.goal : undefined;
@@ -900,10 +936,17 @@ function deliverGoal() {
 }
 function updateHall(dt: number, t: number) {
   const here = place.id === 'jirisan';
-  hall.root.visible = here; if (!here) { $('goalBtn').hidden = true; return; }
+  hall.root.visible = hall.inner.visible = here; if (!here) { $('goalBtn').hidden = true; return; }
   hall.update(dt, t);
-  const cw = hall.craneWorld(), d = Math.hypot(me.root.position.x - cw.x, me.root.position.z - cw.z);
-  const near = d < (inHall ? 3.8 : 3.2);
+  const p = me.root.position, inside = indoorNow();
+  world.setIndoor(inside);
+  // 계단 앞을 밟으면 들어가고, 실내 문턱을 밟으면 나감
+  if (!hallMoving && !introSolo) {
+    if (!inside && hall.atStairs(p.x, p.z)) void hallDoor(true);
+    else if (inside && hall.atDoor(p.x, p.z)) void hallDoor(false);
+  }
+  // 안에 들어와 있으면 어디서든 방석에 앉을 수 있음
+  const near = inside && !hallMoving;
   const b = $('goalBtn'), show = near && !lying && !hallBusy && !onCushion;
   if (b.hidden === show) b.hidden = !show;
   hall.showHint(!goalToday());

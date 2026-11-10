@@ -616,3 +616,9 @@ body.in-intro header,body.in-intro #center,body.in-intro #chips,body.in-intro #t
 .menu-list .ic{width:22px;text-align:center}
 .menu-list .v{margin-left:auto;font-size:12px;color:var(--ink-faint)}
 .menu-list .v::after{content:" ›"}
+
+/* 청학당 들어갈 때: 어둠 속에 이름이 잠깐 */
+.fade{display:flex;align-items:center;justify-content:center}
+.fade-name{font-family:'Gowun Batang',serif;font-size:34px;letter-spacing:.3em;color:#f2e2b8;text-align:center;opacity:0;transform:translateY(6px);transition:opacity .4s .15s,transform .4s .15s}
+.fade-name small{display:block;font-family:'Noto Sans KR',sans-serif;font-size:13px;letter-spacing:.05em;color:rgba(242,226,184,.7);margin-top:6px}
+.fade.named.on .fade-name{opacity:1;transform:none}
