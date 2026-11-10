@@ -12,7 +12,7 @@ import { grab, compose } from './photo';
 import { initTalk, say as talk, talking, ask } from './talk';
 import { createMago } from './mago';
 import { createHall } from './hall';
-import { initGoal, writeGoal, viewGoal, sendToSun } from './goal';
+import { initGoal, writeGoal, sendToSun } from './goal';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
@@ -786,22 +786,23 @@ async function magoTalk(auto: boolean) {
 // ================= 병아리 청학당 (오늘의 목표 쓰기) =================
 const hall = createHall(floorY); scene.add(hall.root);
 initGoal();
-let onCushion = false, hallBusy = false;
+let onCushion = false, hallBusy = false, inHall = false, hallGreeted = false, hallSaidAt = -1e9;
 const goalToday = () => store.goal?.day === dateKey(Date.now()) ? store.goal : undefined;
-function renderGoalUi() { const gl = goalToday(); $('goalChip').hidden = true; setGoalPaper(me, !!gl && !gl.sent); setOutfit(me, outfitOf(me)); ($('goalBtn') as HTMLButtonElement).textContent = gl ? T.goalBtnView : T.goalBtn; }
+/** 오늘 쓴 종이는 해에게 보내기 전까지 오른쪽 날개에 계속 쥐고 있음 (화면에 따로 띄우지 않음) */
+function renderGoalUi() { const gl = goalToday(); $('goalChip').hidden = true; setGoalPaper(me, !!gl && !gl.sent); setOutfit(me, outfitOf(me)); }
 renderGoalUi();
-$('goalChip').onclick = () => { const gl = goalToday(); if (gl) viewGoal(gl.img); };
+($('goalBtn') as HTMLButtonElement).textContent = T.sitCushion;
+/** 방석에 앉기: 아직 목표를 안 썼으면 훈장님이 한마디 하고 종이가 펼쳐짐 */
 async function hallWrite() {
-  if (hallBusy || talking()) return;
-  const gl = goalToday();
-  if (gl) { viewGoal(gl.img); return; }
+  if (hallBusy) return;
   hallBusy = true;
   if (mySeat !== null) standUp();
   // 가장 가까운 방석에 앉아 학 훈장님을 바라봄
   const c = hall.cushionNear(me.root.position.x, me.root.position.z);
   me.root.position.set(c.x, c.y, c.z); me.root.rotation.y = c.face; me.state = 'sit'; onCushion = true; lying = false;
-  if (store.craneDay !== dateKey(Date.now())) { store.craneDay = dateKey(Date.now()); save(); hall.talk(4); await talk([{ who: 'crane', text: T.craneHello }, { who: 'crane', text: T.craneHow }]); }
-  track('goal_open');
+  track('cushion_sit', { written: !!goalToday() });
+  if (goalToday()) { hall.talk(2.5); await talk([{ who: 'crane', text: T.craneAgain }]); hallBusy = false; return; }
+  hall.talk(4); await talk([{ who: 'crane', text: T.craneHow }]);
   const img = await writeGoal();
   if (img) {
     store.goal = { day: dateKey(Date.now()), img }; save(); renderGoalUi();
@@ -826,11 +827,18 @@ function updateHall(dt: number, t: number) {
   hall.root.visible = here; if (!here) { $('goalBtn').hidden = true; return; }
   hall.update(dt, t);
   const cw = hall.craneWorld(), d = Math.hypot(me.root.position.x - cw.x, me.root.position.z - cw.z);
-  const b = $('goalBtn'), show = !lying && !hallBusy && d < (b.hidden ? 3.0 : 3.6);
+  const near = d < (inHall ? 3.8 : 3.2);
+  const b = $('goalBtn'), show = near && !lying && !hallBusy && !onCushion;
   if (b.hidden === show) b.hidden = !show;
   hall.showHint(!goalToday());
-  // 하루 한 번: 다가가면 학 훈장님이 먼저 한마디
-  if (d < 3.2 && !hallBusy && !talking() && !openSheet && store.craneDay !== dateKey(Date.now())) { store.craneDay = dateKey(Date.now()); save(); hall.talk(3); talk([{ who: 'crane', text: T.craneHello }]); }
+  // 다가가면 바로 학 훈장님이 말을 검 (들어올 때마다, 너무 자주는 말고)
+  // 다른 대화가 끝나기를 기다렸다가라도, 들어온 뒤 한 번은 꼭 말함
+  if (near && !hallGreeted && !hallBusy && !talking() && !openSheet && performance.now() - hallSaidAt > 15000) {
+    hallSaidAt = performance.now(); hallGreeted = true; hall.talk(3);
+    talk([{ who: 'crane', text: goalToday() ? T.craneAgain : T.craneHello }]);
+  }
+  if (!near) hallGreeted = false;
+  inHall = near;
 }
 $('magoBtn').onclick = () => magoTalk(false);
 function updateMago(dt: number, t: number) {
