@@ -7,7 +7,7 @@ import { createAmbience, fetchWeather, windLabel, type Weather } from './ambienc
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
-import { GATE, TRAIL, benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
+import { GATE, TRAIL, mountainY, benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
 import { grab, compose } from './photo';
 import { initTalk, say as talk, talking, ask } from './talk';
 import { createMago } from './mago';
@@ -751,7 +751,7 @@ let lastT = performance.now(), lastUI = 0;
 // ================= 마고할미 (지리산 산신령) =================
 const MAGO_AT = { x: NEST.x - 1.9, z: NEST.z - 0.6 }; // 장터목 둥지 옆
 const mago = createMago(T.magoName);
-mago.root.position.set(MAGO_AT.x, floorY(MAGO_AT.x, MAGO_AT.z), MAGO_AT.z);
+mago.root.position.set(MAGO_AT.x, mountainY(MAGO_AT.x, MAGO_AT.z, 'jirisan'), MAGO_AT.z);
 const magoHome = faceAngle(NEST.x - MAGO_AT.x, NEST.z - 1.5 - MAGO_AT.z); mago.root.rotation.y = magoHome; mago.look(magoHome);
 scene.add(mago.root);
 ($('magoBtn') as HTMLButtonElement).textContent = T.magoBtn;
@@ -791,7 +791,8 @@ async function magoTalk(auto: boolean) {
 }
 
 // ================= 병아리 청학당 (오늘의 목표 쓰기) =================
-const hall = createHall(floorY); scene.add(hall.root);
+// 땅 높이는 지리산 지형으로 직접 계산 (시작할 때는 아직 지형이 바뀌기 전이라 floorY를 쓰면 공중에 뜸)
+const hall = createHall((x, z) => mountainY(x, z, 'jirisan')); scene.add(hall.root);
 initGoal();
 let onCushion = false, hallBusy = false, inHall = false, hallGreeted = false, hallSaidAt = -1e9;
 const goalToday = () => store.goal?.day === dateKey(Date.now()) ? store.goal : undefined;
@@ -1758,6 +1759,8 @@ $('langLink').onclick = () => $('langBtn').click();
 $('introBtn').onclick = () => { close(); setTimeout(openHint, 250); track('intro_reopened'); };
 world.buildLandmark(place);
 applyTerrain(place);
+// 지형이 정해진 뒤 내 발 높이를 다시 맞춤 (둥지에서 시작할 때 공중에 뜨지 않게)
+me.root.position.y = floorY(me.root.position.x, me.root.position.z);
 renderStreak(); renderAlarm(); renderCounts();
 requestAnimationFrame(loop);
 
