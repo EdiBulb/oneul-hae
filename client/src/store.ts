@@ -24,6 +24,8 @@ interface Saved {
   /** 해 뜬 뒤 편지 쓰기를 물어본 날 (하루 한 번) */
   letterAskDay?: string;
   afterSunDay?: string;
+  /** 마지막으로 알려 준 성장 단계 (단계가 오르면 한 번 '몸이 커진 것 같은데?') */
+  growthSeen?: number;
   /** 가게에서 들고 나온 날 (다음 날이 되면 내려놓음) */
   itemDay?: string;
   /** 햇살 포인트 */

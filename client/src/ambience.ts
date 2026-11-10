@@ -288,6 +288,24 @@ export function createAmbience() {
         burst(t, 0.05, 'bandpass', rand(1800, 2600), 1.4, 0.55 * vol);
       }
     },
+    /** 병아리·닭 울음: 단계마다 다름 (1 삐, 2 삐약, 3 삐약삐약, 4 꼭꼬, 5 꼬끼오) */
+    crow(stage: number, vol = 1) {
+      if (!ctx || ctx.state !== 'running' || stage <= 0 || vol <= 0.01) return;
+      const c = ctx, t0 = c.currentTime + 0.02;
+      const note = (at: number, dur: number, f0: number, f1: number, type: OscillatorType, v: number, vib = 0) => {
+        const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t0 + at); o.frequency.exponentialRampToValueAtTime(f1, t0 + at + dur);
+        const g = c.createGain(); g.gain.setValueAtTime(0, t0 + at); g.gain.linearRampToValueAtTime(v * vol, t0 + at + 0.015); g.gain.setValueAtTime(v * vol, t0 + at + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.001, t0 + at + dur);
+        let out: AudioNode = g;
+        if (type !== 'sine') { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; g.connect(lp); out = lp; }
+        if (vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = 28; lg.gain.value = vib; l.connect(lg).connect(o.frequency); l.start(t0 + at); l.stop(t0 + at + dur); }
+        o.connect(g); out.connect(fxBus); o.start(t0 + at); o.stop(t0 + at + dur + 0.02);
+      };
+      if (stage === 1) note(0, 0.09, 2600, 3100, 'sine', 0.14);
+      else if (stage === 2) { note(0, 0.08, 2700, 3300, 'sine', 0.14); note(0.12, 0.13, 3200, 2300, 'sine', 0.13); }
+      else if (stage === 3) for (let i = 0; i < 2; i++) { note(i * 0.28, 0.08, 2600, 3200, 'sine', 0.13); note(i * 0.28 + 0.11, 0.12, 3100, 2200, 'sine', 0.12); }
+      else if (stage === 4) { note(0, 0.16, 620, 760, 'square', 0.07, 12); note(0.22, 0.32, 820, 640, 'square', 0.07, 14); }
+      else { note(0, 0.14, 560, 820, 'sawtooth', 0.06, 10); note(0.16, 0.12, 820, 860, 'sawtooth', 0.06, 10); note(0.3, 0.22, 900, 1150, 'sawtooth', 0.065, 14); note(0.54, 0.6, 1150, 640, 'sawtooth', 0.06, 16); }
+    },
     /** 가게 문 '띵동' (들고 나올 때) */
     ding() {
       if (!ctx || ctx.state !== 'running') return;

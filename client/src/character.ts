@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 export type CharState = 'idle' | 'walk' | 'sit' | 'lie';
 /** clink = 다른 사람과 커피잔을 부딪치는 동작 (서버가 짝을 지어 줄 때만) */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet' | 'dance' | 'yaho' | 'raise';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clink' | 'clap' | 'skip' | 'dig' | 'give' | 'take' | 'eat' | 'pet' | 'dance' | 'yaho' | 'raise' | 'crow';
 
 export interface Char {
   root: THREE.Group;
@@ -133,6 +133,21 @@ export function makeChar(_bodyC: number, hatC: number): Char {
   const hat0 = new THREE.Mesh(new THREE.SphereGeometry(capR, 20, 10, 0, Math.PI * 2, 0, 1.05), M(hatC)); hat0.scale.set(CHICK.sx, CHICK.sy, CHICK.sz); hat0.position.y = CHICK.y + 0.02; hat0.name = 'hat0'; inner.add(hat0);
   const cuff0 = new THREE.Mesh(new THREE.TorusGeometry(capR * Math.sin(1.05) * 0.99, 0.045, 6, 24), M(new THREE.Color(hatC).multiplyScalar(0.82).getHex())); cuff0.rotation.x = Math.PI / 2; cuff0.position.y = CHICK.y + 0.02 + capR * CHICK.sy * Math.cos(1.05); hat0.add(cuff0); cuff0.position.y -= hat0.position.y;
   const pom0 = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), M(0xfff4e6)); pom0.position.y = CHICK.y + CHICK.r * CHICK.sy + 0.1; pom0.name = 'pom0'; inner.add(pom0);
+  // 알껍질 모자 (해를 한 번도 안 본 첫날)
+  const shellR = CHICK.r * 1.06;
+  const shellGeo = new THREE.SphereGeometry(shellR, 32, 12, 0, Math.PI * 2, 0, 1.0), sp = shellGeo.attributes.position, v3 = new THREE.Vector3();
+  for (let i = 0; i < sp.count; i++) { v3.fromBufferAttribute(sp, i); const polar = Math.acos(v3.y / shellR); if (polar > 0.8) { const a = Math.atan2(v3.z, v3.x), zig = Math.abs(((a / (Math.PI * 2)) * 11 % 1 + 1) % 1 - 0.5) * 2; sp.setY(i, v3.y + (zig - 0.5) * 0.09 * ((polar - 0.8) / 0.2)); } }
+  shellGeo.computeVertexNormals();
+  const shell = new THREE.Mesh(shellGeo, toon(0xfbf6ea)); shell.scale.set(CHICK.sx, CHICK.sy, CHICK.sz); shell.position.y = CHICK.y + 0.03; shell.rotation.z = -0.12; shell.name = 'eggshell'; shell.visible = false; inner.add(shell);
+  const sho = new THREE.Mesh(shellGeo, new THREE.MeshBasicMaterial({ color: 0x8a6a4a, side: THREE.BackSide })); sho.scale.setScalar(1.03); shell.add(sho);
+  // 볏 · 고기수염 · 꽁지 (자라면서 커짐)
+  const redM = toon(0xe8463a);
+  const comb = new THREE.Group(); comb.name = 'comb'; comb.position.set(0, CHICK.y + CHICK.r * CHICK.sy * 0.95, -0.06); comb.visible = false; inner.add(comb);
+  for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.06 - i * 0.006, 10, 8), redM); b.scale.set(0.55, 1, 1); b.position.set(0, 0.035 + (i === 1 ? 0.022 : 0), -0.07 + i * 0.075); comb.add(b); }
+  const wattle = new THREE.Group(); wattle.name = 'wattle'; wattle.position.copy(onBody(0, -0.04, -1, 1.0)); wattle.visible = false; inner.add(wattle);
+  for (const sx of [-1, 1]) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), redM); b.scale.set(0.8, 1.5, 0.7); b.position.set(sx * 0.018, -0.03, 0); wattle.add(b); }
+  const tailG = new THREE.Group(); tailG.name = 'tailF'; tailG.position.set(0, CHICK.y + 0.03, CHICK.r * CHICK.sz * 0.9); tailG.visible = false; inner.add(tailG);
+  for (let i = 0; i < 5; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), toon(FEATHER2)); f.scale.set(0.22, 0.85, 0.3); const a = (i - 2) * 0.32; f.position.set(Math.sin(a) * 0.09, 0.16, 0.06); f.rotation.set(0.6, 0, -a); f.name = 'tailFeather'; tailG.add(f); }
   // 기본 목도리
   const scarf = new THREE.Mesh(new THREE.TorusGeometry(CHICK.r * 0.88, 0.065, 8, 24), M(hatC)); scarf.name = 'scarf0';
   scarf.rotation.x = Math.PI / 2 - 0.12; scarf.position.y = CHICK.y - 0.1; inner.add(scarf);
@@ -180,7 +195,7 @@ export function disposeChar(c: Char) {
 }
 
 /** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
-const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0, yaho: 2.2, raise: 3.2 };
+const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0, yaho: 2.2, raise: 3.2, crow: 2.0 };
 export function animChar(c: Char, dt: number) {
   c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
   let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
@@ -255,6 +270,11 @@ export function animChar(c: Char, dt: number) {
       const kk = clamp(k * 2.4, 0, 1), bob = Math.abs(Math.sin(c.emoteT * 5)) * 0.15;
       aR = (2.95 - bob) * kk; aRz = 0.1 * kk; aL = 0.9 * kk; aLz = -0.4 * kk; y += (0.05 + bob * 0.4) * kk;
     }
+    if (c.emote === 'crow') {
+      // 해를 보며 울기: 몸을 뒤로 젖히고 부리를 벌리고 날개를 파닥
+      const kk = clamp(k * 2.2, 0, 1), flut = kk > 0.6 ? Math.sin(c.emoteT * 30) * 0.18 : 0;
+      rx = -0.32 * kk; aL = aR = 0.2 * kk; aLz = -(1.3 * kk + flut); aRz = 1.3 * kk + flut; y += 0.04 * kk;
+    }
     if (c.emote === 'eat') { const up = Math.sin(Math.PI * u); aR = 1.15 + 0.85 * up; aRz = 0.3 * up; }
     if (c.emote === 'give') { aR = 1.0 + 0.5 * clamp(k * 2, 0, 1); aRz = -0.15 * clamp(k * 2, 0, 1); }
     if (c.emote === 'take') { aL = 1.5 * clamp(k * 2, 0, 1); aLz = 0.15 * clamp(k * 2, 0, 1); }
@@ -274,6 +294,9 @@ export function animChar(c: Char, dt: number) {
     (c.steam.material as THREE.MeshBasicMaterial).opacity = 0.35 * (1 - s);
   }
   const e = 1 - Math.pow(0.0005, dt);
+  // 울 때 부리 벌리기
+  const low = c.inner.getObjectByName('beakLow');
+  if (low) low.rotation.x = c.emote === 'crow' ? -0.6 * clamp(Math.sin(Math.PI * clamp(c.emoteT / 2, 0, 1)) * 2.2, 0, 1) : 0;
   // 눈 깜빡임
   const blink = (c.phase * 0.55) % 5 < 0.08;
   c.inner.children.forEach(ch => { if (ch.name === 'eye') ch.scale.y = blink ? 0.12 : 1; });
@@ -430,6 +453,43 @@ function applyJwibul(c: Char, mask: number) {
   ((jw.getObjectByName('ember') as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(jwColor(mask));
 }
 
+// ---------- 성장 단계 ----------
+/** 해를 본 날 수 → 단계 (0 알에서 막 깸 … 5 다 자란 닭) */
+export const GROWTH_DAYS = [0, 1, 3, 7, 14, 30];
+export const growthOf = (days: number) => GROWTH_DAYS.reduce((g, d, i) => (days >= d ? i : g), 0);
+const GROWTH = [
+  { s: 0.86, w: 0, comb: 0, wat: 0, tail: 0 },
+  { s: 0.9, w: 0, comb: 0, wat: 0, tail: 0 },
+  { s: 1.0, w: 0, comb: 0, wat: 0, tail: 0 },
+  { s: 1.04, w: 0.5, comb: 0.35, wat: 0, tail: 0.3 },
+  { s: 1.1, w: 0.88, comb: 0.7, wat: 0.55, tail: 0.65 },
+  { s: 1.18, w: 1, comb: 1, wat: 1, tail: 1 },
+];
+const YEL = new THREE.Color(FEATHER), YEL2 = new THREE.Color(FEATHER2), WHT = new THREE.Color(0xfffaf0), WHT2 = new THREE.Color(0xeee6d6);
+export function setGrowth(c: Char, g: number) {
+  g = clamp(Math.round(g), 0, GROWTH.length - 1);
+  const G = GROWTH[g]; c.inner.userData.g = g;
+  c.inner.scale.setScalar(G.s);
+  const body = c.inner.getObjectByName('chickBody') as THREE.Mesh;
+  (body.material as THREE.MeshToonMaterial).color.copy(YEL).lerp(WHT, G.w);
+  for (const arm of [c.armL, c.armR]) ((arm.getObjectByName('wing') as THREE.Mesh).material as THREE.MeshToonMaterial).color.copy(YEL2).lerp(WHT2, G.w);
+  c.inner.getObjectByName('tailF')!.traverse(o => { if (o.name === 'tailFeather') ((o as THREE.Mesh).material as THREE.MeshToonMaterial).color.copy(YEL2).lerp(WHT2, G.w); });
+  const comb = c.inner.getObjectByName('comb')!, wat = c.inner.getObjectByName('wattle')!, tail = c.inner.getObjectByName('tailF')!;
+  comb.scale.setScalar(Math.max(0.01, G.comb)); wat.scale.setScalar(Math.max(0.01, G.wat)); tail.scale.setScalar(Math.max(0.01, G.tail));
+  wat.visible = G.wat > 0; tail.visible = G.tail > 0;
+  headTop(c);
+}
+export const growthStage = (c: Char) => (c.inner.userData.g as number | undefined) ?? 2;
+/** 머리 위: 모자를 쓰면 모자만, 안 쓰면 첫날엔 알껍질 / 그다음엔 솜털 → 볏 */
+function headTop(c: Char) {
+  const o = c.inner.getObjectByName('outfit');
+  const hat = o ? wearGet((o.userData.mask as number) ?? 0, 'hat') : 0, g = growthStage(c), G = GROWTH[g];
+  const bare = hat === 0;
+  c.inner.getObjectByName('eggshell')!.visible = bare && g === 0;
+  c.inner.getObjectByName('tuft')!.visible = bare && g > 0 && G.comb < 0.3;
+  c.inner.getObjectByName('comb')!.visible = bare && G.comb > 0;
+}
+
 /** 옷장 상태 반영 */
 function applyWear(c: Char, o: THREE.Group, mask: number) {
   const outer = wearGet(mask, 'outer'), hat = wearGet(mask, 'hat'), sc = wearGet(mask, 'scarf'), hand = wearGet(mask, 'hand');
@@ -441,7 +501,7 @@ function applyWear(c: Char, o: THREE.Group, mask: number) {
   o.getObjectByName('earHat')!.visible = hat === 1;
   o.getObjectByName('furHat')!.visible = hat === 2;
   const hat0 = c.inner.getObjectByName('hat0'), pom0 = c.inner.getObjectByName('pom0'), scarf0 = c.inner.getObjectByName('scarf0');
-  if (hat0) hat0.visible = hat === 0; if (pom0) pom0.visible = hat === 0;
+  if (hat0) hat0.visible = hat === 3; if (pom0) pom0.visible = hat === 3;
   const red = !!(mask & OUTFIT.scarf);
   o.getObjectByName('checkScarf')!.visible = sc === 1 && !red;
   if (scarf0) scarf0.visible = sc === 0 && !red;
@@ -449,8 +509,7 @@ function applyWear(c: Char, o: THREE.Group, mask: number) {
   const k = outer ? 1.1 : 1;
   for (const n of ['scarf', 'checkScarf']) { const g = o.getObjectByName(n); if (g) g.scale.set(k, 1, k); }
   if (scarf0) scarf0.scale.set(k, k, 1);
-  // 모자를 쓰면 머리 솜털은 숨김
-  const tuft = c.inner.getObjectByName('tuft'); if (tuft) tuft.visible = false;
+
   c.armL.getObjectByName('hotpack')!.visible = hand === 1;
   c.armL.getObjectByName('thermos')!.visible = hand === 2;
 }
@@ -549,9 +608,10 @@ export function setOutfit(c: Char, mask: number) {
   c.armR.getObjectByName('ramen')!.visible = !!(mask & OUTFIT.ramen);
   const item = itemOf(mask), jw = !!(mask & JWIBUL);
   SHOP_ITEMS.forEach((n, k) => { if (n) c.armR.getObjectByName(n)!.visible = item === k && !jw && !(mask & OUTFIT.ramen); });
+  o.userData.mask = mask;
   applyWear(c, o, mask);
   applyJwibul(c, mask);
-  o.userData.mask = mask;
+  headTop(c);
 }
 export const outfitOf = (c: Char) => ((c.inner.getObjectByName('outfit')?.userData.mask as number) ?? 0);
 /** 받는 순간 왼손에 꽃 보이기 */

@@ -4,13 +4,14 @@
 export type PlaceId = 'jeongdongjin' | 'seongsan' | 'homigot' | 'gisborne' | 'jumunjin' | 'hyangho' | 'hangang' | 'jirisan' | 'hallasan' | 'seopjikoji';
 
 /** 캐릭터 겉모습: 색상 팔레트의 인덱스 */
-export interface Look { body: number; hat: number }
+/** g = 병아리 성장 단계 (0~5) */
+export interface Look { body: number; hat: number; g?: number }
 
 /** 0 = 서 있음, 1 = 걷는 중, 2 = 방석에 앉음, 3 = 모래에 누워 하늘 보기 */
 export type St = 0 | 1 | 2 | 3;
 
 /** cheers = 모닝커피 짠. 혼자면 한 모금 마시고, 가까운 사람과 3초 안에 같이 누르면 컵을 부딪친다 */
-export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap' | 'dig' | 'eat' | 'dance' | 'yaho' | 'raise';
+export type Emote = 'stretch' | 'wave' | 'cheers' | 'clap' | 'dig' | 'eat' | 'dance' | 'yaho' | 'raise' | 'crow';
 
 /** [id, x, z, ry, st] — 자주 오가므로 객체 대신 배열 */
 export type Move = [string, number, number, number, St];

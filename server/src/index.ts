@@ -113,7 +113,7 @@ function cleanNick(n: unknown): string {
 }
 function cleanLook(l: unknown): Look {
   const o = (l ?? {}) as Partial<Look>;
-  return { body: Math.floor(num(o.body, 0, 15)), hat: Math.floor(num(o.hat, 0, 15)) };
+  return { body: Math.floor(num(o.body, 0, 15)), hat: Math.floor(num(o.hat, 0, 15)), g: Math.floor(num(o.g, 0, 7, 2)) };
 }
 
 /** 정원이 남은 첫 채널을 고르고, 없으면 새 채널을 연다 */
@@ -282,7 +282,7 @@ io.on('connection', (socket: Sock) => {
 
   socket.on('emote', (e: Emote) => {
     const c = socket.data.channel, now = Date.now();
-    if (!c || !['stretch', 'wave', 'cheers', 'clap', 'dig', 'eat', 'dance', 'yaho', 'raise'].includes(e) || now - socket.data.lastEmote < 800) return;
+    if (!c || !['stretch', 'wave', 'cheers', 'clap', 'dig', 'eat', 'dance', 'yaho', 'raise', 'crow'].includes(e) || now - socket.data.lastEmote < 800) return;
     socket.data.lastEmote = now;
     if (e === 'cheers') {
       const partner = findCheersPartner(socket, c, now);

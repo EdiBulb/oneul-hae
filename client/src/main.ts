@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
@@ -188,6 +188,10 @@ if (store.outfit) store.outfit &= OUTFIT_MAX & ~TEMP;
 if (store.outfit && itemOf(store.outfit) && store.itemDay !== dateKey(Date.now())) store.outfit = withItem(store.outfit, 0);
 // ================= 나 =================
 const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
+// 병아리 성장: 해를 본 날 수 (연속 기록 지키기로 채운 날은 빼고)
+const seenDays = () => Object.values(store.days).filter(v => v !== 'shield').length;
+store.look.g = growthOf(seenDays()); store.growthSeen ??= store.look.g;
+setGrowth(me, store.look.g);
 const spawn = () => { const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z); };
 spawn();
 scene.add(me.root);
@@ -212,6 +216,7 @@ function addRemote(p: PlayerInfo) {
   const label = textSprite(localizeNick(p.nick), 0.6); label.position.y = 1.58; c.root.add(label);
   c.blanket.visible = !!p.blanket;
   if (p.outfit) setOutfit(c, p.outfit);
+  setGrowth(c, p.look.g ?? 2);
   scene.add(c.root);
   remotes.set(p.id, { info: p, c, label, tx: p.x, tz: p.z, ry: p.ry, st: p.st });
 }
@@ -297,6 +302,7 @@ net.on('emote', (id, e) => {
   r.c.emote = e; r.c.emoteT = 0;
   const near = r.c.root.position.distanceTo(me.root.position);
   if (e === 'yaho') yahoFrom(r.c);
+  if (e === 'crow') { amb.crow(growthStage(r.c), clamp(0.4 - near / 40, 0, 0.35)); voiceBubble(r.c, 0.75); }
   if (e === 'clap') { amb.clap(clamp(1.1 - near / 18, 0, 0.8)); if (near < 12) ticker(T.clapBy(localizeNick(r.info.nick))); }
   // 가까운 사람이 커피를 들면 같이 누르라고 알려 줌
   if (e === 'cheers' && r.c.root.position.distanceTo(me.root.position) < 3) toast(T.cheersNearby(localizeNick(r.info.nick)));
@@ -647,6 +653,7 @@ function updateUI(vnow: number, alt: number, t: number) {
   else if (crossed && cyc) { bots.clap(); }
   // 가게에서 들고 나온 게 있으면 해 뜨는 순간 하늘로 번쩍
   if (crossed && itemOf(outfitOf(me)) && !lying) { me.emote = 'raise'; me.emoteT = 0; if (connected) net.emit('emote', 'raise'); }
+  else if (crossed && !lying) setTimeout(() => crow('sunrise'), 700); // 해 뜨는 순간 다 같이 울기
   if (crossed) birds.sunrise(camera, world.sunDir); // 해가 뜨는 순간 황금 새 (하루 한 번)
   if (crossed && (live || cyc)) { sunRoseNow(); }
   maybeDeliverOnLoad(alt, live, cyc);
@@ -840,6 +847,31 @@ $('sitBtn').onclick = () => {
   // 서버가 먼저 온 사람에게 방석을 준다
   net.emit('sit', idx, ok => { if (ok) { sitHere(); track('sat_down', { place: place.id, spot: seats[idx].kind ?? 'cushion' }); } else toast(T.seatTaken); });
 };
+// ================= 울기 (병아리 → 닭) =================
+/** 머리 위에 잠깐 뜨는 울음소리 글자 */
+function voiceBubble(c: Char, scale = 1) {
+  const old = c.root.getObjectByName('voice'); if (old) c.root.remove(old);
+  const sp = textSprite(T.voices[growthStage(c)], 0.7 * scale); sp.name = 'voice'; sp.position.set(0.35, 1.25 + growthStage(c) * 0.04, 0); c.root.add(sp);
+  setTimeout(() => { if (sp.parent) sp.parent.remove(sp); (sp.material as THREE.SpriteMaterial).map?.dispose(); sp.material.dispose(); }, 1700);
+}
+let lastCrow = 0;
+function crow(from: string) {
+  if (performance.now() - lastCrow < 1500 || me.state === 'lie') return;
+  lastCrow = performance.now();
+  me.emote = 'crow'; me.emoteT = 0; if (connected) net.emit('emote', 'crow');
+  amb.unlock(); amb.crow(growthStage(me), 1); voiceBubble(me);
+  track('crow', { stage: growthStage(me), from });
+}
+$('crowBtn').onclick = () => crow('button');
+/** 해를 본 날이 쌓여 단계가 오르면: 몸이 바뀌고 속마음 한 줄 */
+let growLock = false; // 테스트용: 단계를 손으로 고정
+setInterval(() => {
+  const g = growthOf(seenDays());
+  if (growLock || g === growthStage(me)) return;
+  store.look.g = g; setGrowth(me, g);
+  if (g > (store.growthSeen ?? 0)) { store.growthSeen = g; setTimeout(() => toast(T.growUp[g]), 6000); track('grew', { stage: g }); }
+  save();
+}, 3000);
 const doEmote = (e: 'stretch' | 'wave' | 'cheers' | 'clap') => { me.emote = e; me.emoteT = 0; if (connected) net.emit('emote', e); track('emote', { type: e }); };
 $('stretchBtn').onclick = () => doEmote('stretch');
 $('seatFindBtn').onclick = () => {
@@ -2358,4 +2390,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { me, dress: (m: number) => setOutfit(me, m), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { me, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

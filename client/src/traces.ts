@@ -1,7 +1,7 @@
 import { T } from './i18n';
 import * as THREE from 'three';
 import type { Traces } from '../../server/src/protocol';
-import { animChar, disposeChar, makeChar, textSprite, type Char } from './character';
+import { animChar, disposeChar, makeChar, setGrowth, textSprite, type Char } from './character';
 import { BODY_COLORS, HAT_COLORS } from './places';
 import { benchAt, floorY } from './beach-extras';
 
@@ -36,7 +36,7 @@ export function createTraces(scene: THREE.Scene, GLOW: THREE.Texture) {
   function set(tr: Traces) {
     clear();
     for (const gh of tr.ghosts) {
-      const c = makeChar(BODY_COLORS[gh.look.body % BODY_COLORS.length], HAT_COLORS[gh.look.hat % HAT_COLORS.length]);
+      const c = makeChar(BODY_COLORS[gh.look.body % BODY_COLORS.length], HAT_COLORS[gh.look.hat % HAT_COLORS.length]); setGrowth(c, gh.look.g ?? 2);
       ghostify(c);
       c.state = gh.sit ? 'sit' : 'idle';
       const bench = gh.sit ? benchAt(gh.x, gh.z) : null;
