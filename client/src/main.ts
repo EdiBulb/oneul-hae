@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage, setGoalPaper } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
@@ -788,7 +788,7 @@ const hall = createHall(floorY); scene.add(hall.root);
 initGoal();
 let onCushion = false, hallBusy = false;
 const goalToday = () => store.goal?.day === dateKey(Date.now()) ? store.goal : undefined;
-function renderGoalUi() { const gl = goalToday(); $('goalChip').hidden = !gl || !!gl.sent; ($('goalBtn') as HTMLButtonElement).textContent = gl ? T.goalBtnView : T.goalBtn; }
+function renderGoalUi() { const gl = goalToday(); $('goalChip').hidden = true; setGoalPaper(me, !!gl && !gl.sent); setOutfit(me, outfitOf(me)); ($('goalBtn') as HTMLButtonElement).textContent = gl ? T.goalBtnView : T.goalBtn; }
 renderGoalUi();
 $('goalChip').onclick = () => { const gl = goalToday(); if (gl) viewGoal(gl.img); };
 async function hallWrite() {
@@ -806,6 +806,7 @@ async function hallWrite() {
   if (img) {
     store.goal = { day: dateKey(Date.now()), img }; save(); renderGoalUi();
     track('goal_written');
+    await talk([{ who: 'me', text: T.goalHold }]);
     hall.talk(3); await talk([{ who: 'crane', text: T.craneDone }]);
   }
   hallBusy = false;

@@ -317,7 +317,7 @@ export function animChar(c: Char, dt: number) {
   c.legR.rotation.x += (lR - c.legR.rotation.x) * e;
   c.inner.position.y += (y - c.inner.position.y) * e;
   // 꽃다발은 팔이 어떻게 움직여도 꽃이 위로 오게
-  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL'], [c.armR, 'ramen'], [c.armR, 'kimbap'], [c.armR, 'coffee'], [c.armR, 'makgeolli']] as const) {
+  for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL'], [c.armR, 'ramen'], [c.armR, 'kimbap'], [c.armR, 'coffee'], [c.armR, 'makgeolli'], [c.armR, 'goalPaper']] as const) {
     const f = arm.getObjectByName(name);
     if (f?.visible) { f.rotation.x = -arm.rotation.x; f.rotation.z = -arm.rotation.z; }
   }
@@ -515,7 +515,7 @@ function applyWear(c: Char, o: THREE.Group, mask: number) {
 }
 /** 손에 드는 먹을거리 (그 장소를 떠나면 내려놓음) */
 export const HELD = OUTFIT.ramen;
-const FOODS = ['ramen', 'kimbap', 'coffee', 'makgeolli'];
+const FOODS = ['ramen', 'kimbap', 'coffee', 'makgeolli', 'goalPaper'];
 
 /** 메밀꽃 다발: 붉은 줄기 끝에 작고 하얀 꽃송이가 몽글몽글, 크라프트지로 감쌈. 꽃이 위로 오게 세운다 */
 function makeBuckwheat() {
@@ -609,9 +609,25 @@ export function setOutfit(c: Char, mask: number) {
   const item = itemOf(mask), jw = !!(mask & JWIBUL);
   SHOP_ITEMS.forEach((n, k) => { if (n) c.armR.getObjectByName(n)!.visible = item === k && !jw && !(mask & OUTFIT.ramen); });
   o.userData.mask = mask;
+  // 목표 종이를 쥐고 있으면 가게 먹을거리는 내려놓음
+  if (c.armR.getObjectByName('goalPaper')?.visible) SHOP_ITEMS.forEach(n => { if (n) c.armR.getObjectByName(n)!.visible = false; });
   applyWear(c, o, mask);
   applyJwibul(c, mask);
   headTop(c);
+}
+/** 청학당에서 접은 오늘의 목표 종이: 오른쪽 날개 끝에 꼭 쥠 (가게 먹을거리는 잠시 내려놓음) */
+export function setGoalPaper(c: Char, on: boolean) {
+  let p = c.armR.getObjectByName('goalPaper') as THREE.Group | undefined;
+  if (!p) {
+    p = new THREE.Group(); p.name = 'goalPaper'; p.position.set(0, HAND_Y + 0.02, -0.08); c.armR.add(p);
+    const M = (col: number) => new THREE.MeshLambertMaterial({ color: col });
+    const sheet = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.025), M(0xf3e8cf)); sheet.rotation.z = 0.12; p.add(sheet);
+    const fold = new THREE.Mesh(new THREE.BoxGeometry(0.152, 0.008, 0.027), M(0xd8c69e)); fold.rotation.z = 0.12; p.add(fold);
+    const tie = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.008, 4, 10), M(0xc0574a)); tie.rotation.set(Math.PI / 2, 0, 0.12); tie.position.y = 0.0; tie.scale.set(1.6, 1, 1); p.add(tie);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: 0.18, depthWrite: false })); glow.name = 'paperGlow'; p.add(glow);
+  }
+  p.visible = on;
+  for (const n of SHOP_ITEMS) if (n) { const it = c.armR.getObjectByName(n); if (it && on) it.visible = false; }
 }
 export const outfitOf = (c: Char) => ((c.inner.getObjectByName('outfit')?.userData.mask as number) ?? 0);
 /** 받는 순간 왼손에 꽃 보이기 */
