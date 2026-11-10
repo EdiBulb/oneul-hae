@@ -191,7 +191,7 @@ const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
 const spawn = () => { const z = 11 + Math.random() * 3; me.root.position.set((Math.random() * 2 - 1) * 7, groundY(z), z); };
 spawn();
 scene.add(me.root);
-const meLabel = textSprite(T.me, 0.75); meLabel.position.y = 1.9; me.root.add(meLabel);
+const meLabel = textSprite(T.me, 0.75); meLabel.position.y = 1.62; me.root.add(meLabel);
 const meLabelBase = meLabel.scale.clone();
 const meRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.62, 32),
   new THREE.MeshBasicMaterial({ color: 0xffa14d, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide }));
@@ -209,7 +209,7 @@ function addRemote(p: PlayerInfo) {
   const c = makeChar(BODY_COLORS[p.look.body % BODY_COLORS.length], HAT_COLORS[p.look.hat % HAT_COLORS.length]);
   c.root.position.set(p.x, floorY(p.x, p.z), p.z);
   c.root.rotation.y = p.ry;
-  const label = textSprite(localizeNick(p.nick), 0.6); label.position.y = 1.85; c.root.add(label);
+  const label = textSprite(localizeNick(p.nick), 0.6); label.position.y = 1.58; c.root.add(label);
   c.blanket.visible = !!p.blanket;
   if (p.outfit) setOutfit(c, p.outfit);
   scene.add(c.root);
@@ -505,7 +505,7 @@ function updateCamera(dt: number) {
   if (eyeK > 0.001) {
     const k = eyeK * eyeK * (3 - 2 * eyeK);
     me.root.updateMatrixWorld(true);
-    me.inner.localToWorld(eyePos.set(0, 1.17, -0.46));
+    me.inner.localToWorld(eyePos.set(0, 0.82, -0.62));
     const yaw = me.root.rotation.y + eye.yaw, cp = Math.cos(eye.pitch);
     eyeLook.set(eyePos.x - Math.sin(yaw) * cp * 10, eyePos.y + Math.sin(eye.pitch) * 10, eyePos.z - Math.cos(yaw) * cp * 10);
     camera.position.lerp(eyePos, k);
@@ -515,7 +515,7 @@ function updateCamera(dt: number) {
   meLabel.visible = meRing.visible = eyeK < 0.4 && !shotMode && meFade > 0.6;
   const k = clamp(cam.dist / 10, 1, 2.2);
   meLabel.scale.set(meLabelBase.x * k, meLabelBase.y * k, 1);
-  meLabel.position.y = 1.9 + (k - 1) * 0.12;
+  meLabel.position.y = 1.62 + (k - 1) * 0.12;
   meRing.scale.setScalar(Math.min(3, 0.8 + cam.dist / 14));
   { const far = cam.tDist > 15, ov = $('overview'), rv = $('resetView'); if (ov.hidden !== far) { ov.hidden = far; rv.hidden = !far; } }
   $('viewName').textContent = lying && eyeView ? T.viewMine : cam.tDist > 20 ? T.viewAll : cam.tDist > 9 ? T.view3rd : T.viewMine;
@@ -2358,4 +2358,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { me, dress: (m: number) => setOutfit(me, m), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

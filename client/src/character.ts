@@ -76,32 +76,85 @@ function makeBlanket(hatC: number) {
   return g;
 }
 
-export function makeChar(bodyC: number, hatC: number): Char {
+// ---------- 병아리 몸 (A 동글) ----------
+// 몸 가운데 높이와 반지름. 머리와 몸이 하나인 둥근 몸이라 얼굴도 이 구 위에 붙는다. 캐릭터 앞 = -z
+export const CHICK = { y: 0.68, r: 0.52, sx: 1, sy: 0.94, sz: 0.96 } as const;
+/** 날개 끝 (손 자리): 들고 다니는 것들이 여기 붙는다 */
+export const HAND_Y = -0.3;
+/** 만화 느낌 음영 (3단) */
+let gradTex: THREE.DataTexture | null = null;
+function toonGrad() {
+  if (gradTex) return gradTex;
+  gradTex = new THREE.DataTexture(new Uint8Array([150, 215, 255]), 3, 1, THREE.RedFormat);
+  gradTex.minFilter = gradTex.magFilter = THREE.NearestFilter; gradTex.needsUpdate = true;
+  return gradTex;
+}
+const toon = (c: number) => new THREE.MeshToonMaterial({ color: c, gradientMap: toonGrad() });
+const FEATHER = 0xffd84a, FEATHER2 = 0xf2c43c, BEAK = 0xff9a2a;
+/** 구 위의 한 점 (몸 비율 반영) */
+const onBody = (x: number, y: number, z: number, k = 1) => new THREE.Vector3(x, y, z).normalize().multiply(new THREE.Vector3(CHICK.sx, CHICK.sy, CHICK.sz)).multiplyScalar(CHICK.r * k).add(new THREE.Vector3(0, CHICK.y, 0));
+let bodyGeo: THREE.BufferGeometry | null = null;
+
+export function makeChar(_bodyC: number, hatC: number): Char {
   const root = new THREE.Group(), inner = new THREE.Group();
   root.add(inner);
   const M = (c: number) => new THREE.MeshLambertMaterial({ color: c });
-  const add = (m: THREE.Mesh, y: number) => { m.position.y = y; inner.add(m); return m; };
-  add(new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.36, 0.6, 12), M(bodyC)), 0.62);
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), M(SKIN)), 1.17);
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.315, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), M(hatC)), 1.21).name = 'hat0';
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), M(0xfff4e6)), 1.54).name = 'pom0';
-  const scarf = add(new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.065, 6, 16), M(hatC)), 0.93); scarf.name = 'scarf0';
-  scarf.rotation.x = Math.PI / 2;
-  const eyeM = M(0x2a1d16);
-  for (const x of [-0.1, 0.1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), eyeM);
-    e.position.set(x, 1.17, -0.28); inner.add(e);
+  bodyGeo ??= new THREE.SphereGeometry(CHICK.r, 28, 20).scale(CHICK.sx, CHICK.sy, CHICK.sz);
+  // 몸 (첫 번째 메시: 다른 코드가 몸으로 찾음)
+  const body = new THREE.Mesh(bodyGeo, toon(FEATHER)); body.position.y = CHICK.y; body.name = 'chickBody'; inner.add(body);
+  // 외곽선: 뒷면을 살짝 크게 (갈색)
+  const ol = new THREE.Mesh(bodyGeo, new THREE.MeshBasicMaterial({ color: 0x5a2e14, side: THREE.BackSide })); ol.position.y = CHICK.y; ol.scale.setScalar(1.03); ol.name = 'outline'; inner.add(ol);
+  // 배
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(CHICK.r * 0.6, 16, 12), toon(0xfff4c8)); belly.scale.set(0.95, 0.72, 0.4); belly.position.copy(onBody(0, -0.55, -0.85, 0.78)); inner.add(belly);
+  // 눈: 크고 까맣게 + 반짝임 두 개
+  const eyeM = new THREE.MeshBasicMaterial({ color: 0x24140c }), hiM = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for (const sx of [-1, 1]) {
+    const e = new THREE.Group(); e.name = 'eye'; e.position.copy(onBody(sx * 0.3, 0.2, -0.92, 0.985));
+    e.lookAt(e.position.clone().sub(new THREE.Vector3(0, CHICK.y, 0)).multiplyScalar(3).add(new THREE.Vector3(0, CHICK.y, 0)));
+    const er = CHICK.r * 0.13;
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(er, 12, 10), eyeM); ball.scale.set(0.9, 1.08, 0.45); e.add(ball);
+    const h1 = new THREE.Mesh(new THREE.SphereGeometry(er * 0.34, 8, 6), hiM); h1.position.set(er * 0.32, er * 0.38, er * 0.38); e.add(h1);
+    const h2 = new THREE.Mesh(new THREE.SphereGeometry(er * 0.16, 6, 4), hiM); h2.position.set(-er * 0.3, -er * 0.36, er * 0.4); e.add(h2);
+    inner.add(e);
+    // 볼터치
+    const ck = new THREE.Mesh(new THREE.CircleGeometry(CHICK.r * 0.12, 16), new THREE.MeshBasicMaterial({ color: 0xff8a8a, transparent: true, opacity: 0.55, depthWrite: false }));
+    ck.position.copy(onBody(sx * 0.56, 0.02, -0.8, 1.015)); ck.lookAt(ck.position.clone().sub(new THREE.Vector3(0, CHICK.y, 0)).multiplyScalar(3).add(new THREE.Vector3(0, CHICK.y, 0))); ck.scale.y = 0.62; inner.add(ck);
   }
-  const limb = (x: number, y: number, len: number, r: number, c: number) => {
-    const piv = new THREE.Group(); piv.position.set(x, y, 0);
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), M(c));
-    m.position.y = -len / 2; piv.add(m); inner.add(piv);
+  // 부리 (위·아래)
+  const beakM = toon(BEAK), beak = new THREE.Group(); beak.name = 'beak'; beak.position.copy(onBody(0, 0.06, -1, 0.99)); inner.add(beak);
+  const bt = new THREE.Mesh(new THREE.ConeGeometry(CHICK.r * 0.13, CHICK.r * 0.22, 12), beakM); bt.rotation.x = -Math.PI / 2; bt.scale.set(1.15, 1, 0.6); bt.position.set(0, CHICK.r * 0.03, -CHICK.r * 0.07); beak.add(bt);
+  const lower = new THREE.Group(); lower.name = 'beakLow'; beak.add(lower);
+  const bb = new THREE.Mesh(new THREE.ConeGeometry(CHICK.r * 0.1, CHICK.r * 0.15, 12), beakM); bb.rotation.x = -Math.PI / 2; bb.scale.set(1.1, 1, 0.5); bb.position.set(0, -CHICK.r * 0.04, -CHICK.r * 0.045); lower.add(bb);
+  // 머리 위 솜털 세 가닥 (모자를 쓰면 숨김)
+  const tuft = new THREE.Group(); tuft.name = 'tuft'; tuft.position.set(0, CHICK.y + CHICK.r * CHICK.sy * 0.97, -0.03); inner.add(tuft);
+  for (const [a, h] of [[-0.45, 0.1], [0, 0.13], [0.45, 0.095]] as const) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.026, h, 6), body.material); t.position.set(Math.sin(a) * 0.03, h / 2 - 0.01, 0); t.rotation.z = -a * 0.9; tuft.add(t); }
+  // 기본 비니 (사람마다 색이 달라 나를 알아보는 표시)
+  const capR = CHICK.r * 1.04;
+  const hat0 = new THREE.Mesh(new THREE.SphereGeometry(capR, 20, 10, 0, Math.PI * 2, 0, 1.05), M(hatC)); hat0.scale.set(CHICK.sx, CHICK.sy, CHICK.sz); hat0.position.y = CHICK.y + 0.02; hat0.name = 'hat0'; inner.add(hat0);
+  const cuff0 = new THREE.Mesh(new THREE.TorusGeometry(capR * Math.sin(1.05) * 0.99, 0.045, 6, 24), M(new THREE.Color(hatC).multiplyScalar(0.82).getHex())); cuff0.rotation.x = Math.PI / 2; cuff0.position.y = CHICK.y + 0.02 + capR * CHICK.sy * Math.cos(1.05); hat0.add(cuff0); cuff0.position.y -= hat0.position.y;
+  const pom0 = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), M(0xfff4e6)); pom0.position.y = CHICK.y + CHICK.r * CHICK.sy + 0.1; pom0.name = 'pom0'; inner.add(pom0);
+  // 기본 목도리
+  const scarf = new THREE.Mesh(new THREE.TorusGeometry(CHICK.r * 0.88, 0.065, 8, 24), M(hatC)); scarf.name = 'scarf0';
+  scarf.rotation.x = Math.PI / 2 - 0.12; scarf.position.y = CHICK.y - 0.1; inner.add(scarf);
+  // 날개 = 팔 (어깨에서 돌아감). 날개 끝(HAND_Y)에 들고 다니는 것들이 붙음
+  const outlineM = ol.material as THREE.Material;
+  const wing = (sx: number) => {
+    const piv = new THREE.Group(); piv.position.set(sx * CHICK.r * 0.9, CHICK.y + 0.03, 0); inner.add(piv);
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), toon(FEATHER2)); w.scale.set(0.34, 0.85, 0.62); w.position.set(sx * 0.04, -0.14, 0); w.rotation.z = sx * 0.25; w.name = 'wing'; piv.add(w);
+    const wo = new THREE.Mesh(w.geometry, outlineM); wo.scale.copy(w.scale).multiplyScalar(1.07); wo.position.copy(w.position); wo.rotation.copy(w.rotation); piv.add(wo);
     return piv;
   };
-  const armL = limb(-0.33, 0.86, 0.42, 0.07, bodyC), armR = limb(0.33, 0.86, 0.42, 0.07, bodyC);
-  const legL = limb(-0.13, 0.33, 0.33, 0.09, 0x4a4250), legR = limb(0.13, 0.33, 0.33, 0.09, 0x4a4250);
-  // 머그컵: 오른팔 끝에 붙이고, 팔이 돌아가도 컵은 똑바로 서 있게 animChar에서 반대로 돌린다
-  const mug = new THREE.Group(); mug.position.set(0, -0.46, -0.04); mug.visible = false; armR.add(mug);
+  const armL = wing(-1), armR = wing(1);
+  // 다리 = 짧은 주황 다리 + 발가락 셋
+  const leg = (sx: number) => {
+    const piv = new THREE.Group(); piv.position.set(sx * 0.15, 0.2, 0); inner.add(piv);
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.028, 0.18, 6), beakM); l.position.y = -0.09; piv.add(l);
+    for (const a of [-0.55, 0, 0.55]) { const toe = new THREE.Mesh(new THREE.CapsuleGeometry(0.028, 0.06, 3, 6), beakM); toe.rotation.set(-Math.PI / 2, 0, -a); toe.position.set(-Math.sin(a) * 0.05, -0.18, -Math.cos(a) * 0.05); piv.add(toe); }
+    return piv;
+  };
+  const legL = leg(-1), legR = leg(1);
+  // 머그컵: 오른쪽 날개 끝에 붙이고, 날개가 돌아가도 컵은 똑바로 서 있게 animChar에서 반대로 돌린다
+  const mug = new THREE.Group(); mug.position.set(0, HAND_Y, -0.06); mug.visible = false; armR.add(mug);
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.17, 14), M(0xfff6ea)); mug.add(cup);
   const coffee = new THREE.Mesh(new THREE.CircleGeometry(0.075, 14), M(0x5a3520));
   coffee.rotation.x = -Math.PI / 2; coffee.position.y = 0.081; mug.add(coffee);
@@ -110,8 +163,8 @@ export function makeChar(bodyC: number, hatC: number): Char {
   const steam = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
   steam.position.y = 0.16; mug.add(steam);
-  const blanket = makeBlanket(hatC); inner.add(blanket);
-  const sh = new THREE.Mesh(new THREE.CircleGeometry(0.42, 16),
+  const blanket = makeBlanket(hatC); blanket.scale.set(1.4, 0.9, 1.4); blanket.position.y = -0.1; inner.add(blanket);
+  const sh = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.02; root.add(sh);
   return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, state: 'idle', bench: false, emote: null, emoteT: 0, mug, steam, blanket };
@@ -133,14 +186,14 @@ export function animChar(c: Char, dt: number) {
   let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
   if (c.state === 'walk') {
     const s = Math.sin(c.phase);
-    lL = s * 0.6; lR = -s * 0.6; aL = -s * 0.5; aR = s * 0.5; y = Math.abs(Math.cos(c.phase)) * 0.06;
+    lL = s * 0.6; lR = -s * 0.6; aL = -s * 0.3; aR = s * 0.3; aLz = -0.25; aRz = 0.25; y = Math.abs(Math.cos(c.phase)) * 0.05;
   } else if (c.state === 'sit') {
     // 방석: 다리를 앞으로 쭉 / 통나무: 무릎 아래로 다리를 내리고 손은 무릎 위에
-    y = -0.3;
-    if (c.bench) { lL = lR = 1.05; aL = aR = 0.75; } else { lL = lR = Math.PI / 2; aL = aR = 0.55; }
+    y = -0.16;
+    if (c.bench) { lL = lR = 1.05; aL = aR = 0.55; } else { lL = lR = Math.PI / 2; aL = aR = 0.4; }
   } else if (c.state === 'lie') {
     // 모래에 등을 대고 누워 하늘 보기: 팔은 머리 뒤로 깍지
-    rx = Math.PI / 2; y = 0.3; aL = aR = Math.PI * 0.85; aLz = -0.5; aRz = 0.5; lR = 0.25;
+    rx = Math.PI / 2; y = CHICK.r * 0.85; aL = aR = 0; aLz = -1.2; aRz = 1.2; lL = lR = -0.3;
   } else {
     y = Math.sin(c.phase) * 0.012;
   }
@@ -148,7 +201,7 @@ export function animChar(c: Char, dt: number) {
   // 꽃다발을 들고 있으면 오른팔을 앞으로 (꽃은 아래 animChar 끝에서 똑바로 세움)
   if (c.state !== 'walk' && c.state !== 'lie' && c.armR.getObjectByName('flowers')?.visible) aR = 1.0;
   if (c.state !== 'lie' && FOODS.some(n => c.armR.getObjectByName(n)?.visible)) aR = c.state === 'walk' ? 0.8 : 1.15;
-  let rz = 0;
+  let rz = c.state === 'walk' ? Math.sin(c.phase) * 0.12 : 0;
   if (c.emote) {
     c.emoteT += dt;
     const T = EMOTE_T[c.emote] ?? 1.9;
@@ -177,12 +230,12 @@ export function animChar(c: Char, dt: number) {
     if (c.emote === 'pet') {
       // 쪼그려 앉아 오른손으로 머리를 토닥토닥
       const kk = clamp(k * 2.2, 0, 1), pat = Math.abs(Math.sin(c.emoteT * 8)) * 0.3;
-      y -= 0.3 * kk; lL = lR = 1.25 * kk; aR = (0.95 + pat) * kk;
+      y -= 0.12 * kk; lL = lR = 1.25 * kk; aR = (0.95 + pat) * kk;
     }
     if (c.emote === 'dig') {
       // 쪼그려 앉아 모래를 토닥토닥
       const kk = clamp(k * 2.2, 0, 1), pat = Math.abs(Math.sin(c.emoteT * 9)) * 0.35;
-      y -= 0.32 * kk; lL = lR = 1.3 * kk; aL = aR = (1.0 + pat) * kk;
+      y -= 0.12 * kk; lL = lR = 1.3 * kk; aL = aR = (1.0 + pat) * kk; rx = 0.5 * kk;
     }
     if (c.emote === 'dance') {
       // 신나게: 양팔을 번갈아 위로, 무릎 까딱, 몸을 좌우로 흔들기
@@ -221,6 +274,9 @@ export function animChar(c: Char, dt: number) {
     (c.steam.material as THREE.MeshBasicMaterial).opacity = 0.35 * (1 - s);
   }
   const e = 1 - Math.pow(0.0005, dt);
+  // 눈 깜빡임
+  const blink = (c.phase * 0.55) % 5 < 0.08;
+  c.inner.children.forEach(ch => { if (ch.name === 'eye') ch.scale.y = blink ? 0.12 : 1; });
   // 쥐불놀이: 오른팔을 옆으로 들고, 손끝에서 불깡통이 세로로 빙글빙글
   const jw = c.inner.getObjectByName('jwibul');
   if (jw?.visible && c.state !== 'lie') {
@@ -298,57 +354,59 @@ function plaid() {
 /** 옷장 메시를 한 번만 만들어 두고 켜고 끄기 */
 function buildWear(c: Char, o: THREE.Group) {
   const L = (col: number) => new THREE.MeshLambertMaterial({ color: col });
-  // 롱패딩: 무릎 아래까지 내려오는 통통한 원통 + 가로 누빔 + 높은 카라. 팔에도 두툼한 소매
-  const padMat = L(0x1d1e24);
+  // 패딩: 몸 아래쪽을 감싸는 통통한 껍데기 (눈 아래부터) + 가로 누빔 + 카라. 날개에도 소매
+  const padMat = L(0x1d1e24), R = CHICK.r, Y = CHICK.y;
+  const shellBand = (from: number, to: number, k = 1.06) => { const m = new THREE.Mesh(new THREE.SphereGeometry(R * k, 24, 14, 0, Math.PI * 2, from, to - from), padMat); m.scale.set(CHICK.sx, CHICK.sy, CHICK.sz); m.position.y = Y; return m; };
+  const quilt = (g: THREE.Group, polars: number[], k = 1.08) => { for (const a of polars) { const q = new THREE.Mesh(new THREE.TorusGeometry(R * k * Math.sin(a), 0.028, 6, 24), padMat); q.rotation.x = Math.PI / 2; q.position.y = Y + R * k * CHICK.sy * Math.cos(a); g.add(q); } };
   const longP = new THREE.Group(); longP.name = 'longPad';
-  const coat = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.82, 16), padMat); coat.position.y = 0.6; longP.add(coat);
-  for (const [y, r] of [[0.3, 0.415], [0.5, 0.395], [0.7, 0.375], [0.88, 0.355]] as const) {
-    const q = new THREE.Mesh(new THREE.TorusGeometry(r, 0.035, 6, 20), padMat); q.rotation.x = Math.PI / 2; q.position.y = y; longP.add(q);
-  }
-  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.16, 14, 1, true), padMat); collar.position.y = 1.0; longP.add(collar);
-  const zip = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.8, 0.01), L(0x8a8a90)); zip.position.set(0, 0.62, -0.385); zip.rotation.x = -0.1; longP.add(zip);
+  longP.add(shellBand(1.68, Math.PI)); quilt(longP, [1.95, 2.25, 2.55]);
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(R * 1.04 * Math.sin(1.68), 0.07, 8, 24), padMat); collar.rotation.x = Math.PI / 2; collar.position.y = Y + R * 1.04 * CHICK.sy * Math.cos(1.68) + 0.03; longP.add(collar);
+  const zip = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.42, 0.01), L(0x8a8a90)); zip.position.set(0, Y - 0.3, -R * 0.98); zip.rotation.x = 0.35; longP.add(zip);
   o.add(longP);
   const shortP = new THREE.Group(); shortP.name = 'shortPad';
-  const jk = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.39, 0.5, 16), padMat); jk.position.y = 0.72; shortP.add(jk);
-  for (const [y, r] of [[0.55, 0.385], [0.75, 0.365]] as const) { const q = new THREE.Mesh(new THREE.TorusGeometry(r, 0.035, 6, 20), padMat); q.rotation.x = Math.PI / 2; q.position.y = y; shortP.add(q); }
-  const col2 = collar.clone(); shortP.add(col2);
+  shortP.add(shellBand(1.68, 2.45)); quilt(shortP, [1.95, 2.25]); shortP.add(collar.clone());
   o.add(shortP);
+  // 맨투맨 (회색): 짧은 패딩과 같은 모양, 누빔 없이
+  const sweatMat = L(0x8d9097);
+  const sweater = new THREE.Mesh(new THREE.SphereGeometry(R * 1.04, 24, 14, 0, Math.PI * 2, 1.7, 0.85), sweatMat); sweater.scale.set(CHICK.sx, CHICK.sy, CHICK.sz); sweater.position.y = Y; sweater.name = 'sweater'; o.add(sweater);
   for (const arm of [c.armL, c.armR]) {
-    const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.4, 10), padMat); sl.name = 'sleeve'; sl.position.y = -0.2; sl.visible = false; arm.add(sl);
+    const sl = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), padMat); sl.scale.set(0.42, 0.9, 0.72); sl.name = 'sleeve'; sl.position.set(0, -0.13, 0); sl.visible = false; arm.add(sl);
   }
   o.userData.padMat = padMat;
-  // 귀마개 모자: 갈색 가죽 + 흰 털 테두리 + 양쪽 귀덮개 (그림자로도 보이는 모양)
+  // 모자는 머리(몸 위쪽)에 맞춘 둥근 캡
+  const cap = (mat: THREE.Material, theta = 1.05, k = 1.05) => { const m = new THREE.Mesh(new THREE.SphereGeometry(R * k, 20, 10, 0, Math.PI * 2, 0, theta), mat); m.scale.set(CHICK.sx, CHICK.sy, CHICK.sz); m.position.y = Y + 0.02; return m; };
+  const rimY = (theta: number, k = 1.05) => Y + 0.02 + R * k * CHICK.sy * Math.cos(theta), rimR = (theta: number, k = 1.05) => R * k * Math.sin(theta);
+  // 귀마개 모자: 갈색 가죽 + 흰 털 테두리 + 양쪽 귀덮개
   const ear = new THREE.Group(); ear.name = 'earHat';
   const brown = L(0x6b4a32), fur = L(0xf3ebdd);
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.33, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), brown); dome.position.y = 1.2; ear.add(dome);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 6, 20), fur); rim.rotation.x = Math.PI / 2; rim.position.y = 1.22; ear.add(rim);
-  for (const x of [-0.31, 0.31]) {
-    const flap = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), fur); flap.scale.set(0.45, 1.15, 0.9); flap.position.set(x, 1.08, 0.02); ear.add(flap);
-    const fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), brown); fl2.scale.set(0.4, 1.1, 0.85); fl2.position.set(x * 1.08, 1.08, 0.02); ear.add(fl2);
+  ear.add(cap(brown));
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR(1.05), 0.05, 6, 24), fur); rim.rotation.x = Math.PI / 2; rim.position.y = rimY(1.05); ear.add(rim);
+  for (const x of [-1, 1]) {
+    const flap = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), fur); flap.scale.set(0.45, 1.15, 0.9); flap.position.set(x * R * 0.98, Y + 0.12, 0.04); ear.add(flap);
+    const fl2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), brown); fl2.scale.set(0.4, 1.1, 0.85); fl2.position.set(x * R * 1.04, Y + 0.12, 0.04); ear.add(fl2);
   }
   o.add(ear);
   // 방울 털모자: 굵은 골지 + 커다란 방울
   const furHat = new THREE.Group(); furHat.name = 'furHat';
   const knit = L(0xe9e1d2);
-  const fd = new THREE.Mesh(new THREE.SphereGeometry(0.325, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), knit); fd.scale.y = 1.25; fd.position.y = 1.2; furHat.add(fd);
-  const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.315, 0.06, 6, 20), knit); cuff.rotation.x = Math.PI / 2; cuff.position.y = 1.23; furHat.add(cuff);
-  const bigPom = new THREE.Mesh(new THREE.IcosahedronGeometry(0.17, 1), L(0xb6332b)); bigPom.position.y = 1.66; furHat.add(bigPom);
+  const fd = cap(knit, 1.1); fd.scale.y *= 1.12; furHat.add(fd);
+  const cuff = new THREE.Mesh(new THREE.TorusGeometry(rimR(1.1), 0.06, 6, 24), knit); cuff.rotation.x = Math.PI / 2; cuff.position.y = rimY(1.1); furHat.add(cuff);
+  const bigPom = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 1), L(0xb6332b)); bigPom.position.y = Y + R * CHICK.sy * 1.12 + 0.12; furHat.add(bigPom);
   o.add(furHat);
   // 체크 목도리
   const chk = new THREE.Group(); chk.name = 'checkScarf';
   const pm = new THREE.MeshLambertMaterial({ map: plaid() });
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.08, 8, 18), pm); ring.rotation.x = Math.PI / 2; ring.position.y = 0.95; chk.add(ring);
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.4, 0.05), pm); tail.position.set(-0.11, 0.74, -0.31); tail.rotation.z = -0.1; chk.add(tail);
-  const fr = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.05, 0.05), L(0x2a2a3a)); fr.position.set(-0.13, 0.52, -0.31); chk.add(fr);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(R * 0.9, 0.075, 8, 24), pm); ring.rotation.x = Math.PI / 2 - 0.12; ring.position.y = Y - 0.1; chk.add(ring);
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.05), pm); tail.position.set(-0.13, Y - 0.27, -R * 0.93); tail.rotation.set(0.3, 0, -0.1); chk.add(tail);
   o.add(chk);
   // 왼손: 핫팩 / 보온병(김)
-  const hot = new THREE.Group(); hot.name = 'hotpack'; hot.position.set(0, -0.47, -0.05);
+  const hot = new THREE.Group(); hot.name = 'hotpack'; hot.position.set(0, HAND_Y, -0.05);
   const pack = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.19, 0.04), L(0xf6f2ea)); hot.add(pack);
   const lab = new THREE.Mesh(new THREE.BoxGeometry(0.152, 0.07, 0.042), L(0xf07a2a)); hot.add(lab);
   c.armL.add(hot);
-  const th = new THREE.Group(); th.name = 'thermos'; th.position.set(0, -0.5, -0.05);
+  const th = new THREE.Group(); th.name = 'thermos'; th.position.set(0, HAND_Y - 0.03, -0.05);
   const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.3, 14), L(0x9aa6b2)); th.add(bottle);
-  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.08, 14), L(0xc0392b)); cap.position.y = 0.18; th.add(cap);
+  const tcap = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.08, 14), L(0xc0392b)); tcap.position.y = 0.18; th.add(tcap);
   const st = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false })); st.name = 'tsteam'; st.position.y = 0.3; th.add(st);
   c.armL.add(th);
 }
@@ -359,8 +417,8 @@ function applyJwibul(c: Char, mask: number) {
   const on = !!(mask & JWIBUL);
   if (!jw) {
     if (!on) return;
-    jw = new THREE.Group(); jw.name = 'jwibul'; jw.position.set(0.95, 1.05, 0.05); c.inner.add(jw);
-    const R = 0.95;
+    jw = new THREE.Group(); jw.name = 'jwibul'; jw.position.set(0.82, CHICK.y + 0.08, 0.05); c.inner.add(jw);
+    const R = 0.8;
     const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, R, 4), new THREE.MeshBasicMaterial({ color: 0x9a8f86 }));
     wire.position.y = R / 2; jw.add(wire);
     const can = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.16, 10), new THREE.MeshLambertMaterial({ color: 0x3a2a22 }));
@@ -388,9 +446,11 @@ function applyWear(c: Char, o: THREE.Group, mask: number) {
   o.getObjectByName('checkScarf')!.visible = sc === 1 && !red;
   if (scarf0) scarf0.visible = sc === 0 && !red;
   // 패딩 위로 목도리가 보이게: 패딩을 입으면 목도리를 살짝 키워 카라 밖으로
-  const k = outer ? 1.28 : 1;
-  for (const n of ['scarf', 'checkScarf']) { const g = o.getObjectByName(n); if (g) g.scale.set(k, outer ? 1.08 : 1, k); }
-  if (scarf0) scarf0.scale.set(k, k, outer ? 1.08 : 1);
+  const k = outer ? 1.1 : 1;
+  for (const n of ['scarf', 'checkScarf']) { const g = o.getObjectByName(n); if (g) g.scale.set(k, 1, k); }
+  if (scarf0) scarf0.scale.set(k, k, 1);
+  // 모자를 쓰면 머리 솜털은 숨김
+  const tuft = c.inner.getObjectByName('tuft'); if (tuft) tuft.visible = false;
   c.armL.getObjectByName('hotpack')!.visible = hand === 1;
   c.armL.getObjectByName('thermos')!.visible = hand === 2;
 }
@@ -435,14 +495,14 @@ function makeBuckwheat() {
 /** 오른손에 드는 가게 먹을거리: 은박 김밥, 종이컵 커피, 노란 양은 주전자 */
 function buildShopItems(c: Char) {
   const L = (col: number, em = 0) => new THREE.MeshLambertMaterial({ color: col, emissive: em });
-  const k = new THREE.Group(); k.name = 'kimbap'; k.position.set(0, -0.5, -0.1); k.scale.setScalar(1.8); k.visible = false; c.armR.add(k);
+  const k = new THREE.Group(); k.name = 'kimbap'; k.position.set(0, HAND_Y, -0.1); k.scale.setScalar(1.5); k.visible = false; c.armR.add(k);
   const foil = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.2, 10), L(0xc9ccd2, 0x202226)); foil.rotation.x = Math.PI / 2 - 0.3; k.add(foil);
   const end = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.02, 10), [L(0x16221a), L(0xf4efe2), L(0xf4efe2)]); end.rotation.x = Math.PI / 2 - 0.3; end.position.set(0, 0.03, -0.1); k.add(end);
-  const cf = new THREE.Group(); cf.name = 'coffee'; cf.position.set(0, -0.5, -0.1); cf.scale.setScalar(1.8); cf.visible = false; c.armR.add(cf);
+  const cf = new THREE.Group(); cf.name = 'coffee'; cf.position.set(0, HAND_Y, -0.1); cf.scale.setScalar(1.5); cf.visible = false; c.armR.add(cf);
   cf.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.038, 0.13, 12), L(0xf3ece0)));
   const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.049, 0.043, 0.05, 12), L(0x8a5a3a)); sl.position.y = -0.005; cf.add(sl);
   const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.053, 0.053, 0.02, 12), L(0xe9e1d2)); lid.position.y = 0.075; cf.add(lid);
-  const mk = new THREE.Group(); mk.name = 'makgeolli'; mk.position.set(0, -0.52, -0.12); mk.scale.setScalar(1.8); mk.visible = false; c.armR.add(mk);
+  const mk = new THREE.Group(); mk.name = 'makgeolli'; mk.position.set(0, HAND_Y - 0.02, -0.12); mk.scale.setScalar(1.5); mk.visible = false; c.armR.add(mk);
   const yel = L(0xe2b13c, 0x3a2a08);
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), yel); body.scale.y = 0.85; mk.add(body);
   const lidK = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.025, 10), yel); lidK.position.y = 0.06; mk.add(lidK);
@@ -457,18 +517,18 @@ export function setOutfit(c: Char, mask: number) {
     // 빨간 목도리: 목에 두르고 한 자락은 가슴 앞으로
     const scarf = new THREE.Group(); scarf.name = 'scarf';
     const red = new THREE.MeshLambertMaterial({ color: 0xc92a2a });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.075, 8, 18), red); ring.rotation.x = Math.PI / 2; ring.position.y = 0.94; scarf.add(ring);
-    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.05), red); tail.position.set(0.1, 0.72, -0.3); tail.rotation.z = 0.08; scarf.add(tail);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(CHICK.r * 0.9, 0.075, 8, 24), red); ring.rotation.x = Math.PI / 2 - 0.12; ring.position.y = CHICK.y - 0.1; scarf.add(ring);
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.05), red); tail.position.set(0.12, CHICK.y - 0.27, -CHICK.r * 0.93); tail.rotation.set(0.3, 0, 0.08); scarf.add(tail);
     o.add(scarf);
     // 맨투맨 밑단 시보리
     const hem = new THREE.Mesh(new THREE.TorusGeometry(0.335, 0.03, 6, 18), new THREE.MeshLambertMaterial({ color: 0x7c7e84 }));
-    hem.name = 'hem'; hem.rotation.x = Math.PI / 2; hem.position.y = 0.34; o.add(hem);
+    hem.name = 'hem'; hem.rotation.x = Math.PI / 2; hem.position.y = 0.34; hem.visible = false; o.add(hem);
     // 꽃다발: 오른손(들고 있을 때)과 왼손(받는 순간) 두 군데
     for (const [arm, name] of [[c.armR, 'flowers'], [c.armL, 'flowersL']] as const) {
-      const f = makeBuckwheat(); f.name = name; f.position.set(0, -0.44, -0.05); f.visible = false; arm.add(f);
+      const f = makeBuckwheat(); f.name = name; f.position.set(0, HAND_Y + 0.02, -0.05); f.visible = false; arm.add(f);
     }
     // 라면 그릇: 오른손에 종이 용기 + 젓가락 + 김
-    const bowl = new THREE.Group(); bowl.name = 'ramen'; bowl.position.set(0, -0.46, -0.06); bowl.visible = false; c.armR.add(bowl);
+    const bowl = new THREE.Group(); bowl.name = 'ramen'; bowl.position.set(0, HAND_Y, -0.06); bowl.visible = false; c.armR.add(bowl);
     const cupM = new THREE.MeshLambertMaterial({ color: 0xf4efe6 });
     const cupMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.08, 0.13, 14), cupM); bowl.add(cupMesh);
     const band = new THREE.Mesh(new THREE.CylinderGeometry(0.112, 0.105, 0.04, 14, 1, true), new THREE.MeshLambertMaterial({ color: 0xd8302f, side: THREE.DoubleSide })); band.position.y = 0.02; bowl.add(band);
@@ -479,20 +539,11 @@ export function setOutfit(c: Char, mask: number) {
     bsteam.name = 'bsteam'; bsteam.position.y = 0.14; bowl.add(bsteam);
     buildShopItems(c);
     buildWear(c, o);
-    // 원래 옷 색 기억 (맨투맨을 벗으면 되돌림)
-    const firstMesh = (g: THREE.Object3D) => g.children.find(ch => (ch as THREE.Mesh).isMesh) as THREE.Mesh;
-    const body = c.inner.children.find(ch => (ch as THREE.Mesh).isMesh) as THREE.Mesh;
-    o.userData.parts = {
-      top: [body, firstMesh(c.armL), firstMesh(c.armR)].map(m => ({ m, c: (m.material as THREE.MeshLambertMaterial).color.getHex() })),
-      legs: [firstMesh(c.legL), firstMesh(c.legR)].map(m => ({ m, c: (m.material as THREE.MeshLambertMaterial).color.getHex() })),
-    };
   }
   const sweat = !!(mask & OUTFIT.sweat);
-  const parts = o.userData.parts as { top: { m: THREE.Mesh; c: number }[]; legs: { m: THREE.Mesh; c: number }[] };
-  // 재질을 따로 복제해서 다른 캐릭터와 색을 공유하지 않게
-  for (const { m, c: orig } of parts.top) { if (!m.userData.own) { m.material = (m.material as THREE.Material).clone(); m.userData.own = true; } (m.material as THREE.MeshLambertMaterial).color.setHex(sweat ? 0x8d9097 : orig); }
-  for (const { m, c: orig } of parts.legs) { if (!m.userData.own) { m.material = (m.material as THREE.Material).clone(); m.userData.own = true; } (m.material as THREE.MeshLambertMaterial).color.setHex(sweat ? 0x1b1b21 : orig); }
-  o.getObjectByName('hem')!.visible = sweat;
+  // 병아리는 몸 색을 바꾸지 않고 회색 맨투맨을 덧입음
+  o.getObjectByName('sweater')!.visible = sweat && !wearGet(mask, 'outer');
+
   o.getObjectByName('scarf')!.visible = !!(mask & OUTFIT.scarf);
   c.armR.getObjectByName('flowers')!.visible = !!(mask & OUTFIT.flowers);
   c.armR.getObjectByName('ramen')!.visible = !!(mask & OUTFIT.ramen);

@@ -63,7 +63,7 @@ export function createBots(opts: {
     if (Math.random() < 0.2) w = wearSet(w, 'hand', 1 + Math.floor(Math.random() * 2));
     if (w) setOutfit(c, w);
     const nick = localizeNick(`${pick(ADJ)} ${pick(NOUN)}`);
-    const label = textSprite(nick, 0.6); label.position.y = 1.85; c.root.add(label);
+    const label = textSprite(nick, 0.6); label.position.y = 1.58; c.root.add(label);
     scene.add(c.root);
     const now = performance.now();
     const b: Bot = { c, label, nick, seat: idx, tag: `bot:${seq++}`, nextLantern: now + rand(25000, 150000), nextEmote: now + rand(8000, 60000) };
