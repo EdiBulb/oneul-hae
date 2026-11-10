@@ -29,6 +29,10 @@ interface Saved {
   /** 마고할미: 처음 이야기를 들었는지, 오늘 인사했는지 */
   magoMet?: boolean;
   magoDay?: string;
+  /** 오늘의 목표 종이 (청학당에서 쓴 그림), 학 훈장님과 인사한 날, 마고할미가 앱 설치를 물어본 때 */
+  goal?: { day: string; img: string; sent?: boolean };
+  craneDay?: string;
+  installAskAt?: number;
   /** 가게에서 들고 나온 날 (다음 날이 되면 내려놓음) */
   itemDay?: string;
   /** 햇살 포인트 */

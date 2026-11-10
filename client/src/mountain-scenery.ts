@@ -4,6 +4,7 @@ import { textSprite } from './character';
 import { CRATER, SHOPS, SUMMIT, mountainY as mY, worldToShop } from './beach-extras';
 import { koreanPine } from './place-scenery';
 import { createShops } from './mountain-shops';
+import { HALL } from './hall';
 
 // 지리산 천왕봉: 정상 직전 바위 능선에 도착 → 언덕을 넘으면 절벽 끝 전망대.
 // 발아래는 운해(구름 바다), 그 위로 겹겹이 이어진 능선이 봉우리만 내밀고 있다.
@@ -71,7 +72,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   const mountainY = (x: number, z: number) => mY(x, z, id);
   const g = new THREE.Group(); scene.add(g); g.visible = false;
   /** 가게 자리 근처엔 나무·덤불·돌을 두지 않음 */
-  const clearOf = (x: number, z: number) => id !== 'jirisan' || SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; });
+  const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 3.4 && Math.hypot(x + 3.6, z - 10.6) > 1.6);
 
   // ---------- 정상 땅 (바위와 풀이 섞인 능선) ----------
   const W = 150, D = 76, geo = new THREE.PlaneGeometry(W, D, 110, 64);

@@ -9,8 +9,10 @@ import { createBeachLife } from './beach-life';
 import { createTraces } from './traces';
 import { benchAt, benchSeats, canStand, createBonfire, createFootprints, createPier, floorY, nightness, BONFIRE, createStones, onPier, surfaceAt, createJetties, hasPhotoSpots, PHOTO_SPOTS, setTerrain, has, RAMEN_MACHINE, camOpen, SUMMIT, SHOPS, shopDoor, type Shop } from './beach-extras';
 import { grab, compose } from './photo';
-import { initTalk, say as talk, talking } from './talk';
+import { initTalk, say as talk, talking, ask } from './talk';
 import { createMago } from './mago';
+import { createHall } from './hall';
+import { initGoal, writeGoal, viewGoal, sendToSun } from './goal';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
@@ -581,7 +583,7 @@ function updateMe(dt: number) {
   const p = me.root.position, moving = Math.hypot(input.x, input.y) > 0.12;
   if (moving) {
     if (mySeat !== null) standUp();
-    lying = false;
+    lying = false; onCushion = false;
     // 조이스틱 위쪽 = 카메라가 바라보는 방향
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     const mx = rx * input.x + fx * input.y, mz = rz * input.x + fz * input.y;
@@ -595,7 +597,7 @@ function updateMe(dt: number) {
     const surf = prints.step('me', p.x, p.z, me.root.rotation.y);
     if (surf) amb.step(surf === 'grass' ? 'sand' : surf);
   } else if (mySeat === null) {
-    me.state = lying ? 'lie' : 'idle';
+    me.state = lying ? 'lie' : onCushion ? 'sit' : 'idle';
     // 사진 자리: 동그라미에 서면 맞은편 자리를 바라봄
     if (!lying && hasPhotoSpots()) {
       const p0 = me.root.position, i = PHOTO_SPOTS.findIndex(sp => Math.hypot(sp.x - p0.x, sp.z - p0.z) < 0.42);
@@ -770,7 +772,64 @@ async function magoTalk(auto: boolean) {
   track('mago_talk', { auto, first: !store.magoMet, again });
   for (const text of lines) { mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who: 'mago', text }]); }
   store.magoMet = true; save();
+  // 앱 설치는 처음에 묻지 않고, 해를 본 적 있는 사람에게 할미가 일주일에 한 번까지만 물어봄
+  if (!isStandalone && installReady() && (installEvent || isIOS || isKakao) && Date.now() - (store.installAskAt ?? 0) > 7 * 86400000) {
+    store.installAskAt = Date.now(); save();
+    mago.talk(4);
+    const yes = await ask('mago', T.magoInstall, [T.magoInstallYes, T.magoInstallNo]) === 0;
+    track('mago_install_ask', { yes });
+    if (yes) showInstall(true); else { mago.talk(1.5); await talk([{ who: 'mago', text: T.magoInstallLater }]); }
+  }
   mago.look(magoHome); magoBusy = false;
+}
+
+// ================= 병아리 청학당 (오늘의 목표 쓰기) =================
+const hall = createHall(floorY); scene.add(hall.root);
+initGoal();
+let onCushion = false, hallBusy = false;
+const goalToday = () => store.goal?.day === dateKey(Date.now()) ? store.goal : undefined;
+function renderGoalUi() { const gl = goalToday(); $('goalChip').hidden = !gl || !!gl.sent; ($('goalBtn') as HTMLButtonElement).textContent = gl ? T.goalBtnView : T.goalBtn; }
+renderGoalUi();
+$('goalChip').onclick = () => { const gl = goalToday(); if (gl) viewGoal(gl.img); };
+async function hallWrite() {
+  if (hallBusy || talking()) return;
+  const gl = goalToday();
+  if (gl) { viewGoal(gl.img); return; }
+  hallBusy = true;
+  if (mySeat !== null) standUp();
+  // 가장 가까운 방석에 앉아 학 훈장님을 바라봄
+  const c = hall.cushionNear(me.root.position.x, me.root.position.z);
+  me.root.position.set(c.x, c.y, c.z); me.root.rotation.y = c.face; me.state = 'sit'; onCushion = true; lying = false;
+  if (store.craneDay !== dateKey(Date.now())) { store.craneDay = dateKey(Date.now()); save(); hall.talk(4); await talk([{ who: 'crane', text: T.craneHello }, { who: 'crane', text: T.craneHow }]); }
+  track('goal_open');
+  const img = await writeGoal();
+  if (img) {
+    store.goal = { day: dateKey(Date.now()), img }; save(); renderGoalUi();
+    track('goal_written');
+    hall.talk(3); await talk([{ who: 'crane', text: T.craneDone }]);
+  }
+  hallBusy = false;
+}
+$('goalBtn').onclick = () => hallWrite();
+/** 해가 떠 있을 때 울면: 품에 있던 오늘의 목표를 해에게 보냄 */
+function deliverGoal() {
+  const gl = goalToday();
+  if (!gl || gl.sent || lastAltForBanner < -1.5) return;
+  gl.sent = true; save(); renderGoalUi();
+  sendToSun(gl.img, sunOnScreen());
+  track('goal_sent');
+  setTimeout(() => talk([{ who: 'me', text: T.goalSent }]), 2600);
+}
+function updateHall(dt: number, t: number) {
+  const here = place.id === 'jirisan';
+  hall.root.visible = here; if (!here) { $('goalBtn').hidden = true; return; }
+  hall.update(dt, t);
+  const cw = hall.craneWorld(), d = Math.hypot(me.root.position.x - cw.x, me.root.position.z - cw.z);
+  const b = $('goalBtn'), show = !lying && !hallBusy && d < (b.hidden ? 3.0 : 3.6);
+  if (b.hidden === show) b.hidden = !show;
+  hall.showHint(!goalToday());
+  // 하루 한 번: 다가가면 학 훈장님이 먼저 한마디
+  if (d < 3.2 && !hallBusy && !talking() && !openSheet && store.craneDay !== dateKey(Date.now())) { store.craneDay = dateKey(Date.now()); save(); hall.talk(3); talk([{ who: 'crane', text: T.craneHello }]); }
 }
 $('magoBtn').onclick = () => magoTalk(false);
 function updateMago(dt: number, t: number) {
@@ -791,6 +850,7 @@ function loop(t: number) {
   updateMe(dt);
   updateCamera(dt);
   updateMago(dt, t / 1000);
+  updateHall(dt, t / 1000);
   const cyc = cycling();
   const info = cyc ? null : sunriseInfo(place, now);
   const ref = cyc ? cycleRefs().sr : replay ? replay.sr : (info!.windowSR ?? info!.next ?? info!.last ?? now);
@@ -909,6 +969,7 @@ function crow(from: string) {
   lastCrow = performance.now();
   me.emote = 'crow'; me.emoteT = 0; if (connected) net.emit('emote', 'crow');
   amb.unlock(); amb.crow(growthStage(me), 1); voiceBubble(me);
+  setTimeout(deliverGoal, 500);
   track('crow', { stage: growthStage(me), from });
 }
 $('crowBtn').onclick = () => crow('button');
@@ -1296,7 +1357,7 @@ function showInstall(force: boolean) {
 addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   installEvent = e as InstallPromptEvent;
-  if (installReady() && !openSheet) setTimeout(() => showInstall(false), 3000);
+  // 설치는 마고할미가 대화로 물어봄 (처음부터 창을 띄우지 않음)
 });
 addEventListener('appinstalled', () => { track('app_installed'); installEvent = null; close(); toast(T.installed); });
 $('installGo').onclick = async () => {
@@ -1630,7 +1691,7 @@ $('supportBtn').addEventListener('click', () => track('support_clicked', { metho
 // 처음 보는 사이트에서 바로 '홈 화면에 추가'를 묻지 않음: 해를 한 번이라도 본 사람에게만
 // 진짜 해돋이를 함께 봤거나, 다른 날 다시 찾아온 사람 (다시보기 한 번으로는 묻지 않음)
 function installReady() { return Object.values(store.days).includes('live') || Object.keys(store.days).length >= 2; }
-function askInstallAfterSun() { setTimeout(() => { if (!openSheet && installReady()) showInstall(false); }, 9000); }
+function askInstallAfterSun() { /* 설치는 마고할미가 대화로 물어봄 */ }
 /** 첫 안내 카드: 산 정상이면 '걸어가 보세요'로 */
 function openHint() {
   const peak = has.peak(place.id);
@@ -1639,7 +1700,7 @@ function openHint() {
   $('hint').classList.add('open');
 }
 if (!store.hinted) openHint();
-else { if (installReady()) setTimeout(() => { if (!openSheet) showInstall(false); }, 4000); expandBanner(); }
+else expandBanner();
 $('hintBtn').onclick = () => {
   $('hint').classList.remove('open'); store.hinted = true; save(); amb.unlock(); expandBanner();
   // 해가 안 떠 있으면 오늘 아침 해돋이부터 보여 줌
@@ -2440,4 +2501,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { me, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { me, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
