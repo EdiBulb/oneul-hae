@@ -700,7 +700,7 @@ function updateUI(vnow: number, alt: number, t: number) {
   else if (crossed && !lying && !store.crowTaught) { $('crowHint').hidden = false; setTimeout(() => { $('crowHint').hidden = true; }, 25000); }
   else if (crossed && !lying) setTimeout(() => crow('sunrise'), 700); // 해 뜨는 순간 다 같이 울기
   if (crossed && !introSky) { sunriseLegends(); setTimeout(() => void morningFeed(), 6000); } // 해가 뜨는 순간 봉황 (아주 가끔은 푸른 학도)
-  if (crossed && (live || cyc) && !introSky) { sunRoseNow(); }
+  if (crossed && (live || cyc) && !introSky) { sunRoseNow(); setTimeout(showDayTitle, 1400); }
   maybeDeliverOnLoad(alt, live, cyc);
   nightCheck(alt);
   lastAltForBanner = alt;
@@ -815,10 +815,13 @@ async function magoTalk(auto: boolean, forceFirst = false) {
   mago.look(faceAngle(p.x - m.x, p.z - m.z));
   if (!auto) { if (mySeat !== null) standUp(); turnTo(me, faceAngle(m.x - p.x, m.z - p.z), 1); }
   track('mago_talk', { auto, first: !store.magoMet, again });
-  for (const text of lines) { mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who: 'mago', text }]); }
+  // 지난번 다짐이 있으면 그날 첫 인사 대신 그걸 물어봄 (새 아침의 시작)
+  const reflect = !forceFirst && !again && !!store.magoMet && !!store.goal && !store.goal.reflected && store.goal.day < today;
+  if (reflect) await reflectGoal();
+  else for (const text of lines) { mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who: 'mago', text }]); }
   store.magoMet = true; save();
   // 앱 설치는 처음에 묻지 않고, 해를 본 적 있는 사람에게 할미가 일주일에 한 번까지만 물어봄
-  if (!isStandalone && installReady() && (installEvent || isIOS || isKakao) && Date.now() - (store.installAskAt ?? 0) > 7 * 86400000) {
+  if (!reflect && !isStandalone && installReady() && (installEvent || isIOS || isKakao) && Date.now() - (store.installAskAt ?? 0) > 7 * 86400000) {
     store.installAskAt = Date.now(); save();
     mago.talk(4);
     const yes = await ask('mago', T.magoInstall, [T.magoInstallYes, T.magoInstallNo]) === 0;
@@ -827,6 +830,34 @@ async function magoTalk(auto: boolean, forceFirst = false) {
   }
   mago.look(magoHome); magoBusy = false;
   if (!auto && isNight() && store.taleDay !== dateKey(Date.now())) await tellTale(false);
+}
+
+// ================= 새 아침 =================
+/** 해가 지평선을 넘는 순간 (하루 한 번): '11월 12일 · 서른한 번째 아침' — 하루는 자정이 아니라 해돋이에 바뀜 */
+function showDayTitle() {
+  const today = dateKey(Date.now());
+  if (store.titleDay === today || place.id !== 'jirisan') return;
+  store.titleDay = today; save();
+  const n = Math.max(1, seenDays() + (store.days[today] ? 0 : 1));
+  $('dtDate').textContent = T.dayDate(new Date()); $('dtNth').textContent = T.dayNth(n);
+  const el = $('dayTitle'); el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 4200);
+  track('day_title', { n });
+}
+/** 지난번에 쓴 다짐을 할미가 물어봄. 답은 기록하지 않음 (털어 내는 게 목적) */
+async function reflectGoal() {
+  const gl = store.goal, today = dateKey(Date.now());
+  if (!gl || gl.reflected || gl.day >= today) return;
+  gl.reflected = true; save();
+  const yest = gl.day === dateKey(Date.now() - 86400000), [, mm, dd] = gl.day.split('-').map(Number);
+  mago.talk(3); await talk([{ who: 'mago', text: T.reflectHi }]);
+  ($('goalPeekImg') as HTMLImageElement).src = gl.img; $('goalPeekWhen').textContent = T.reflectWhen(yest, T.dayDate(new Date(2000, mm - 1, dd)));
+  $('goalPeek').hidden = false;
+  mago.talk(4);
+  const pick = await ask('mago', T.reflectAsk(yest), T.reflectPick);
+  $('goalPeek').hidden = true;
+  track('goal_reflect'); // 무엇을 골랐는지는 남기지 않음
+  mago.talk(5); await talk([{ who: 'mago', text: T.reflectReply[Math.max(0, pick)] }]);
+  await talk([{ who: 'me', text: T.reflectMe }]);
 }
 
 // ================= 밤: 해를 기다리며 할 것 =================
@@ -2924,4 +2955,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { me, feedNow: () => morningFeed(), feedLeft: () => feed.left, cafe: CAFE, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { me, dayTitle: () => { store.titleDay = ''; showDayTitle(); }, feedNow: () => morningFeed(), feedLeft: () => feed.left, cafe: CAFE, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

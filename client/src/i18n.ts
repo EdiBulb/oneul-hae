@@ -1,3 +1,12 @@
+
+/** 우리말 서수: 1 → 첫, 2 → 두, 21 → 스물한, 31 → 서른한 (100부터는 숫자) */
+function koOrd(n: number) {
+  if (n >= 100) return String(n);
+  const ones = ['', '한', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉'], tens = ['', '열', '스물', '서른', '마흔', '쉰', '예순', '일흔', '여든', '아흔'];
+  if (n === 1) return '첫';
+  if (n === 20) return '스무';
+  return tens[Math.floor(n / 10)] + ones[n % 10];
+}
 // 한국어 / 영어 화면 문구.
 // 언어는 접속 위치가 아니라 브라우저 언어로 정한다 (해외에 사는 한국 사람은 한국어로 보도록).
 // 사용자가 한/EN 버튼으로 바꾸면 그 선택을 저장해 두고 다음에도 쓴다.
@@ -157,6 +166,14 @@ const ko = {
   sitCushion: '방석에 앉기',
   finish: ['', '김밥 다 먹기', '커피 다 마시기', '막걸리 다 마시기'], finished: ['', '잘 먹었다! 은박지는 주머니에 쏙.', '후… 따뜻하다. 컵은 꼭 챙겨 가야지.', '캬…! 딱 한 잔만. 주전자는 돌려드려야지.'],
   holdBtn: '손잡기', holdLet: '손 놓기', holding: '손을 잡았어요. 상대가 가는 대로 따라가요 (움직이면 놓아요)', heldBy: '누가 내 손을 잡았어요. 내가 가는 대로 따라와요', holdOff: '손을 놓았어요',
+  dayDate: (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일`,
+  dayNth: (n: number) => `${koOrd(n)} 번째 아침`,
+  reflectHi: '잘 잤는가. 오늘 해도 곧 뜰 게야.',
+  reflectAsk: (yest: boolean) => `그나저나… ${yest ? '어제' : '지난번에'} 쓴 다짐,\n지켰는가?`,
+  reflectWhen: (yest: boolean, d: string) => `${yest ? '어제' : '지난번에'} 쓴 다짐 · ${d}`,
+  reflectPick: ['지켰어요', '조금요', '못 지켰어요'],
+  reflectReply: ['허허, 장하구먼.\n그 기운으로 오늘 다짐도 써 보게.', '조금이면 충분하네.\n산도 한 걸음씩 오르는 게야.', '괜찮네. 해는 오늘 또 떴으니까.\n오늘 다시 쓰면 그만이야.'],
+  reflectMe: '(…그래, 오늘은 오늘의 해가 뜨니까.)',
   feedSign: '모이 마당', feedLine: '해를 맞는 건 매일 일어나는 기적이야.\n그 기적을 이어 가려면… 우선 잘 먹어야지.', feedLineTogether: '혼자 먹는 모이는 배를 채우고,\n같이 먹는 모이는 마음을 채운다네.', feedTogether: '(같이 먹으니까… 더 고소하다.)',
   peckBtn: '모이 쪼기', cafeSign: '병아리 카페', peckThought: ['콕콕… 고소하다.', '좁쌀 한 줌이면 오늘 산도 거뜬해.', '…하나만 더.'],
   phoenixFirst: ['……!', '방금 그건… 봉황?', '…엄마인가?', '(내일 해 뜰 때도 꼭 와서 다시 봐야지.)'], phoenixAgain: ['오늘도 봉황이 해를 데리고 지나갔어.', '…엄마도 저 하늘 어딘가에서 보고 있을까.', '봉황을 보면 하루가 건강하대.'],
@@ -422,6 +439,14 @@ const en: Dict = {
   sitCushion: 'Sit on a cushion',
   finish: ['', 'Finish the kimbap', 'Finish the coffee', 'Finish the makgeolli'], finished: ['', 'That was good! Foil goes in my pocket.', 'Ahh… so warm. I\'ll take the cup with me.', 'Ahh…! Just the one. I\'ll return the kettle.'],
   holdBtn: 'Hold hands', holdLet: 'Let go', holding: 'Holding hands. You follow where they go (move to let go)', heldBy: 'Someone took your hand. They follow where you go', holdOff: 'Let go',
+  dayDate: (d: Date) => d.toLocaleDateString('en', { month: 'long', day: 'numeric' }),
+  dayNth: (n: number) => `The ${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'} morning`,
+  reflectHi: 'Slept well? The sun will be up soon.',
+  reflectAsk: (yest: boolean) => `By the way… the promise you wrote ${yest ? 'yesterday' : 'last time'} —\ndid you keep it?`,
+  reflectWhen: (yest: boolean, d: string) => `Written ${yest ? 'yesterday' : 'last time'} · ${d}`,
+  reflectPick: ['I did', 'A little', "I didn't"],
+  reflectReply: ['Heh heh, well done.\nCarry that into today\'s promise.', 'A little is plenty.\nMountains are climbed one step at a time.', 'That\'s all right. The sun rose again today.\nJust write it again.'],
+  reflectMe: '(…Right. Today has its own sun.)',
   feedSign: 'Feeding Yard', feedLine: 'Greeting the sun is a miracle that happens every day.\nTo keep that miracle going… first, you eat well.', feedLineTogether: 'Grain eaten alone fills the belly.\nGrain eaten together fills the heart.', feedTogether: '(It tastes better when we eat together…)',
   peckBtn: 'Peck', cafeSign: 'Chick Café', peckThought: ['Peck peck… so nutty.', 'A handful of millet and I can climb anything.', '…just one more.'],
   phoenixFirst: ['……!', 'Was that… a phoenix?', '…Mom?', '(I\'ll come back at sunrise tomorrow to see it again.)'], phoenixAgain: ['The phoenix brought the sun across again today.', '…Is Mom watching from somewhere up there?', 'They say seeing the phoenix keeps you well all day.'],

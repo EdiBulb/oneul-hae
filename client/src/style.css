@@ -622,3 +622,16 @@ body.in-intro header,body.in-intro #center,body.in-intro #chips,body.in-intro #t
 .fade-name{font-family:'Gowun Batang',serif;font-size:34px;letter-spacing:.3em;color:#f2e2b8;text-align:center;opacity:0;transform:translateY(6px);transition:opacity .4s .15s,transform .4s .15s}
 .fade-name small{display:block;font-family:'Noto Sans KR',sans-serif;font-size:13px;letter-spacing:.05em;color:rgba(242,226,184,.7);margin-top:6px}
 .fade.named.on .fade-name{opacity:1;transform:none}
+
+/* 해 뜨는 순간: 날짜 · N번째 아침 */
+.day-title{position:fixed;left:0;right:0;top:31%;z-index:30;text-align:center;pointer-events:none;opacity:0;transform:translateY(10px);transition:opacity 1.1s,transform 1.1s}
+.day-title.on{opacity:1;transform:none}
+.dt-date{font-family:'Gowun Batang',serif;font-size:34px;font-weight:700;letter-spacing:.06em;color:#fff8ef;text-shadow:0 2px 18px rgba(80,30,0,.5)}
+.dt-nth{margin-top:8px;font-family:'Gowun Batang',serif;font-size:16px;color:rgba(255,248,239,.92);letter-spacing:.2em;text-shadow:0 1px 10px rgba(80,30,0,.5)}
+.dt-line{width:0;height:1px;margin:14px auto 0;background:rgba(255,248,239,.75);transition:width 1.4s .5s}
+.day-title.on .dt-line{width:120px}
+/* 어제 쓴 다짐 종이를 잠깐 보여 줌 */
+.goal-peek{position:fixed;left:50%;top:14%;z-index:31;width:min(240px,64vw);margin-left:calc(min(240px,64vw) / -2);background:#fffaf0;border-radius:8px;padding:12px 12px 10px;box-shadow:0 12px 28px rgba(0,0,0,.3);transform:rotate(-3deg);text-align:center;animation:peekIn .4s ease}
+.goal-peek small{display:block;font-size:11px;color:#9a8a70;margin-bottom:6px}
+.goal-peek img{display:block;width:100%;height:auto}
+@keyframes peekIn{from{opacity:0;transform:rotate(-3deg) scale(.9)}}
