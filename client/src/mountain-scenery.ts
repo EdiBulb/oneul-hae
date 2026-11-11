@@ -6,6 +6,7 @@ import { koreanPine } from './place-scenery';
 import { createShops } from './mountain-shops';
 import { HALL } from './hall';
 import { FEED_AT, FEED_R } from './feed';
+import { LOOK, stylize } from './look';
 /** 둥지 · 마고할미 (장터목 마당 아래쪽) */
 export const NEST = { x: trailX(98) - 0.8, z: 98 };
 
@@ -13,6 +14,7 @@ export const NEST = { x: trailX(98) - 0.8, z: 98 };
 // 발아래는 운해(구름 바다), 그 위로 겹겹이 이어진 능선이 봉우리만 내밀고 있다.
 
 const lam = (c: number, extra: Partial<THREE.MeshLambertMaterialParameters> = {}) => new THREE.MeshLambertMaterial({ color: c, flatShading: true, ...extra });
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const rnd = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
 
 /** 한국 날짜로 계절. 주소에 ?season=spring 처럼 붙이면 미리 볼 수 있음 */
@@ -70,13 +72,17 @@ const VARIANTS = {
 } as const;
 export type MountainId = keyof typeof VARIANTS;
 export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.Texture) {
-  const V = VARIANTS[id];
+  const V0 = VARIANTS[id], LK = id === 'jirisan' ? LOOK : null;
+  const V = LK ? { ...V0, grass: LK.ground.grass, dry: LK.ground.dry, stone: LK.ground.stone, path: LK.ground.path, rock: LK.rock } : V0;
   const SEASON = seasonNow();
   const mountainY = (x: number, z: number) => mY(x, z, id);
   const g = new THREE.Group(); scene.add(g); g.visible = false;
   /** 가게 자리 근처엔 나무·덤불·돌을 두지 않음 */
   const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 5.8 && Math.hypot(x - FEED_AT.x, z - FEED_AT.z) > FEED_R + 1.4 && Math.hypot(x - NEST.x, z - NEST.z) > 2.6);
 
+  /** 꽃밭 (지리산, 시안): 제석봉 아래 오른쪽 비탈에 크게 */
+  const FIELD = { z0: 38, z1: 75, x0: 2.8, x1: 30 };
+  const inField = (x: number, z: number) => !!LK && z > FIELD.z0 && z < FIELD.z1 && x - trailX(z) > FIELD.x0 && x - trailX(z) < FIELD.x1 + Math.sin(z * 0.2) * 3;
   // ---------- 정상 땅 (바위와 풀이 섞인 능선) ----------
   const jiri = id === 'jirisan';
   const W = 150, D = jiri ? 124 : 76, geo = new THREE.PlaneGeometry(W, D, 110, jiri ? 104 : 64);
@@ -91,6 +97,16 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
     if (Math.abs(x - (jiri ? trailX(z) : 0)) < 1.6 + Math.sin(z * 0.5) * 0.4 && z > 1 && z < (jiri ? TRAIL.end : 40)) c.copy(path);
     else if (z < SUMMIT.crestZ + 1 || n > 0.45 || Math.abs(x - (jiri ? trailX(z) : 0)) > 9) c.copy(stone).lerp(dry, 0.15 + 0.2 * Math.max(0, n));
     else c.copy(grass).lerp(dry, 0.5 + 0.5 * n);
+    if (LK) {
+      // 시안: 풀밭이 기본, 바위는 정상 언덕·절벽 근처와 군데군데만. 길은 부드럽게 번지고, 멀리 내려갈수록 살짝 진하게
+      const g2 = new THREE.Color(LK.ground.grass2), big = Math.sin(x * 0.11 + 1.3) * Math.sin(z * 0.09 - 0.4), dx = Math.abs(x - (jiri ? trailX(z) : 0));
+      c.copy(grass).lerp(g2, 0.5 + 0.5 * big).lerp(dry, Math.max(0, n - 0.2) * 0.5);
+      if (z < SUMMIT.crestZ + 1.5 || (n > 0.7 && dx > 4)) c.copy(stone).lerp(dry, 0.2);
+      if (inField(x, z)) c.set(LK.ground.field);
+      const pw = 1.5 + Math.sin(z * 0.5) * 0.4;
+      if (z > 1 && z < (jiri ? TRAIL.end : 40)) c.lerp(path, clamp01((pw + 0.6 - dx) / 1.2));
+      c.multiplyScalar(1 - Math.min(0.18, Math.max(0, dx - 12) * 0.012));
+    }
     if (SEASON === 'winter' && (n > -0.15 || Math.abs(x) > 4)) c.lerp(SNOW, 0.55 + 0.35 * Math.max(0, n));
     else if (SEASON === 'late') c.lerp(dry, 0.45);
     else if (SEASON === 'summer') c.lerp(grass, 0.35);
@@ -119,10 +135,10 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   for (let i = 0; i < 40; i++) { const x = (rnd() - 0.5) * 22, z = 3 + rnd() * 22; if (Math.abs(x) < 2.2 || !clearOf(x, z)) continue; boulder(x, mountainY(x, z) + 0.1, z, 0.25 + rnd() * 0.4, 0.6); }
 
   // ---------- 나무: 키 작은 구상나무와 하얗게 말라 죽은 고사목 ----------
-  const pineM = lam(0x8fa77c), pineM2 = lam(0x9fb58a), deadM = lam(0xe2dbcd); // 연한 수채 초록
+  const pineM = lam(LK ? LK.pine[0] : 0x8fa77c), pineM2 = lam(LK ? LK.pine[1] : 0x9fb58a), deadM = lam(LK ? LK.dead : 0xe2dbcd); // 연한 수채 초록
   for (let i = 0; i < V.trees; i++) {
     const sx = rnd() < 0.5 ? -1 : 1, x = sx * (7 + rnd() * 10), z = 4 + rnd() * 24, y = mountainY(x, z);
-    if (!clearOf(x, z)) continue;
+    if (!clearOf(x, z) || inField(x, z)) continue;
     if (rnd() < V.dead) {
       // 고사목
       const t = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 2.6, 5), deadM); t.position.set(x, y + 1.3, z); t.rotation.z = (rnd() - 0.5) * 0.3; g.add(t);
@@ -145,7 +161,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
     late: [0xb8a882, 0xc49a7a, 0xc8b890, 0xae9e7e, 0xcaa888],
     winter: [0xb8b0a6, 0xc4bcb2, 0xaca69e, 0xbcb4aa, 0xb4aea6],
   };
-  const bushMs = BUSH[SEASON].map(c => lam(c));
+  const bushMs = (LK ? LK.bush : BUSH[SEASON]).map(c => lam(c));
   for (let i = 0; i < 34; i++) { const x = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 6), z = 4 + rnd() * 16; if (!clearOf(x, z)) continue; const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + rnd() * 0.4, 0), bushMs[i % bushMs.length]); b.scale.y = 0.6; b.position.set(x, mountainY(x, z) + 0.2, z); g.add(b); }
 
   // ---------- 계절 ----------
@@ -181,7 +197,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   }
 
   // ---------- 정상: 데크·난간 없이 층층이 쪼개진 화강암 (해만 보는 곳) ----------
-  const graniteM = [lam(0xbcae9c), lam(0xc8bba9), lam(0xb0a290)];
+  const graniteM = (LK ? LK.granite : [0xbcae9c, 0xc8bba9, 0xb0a290]).map(c => lam(c));
   const slab = (x: number, z: number, sx: number, sy: number, sz: number, ry: number, top: number) => {
     const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), graniteM[Math.floor(rnd() * 3)]);
     m.scale.set(sx, sy, sz); m.rotation.set((rnd() - 0.5) * 0.25, ry, (rnd() - 0.5) * 0.25);
@@ -206,7 +222,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   if (jiri) {
     // 통천문: 길 양쪽 큰 바위 둘 + 그 위에 얹힌 바위 하나, 사이로 나무 계단
     const gateG = new THREE.Group(); gateG.position.set(GATE.x, 0, GATE.z); g.add(gateG);
-    const gy = mY(GATE.x, GATE.z, id), gm = [lam(0xb4a594), lam(0xc0b2a1), lam(0xa89a89)];
+    const gy = mY(GATE.x, GATE.z, id), gm = (LK ? LK.rock : [0xb4a594, 0xc0b2a1, 0xa89a89]).map(c => lam(c));
     const big = (x: number, sx: number, sy: number, sz: number, y: number, m: THREE.Material) => { const b = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 1), m); b.scale.set(sx, sy, sz); b.position.set(x, gy + y, 0); b.rotation.set(0.1, rnd(), 0.05); gateG.add(b); return b; };
     for (const sx of [-1, 1]) { big(sx * (GATE.gap + GATE.w / 2), GATE.w / 2 + 0.2, 2.2, GATE.d / 2 + 0.2, 1.4, gm[0]); big(sx * (GATE.gap + 2.6), 1.4, 1.4, 1.5, 0.6, gm[2]); }
     big(0, 2.4, 0.75, 1.5, 3.55, gm[1]);
@@ -217,17 +233,17 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
     const stepM = lam(0x7a5532);
     for (let i = 0; i < 7; i++) { const zz = GATE.d / 2 + 1 - i * 0.55, st = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.22), stepM); st.position.set(0, mY(GATE.x, GATE.z + zz, id) - gy + gy + 0.05, zz); gateG.add(st); }
     // 제석봉 고사목 숲: 풀밭 비탈에 하얗게 말라 죽은 나무들
-    const deadM2 = lam(0xe9e2d4);
+    const deadM2 = lam(LK ? LK.dead : 0xe9e2d4);
     const deadTree = (x: number, z: number, h: number) => {
       const y = mY(x, z, id), t = new THREE.Group(); t.position.set(x, y, z); t.rotation.y = rnd() * 6.28; g.add(t);
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.13, h, 5), deadM2); trunk.position.y = h / 2; trunk.rotation.z = (rnd() - 0.5) * 0.2; t.add(trunk);
       for (let k = 0; k < 4; k++) { const L = h * (0.25 + rnd() * 0.25), br = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.05, L, 4), deadM2); const a = rnd() * 6.28, up = 0.5 + rnd() * 0.6; br.position.set(Math.cos(a) * L * 0.35 * Math.sin(up), h * (0.55 + k * 0.1) + Math.cos(up) * L * 0.35, Math.sin(a) * L * 0.35 * Math.sin(up)); br.rotation.set(Math.sin(a) * up, 0, -Math.cos(a) * up); t.add(br); }
     };
-    for (let i = 0; i < 46; i++) { const z = 36 + rnd() * 30, side = rnd() < 0.5 ? -1 : 1, x = trailX(z) + side * (2.4 + rnd() * 9); deadTree(x, z, 2.2 + rnd() * 2.2); }
+    for (let i = 0; i < 46; i++) { const z = 36 + rnd() * 30, side = rnd() < 0.5 ? -1 : 1, x = trailX(z) + side * (2.4 + rnd() * 9); if (inField(x, z) || (LK && side > 0)) continue; deadTree(x, z, 2.2 + rnd() * 2.2); }
     // 길가 구상나무 (통천문 위아래, 장터목 가는 길)
-    for (let i = 0; i < 40; i++) { const z = (i < 14 ? 16 + rnd() * 18 : 66 + rnd() * 30), side = rnd() < 0.5 ? -1 : 1, x = trailX(z) + side * (2.6 + rnd() * 8), y = mY(x, z, id); if (!clearOf(x, z)) continue; const h = 1.2 + rnd() * 1.6; for (let k = 0; k < 3; k++) { const cone = new THREE.Mesh(new THREE.ConeGeometry(0.75 - k * 0.2, h * 0.55, 7), k % 2 ? pineM : pineM2); cone.position.set(x, y + 0.3 + k * h * 0.28 + h * 0.27, z); g.add(cone); } }
+    for (let i = 0; i < 40; i++) { const z = (i < 14 ? 16 + rnd() * 18 : 66 + rnd() * 30), side = rnd() < 0.5 ? -1 : 1, x = trailX(z) + side * (2.6 + rnd() * 8), y = mY(x, z, id); if (!clearOf(x, z) || inField(x, z)) continue; const h = 1.2 + rnd() * 1.6; for (let k = 0; k < 3; k++) { const cone = new THREE.Mesh(new THREE.ConeGeometry(0.75 - k * 0.2, h * 0.55, 7), k % 2 ? pineM : pineM2); cone.position.set(x, y + 0.3 + k * h * 0.28 + h * 0.27, z); g.add(cone); } }
     // 길가 바위
-    for (let i = 0; i < 50; i++) { const z = 16 + rnd() * 84, x = trailX(z) + (rnd() < 0.5 ? -1 : 1) * (1.9 + rnd() * 6); if (!clearOf(x, z) || Math.abs(z - GATE.z) < 3) continue; boulder(x, mY(x, z, id) + 0.1, z, 0.25 + rnd() * 0.45, 0.6); }
+    for (let i = 0; i < 50; i++) { const z = 16 + rnd() * 84, x = trailX(z) + (rnd() < 0.5 ? -1 : 1) * (1.9 + rnd() * 6); if (!clearOf(x, z) || inField(x, z) || Math.abs(z - GATE.z) < 3) continue; boulder(x, mY(x, z, id) + 0.1, z, 0.25 + rnd() * 0.45, 0.6); }
     // 이정표: 천왕봉까지 남은 거리 (실제 거리 기준)
     const signPost = (z: number, side: number, up: string, down: string) => {
       const x = trailX(z) + side * 1.9, sgp = new THREE.Group(); sgp.position.set(x, mY(x, z, id), z); sgp.rotation.y = side > 0 ? -0.5 : 0.5; g.add(sgp);
@@ -241,6 +257,40 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
     signPost(27, -1, '↑ 천왕봉 0.3km', '↓ 장터목 1.4km');
     signPost(52, 1, '↑ 천왕봉 0.9km', '제석봉 1,808m');
     signPost(80, -1, '↑ 천왕봉 1.4km', '↓ 장터목 0.3km');
+  }
+
+  // ---------- 꽃밭 (시안): 어머니들 카톡 프사 같은 큰 꽃밭. 색 띠가 비탈을 따라 굽이침 ----------
+  if (LK && jiri) {
+    const pts: [number, number, number][] = [], NF = LK.flowers.length;
+    for (let z = FIELD.z0 + 0.5; z < FIELD.z1 - 0.3; z += 0.2) for (let dx = FIELD.x0 + 0.4; dx < FIELD.x1 + 3; dx += 0.2) {
+      const x = trailX(z) + dx + (rnd() - 0.5) * 0.18, zz = z + (rnd() - 0.5) * 0.18;
+      if (!inField(x, zz) || !clearOf(x, zz)) continue;
+      // 꽃밭 사이 오솔길 (사진 찍으러 들어가는 길)
+      const lane = Math.abs((dx - 10) - Math.sin(z * 0.18) * 4);
+      if (lane < 0.6) continue;
+      // 굽이치는 색 띠, 경계는 살짝 섞임 + 군데군데 다른 색 한 송이
+      const bv = (dx * 0.55 + z * 0.32 + Math.sin(z * 0.15) * 3) / 3.2 + (rnd() - 0.5) * 0.35;
+      let k = ((Math.floor(bv) % NF) + NF) % NF; if (rnd() < 0.04) k = Math.floor(rnd() * NF);
+      pts.push([x, zz, k]);
+    }
+    const geo = new THREE.IcosahedronGeometry(0.1, 1); geo.scale(1, 0.55, 1);
+    const im = new THREE.InstancedMesh(geo, new THREE.MeshToonMaterial({ color: 0xffffff }), pts.length);
+    const leafGeo = new THREE.ConeGeometry(0.13, 0.22, 5);
+    const leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshToonMaterial({ color: new THREE.Color(LK.ground.field).multiplyScalar(0.8) }), Math.ceil(pts.length / 3));
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), cc = new THREE.Color();
+    pts.forEach(([x, z, k], i) => {
+      const s = 0.75 + rnd() * 0.6, gy = mY(x, z, id); e.set((rnd() - 0.5) * 0.4, rnd() * 6, (rnd() - 0.5) * 0.4); q.setFromEuler(e);
+      m4.compose(ps.set(x, gy + 0.16 + rnd() * 0.12, z), q, sc.set(s, s, s)); im.setMatrixAt(i, m4);
+      cc.set(LK.flowers[k]).offsetHSL((rnd() - 0.5) * 0.02, 0, (rnd() - 0.5) * 0.1); im.setColorAt(i, cc);
+      if (i % 3 === 0) { m4.compose(ps.set(x + 0.05, gy + 0.08, z + 0.05), q, sc.set(1, 1, 1)); leaves.setMatrixAt(i / 3, m4); }
+    });
+    im.instanceColor!.needsUpdate = true; g.add(im, leaves);
+    // 사진 찍는 나무 액자
+    const fx = trailX(56) + 9, fz = 56, fy = mY(fx, fz, id), frame = new THREE.Group(); frame.position.set(fx, fy, fz); frame.rotation.y = -0.9; g.add(frame);
+    const wood = lam(0xb07a4a);
+    for (const sx of [-1, 1]) { const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.2, 0.14), wood); p2.position.set(sx * 0.95, 1.1, 0); frame.add(p2); }
+    for (const yy of [0.35, 2.15]) { const b = new THREE.Mesh(new THREE.BoxGeometry(2.04, 0.14, 0.14), wood); b.position.y = yy; frame.add(b); }
+    const tag = textSprite('지리산 꽃밭', 0.42); tag.position.y = 2.55; frame.add(tag);
   }
 
   // ---------- 둥지: 모든 병아리가 태어나고 매일 아침 깨어나는 곳 ----------
@@ -303,7 +353,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
     x.fillStyle = '#ffffff';
     for (const [cx, cy, r] of blobs) { x.beginPath(); x.ellipse(cx, cy, r, r * 0.72, 0, 0, Math.PI * 2); x.fill(); }
     x.beginPath(); x.ellipse(128, 92, 104, 22, 0, 0, Math.PI * 2); x.fill(); // 아래쪽도 둥글게 (네모 끝이 보이지 않게)
-    x.globalCompositeOperation = 'destination-over'; x.strokeStyle = 'rgba(160,140,132,0.55)'; x.lineWidth = 3;
+    x.globalCompositeOperation = 'destination-over'; x.strokeStyle = LK ? LK.cloudLine : 'rgba(160,140,132,0.55)'; x.lineWidth = 3;
     for (const [cx, cy, r] of blobs) { x.beginPath(); x.ellipse(cx, cy, r + 2, r * 0.72 + 2, 0, Math.PI * 1.05, Math.PI * 1.95); x.stroke(); }
     x.globalCompositeOperation = 'source-over';
     return stable(new THREE.CanvasTexture(cv));
@@ -319,8 +369,8 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
 
   // ---------- 겹겹이 이어진 먼 능선 (가까울수록 진하게) ----------
   const ridges = [
-    ridge(95, -20, 12, 0xc7bdd3, 9.1), ridge(160, -24, 16, 0xd0c6db, 1.2), ridge(300, -24, 20, 0xd9d0e2, 3.1),
-    ridge(470, -28, 26, 0xe2dbea, 5.7), ridge(700, -34, 32, 0xebe6f1, 8.4),
+    ridge(95, -20, 12, LK ? LK.ridges[0] : 0xc7bdd3, 9.1), ridge(160, -24, 16, LK ? LK.ridges[1] : 0xd0c6db, 1.2), ridge(300, -24, 20, LK ? LK.ridges[2] : 0xd9d0e2, 3.1),
+    ridge(470, -28, 26, LK ? LK.ridges[3] : 0xe2dbea, 5.7), ridge(700, -34, 32, LK ? LK.ridges[4] : 0xebe6f1, 8.4),
   ].slice(-V.ridges);
   // 양옆으로도 둘러싸게
   // 양옆으로도 겹겹이 (같은 재질이라 밤낮 색이 함께 바뀜)
@@ -334,7 +384,8 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   }
   const ridgeBase = ridges.map(r => (r.material as THREE.MeshBasicMaterial).color.clone());
 
-  const cDay = new THREE.Color(0xfffbf4), cNight = new THREE.Color(0x58628a), tmp = new THREE.Color(), dark = new THREE.Color(0x10141f);
+  const cDay = new THREE.Color(LK ? LK.cloudDay : 0xfffbf4), cNight = new THREE.Color(LK ? LK.cloudNight : 0x58628a), tmp = new THREE.Color(), dark = new THREE.Color(LK ? LK.ridgeNight : 0x10141f);
+  if (LK) stylize(g);
   return {
     group: g,
     update(dt: number, night: number, low: THREE.Color, t = 0) {

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LOOK, lookSky } from './look';
 import { stable } from './stable-tex';
 import type { PlaceId } from '../../server/src/protocol';
 import type { Place } from './places';
@@ -9,7 +10,7 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /** 해 고도별 하늘색 (위, 중간, 지평선) */
 const C = (r: number, g: number, b: number) => new THREE.Color(r / 255, g / 255, b / 255);
-const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
+const SKY0: [number, THREE.Color, THREE.Color, THREE.Color][] = [
   // 참고: 실제 일출 사진 — 주황·다홍 하늘 + 검은 실루엣. 해 뜰 무렵엔 위로 갈수록 짙은 적갈색
   // 프사 그림처럼: 크림색 종이 위 옅은 수채. 밤도 그림책처럼 부드러운 남색
   [-18, C(30, 36, 70), C(44, 52, 92), C(66, 74, 118)],
@@ -20,6 +21,8 @@ const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
   [5, C(214, 212, 228), C(250, 230, 208), C(253, 243, 226)],
   [12, C(190, 216, 234), C(228, 238, 240), C(250, 246, 236)],
 ];
+
+const SKY = lookSky() ?? SKY0;
 
 /** 앉을 자리. 방석·데크는 바다(ry 0)를, 통나무는 모닥불을 바라본다.
  *  bench(통나무·데크 끝)면 y가 엉덩이 높이, sx·sz는 일어날 때 내려설 자리 */
@@ -37,7 +40,7 @@ export function glowTexture() {
 }
 
 export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, GLOW: THREE.Texture) {
-  scene.fog = new THREE.Fog(0x000000, 50, 560);
+  scene.fog = new THREE.Fog(0x000000, LOOK?.fog[0] ?? 50, LOOK?.fog[1] ?? 560);
   const top = new THREE.Color(), mid = new THREE.Color(), low = new THREE.Color();
   function skyAt(alt: number) {
     if (alt <= SKY[0][0]) { top.copy(SKY[0][1]); mid.copy(SKY[0][2]); low.copy(SKY[0][3]); return; }
@@ -299,10 +302,11 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     hemi.color.copy(mid).multiplyScalar(0.6).add(tmp.setRGB(0.24, 0.26, 0.4));
     // 해가 낮게 떠 있을 땐 역광: 주변광을 줄여 앞쪽 바위·사람이 실루엣처럼 어둡게 → 해가 더 빛남
     const backlit = 0; // 역광 실루엣은 끔: 그림처럼 해를 등져도 캐릭터가 밝게
-    hemi.intensity = (0.72 + 0.22 * dayK) * (1 - 0.45 * backlit) * (1 - 0.2 * dawn) * Math.PI; // 새벽에도 그림처럼 밝게
+    hemi.intensity = (0.72 + 0.22 * dayK) * (1 - 0.45 * backlit) * (1 - 0.2 * dawn) * Math.PI * (LOOK?.hemi ?? 1);
+    if (LOOK) { hemi.groundColor.setHex(LOOK.hemiGround); hemi.color.lerp(tmp.setRGB(1, 0.97, 0.92), 0.45 + LOOK.nightLift * (1 - dayK)); } // 새벽에도 그림처럼 밝게
     moon.intensity = 0.4 * (1 - dayK) * Math.PI;
     sunLight.color.copy(sunCol);
-    sunLight.intensity = clamp((alt + 2) / 8, 0, 1) * 0.6 * (1 - 0.5 * dawn) * Math.PI;
+    sunLight.intensity = clamp((alt + 2) / 8, 0, 1) * 0.6 * (1 - 0.5 * dawn) * Math.PI * (LOOK?.sun ?? 1);
     sunLight.position.copy(sunDir).multiplyScalar(50);
     // 실내(청학당): 바깥 시각과 상관없이 따뜻하게 밝은 방
     if (indoor) { hemi.color.setRGB(1, 0.95, 0.86); hemi.intensity = 1.05 * Math.PI; moon.intensity = 0; sunLight.color.setRGB(1, 0.92, 0.8); sunLight.intensity = 0.55 * Math.PI; sunLight.position.set(-20, 40, -12); }
