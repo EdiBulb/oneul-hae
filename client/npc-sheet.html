@@ -1,0 +1,38 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;background:#f7f2ea}canvas{display:block}</style></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { makeChar, setOutfit } from './src/character.ts';
+import { createMago } from './src/mago.ts';
+import { blueCrane } from './src/crane.ts';
+import { dokkaebi, ureongGaksi } from './src/npcs.ts';
+const q = new URLSearchParams(location.search), mode = q.get('m') || 'line', W = +(q.get('w') || 1600), H = +(q.get('h') || 700);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.setClearColor(mode === 'sil' ? 0xf3ece2 : 0xf3ece2); document.body.appendChild(r.domElement);
+const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0x8a7a8a, 2.4)); const dl = new THREE.DirectionalLight(0xfff4e0, 1.6); dl.position.set(3, 5, 6); sc.add(dl);
+const items = [];
+const put = (o, x, ry = 0, z = 0) => { o.g.position.set(x, 0, z); o.g.rotation.y = ry; sc.add(o.g); items.push(o); };
+const chickObj = () => { const c = makeChar(0, 0xf2c8d8); setOutfit(c, 0); for (const n of ['eggshell','scarf','outfit']) { const o = c.root.getObjectByName(n); if (o) o.visible = false; } return { g: c.root, update() {} }; };
+const mago = () => { const m = createMago(''); return { g: m.root ?? m.group ?? m, update() {} }; };
+let cam;
+if (mode === 'line' || mode === 'sil') {
+  put(chickObj(), -6.2, Math.PI);
+  put(ureongGaksi('chick'), -4.6, Math.PI + 0.3);
+  put(ureongGaksi('snail'), -3.2, Math.PI + 0.7);
+  put(dokkaebi('minion', 0x9fb0e8, 1), -1.8, Math.PI + 0.2);
+  put(dokkaebi('minion', 0x9fdcc8, 2), -0.5, Math.PI);
+  put(dokkaebi('minion', 0xf4b8a0, 3), 0.8, Math.PI - 0.2);
+  put(dokkaebi('chief', 0x8f9ce0, 4), 2.6, Math.PI);
+  put(mago(), 4.5, Math.PI + 0.2);
+  put(blueCrane('stand'), 6.2, -0.4);
+  cam = new THREE.PerspectiveCamera(24, W / H, 0.1, 200); cam.position.set(0, 1.4, 22); cam.lookAt(0, 0.95, 0);
+  if (mode === 'sil') sc.overrideMaterial = new THREE.MeshBasicMaterial({ color: 0x3c3530 });
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(40, 10), new THREE.MeshBasicMaterial({ color: mode === 'sil' ? 0xf3ece2 : 0xe6dccc })); fl.rotation.x = -Math.PI / 2; fl.position.y = -0.005; sc.add(fl);
+} else {
+  // 클로즈업: 도깨비 대장 + 졸개 / 우렁각시 두 모습
+  const which = q.get('who');
+  if (which === 'dok') { put(dokkaebi('chief', 0x8f9ce0, 4), -0.9, Math.PI + 0.25); put(dokkaebi('minion', 0x9fdcc8, 2), 1.1, Math.PI - 0.35, 0.4); put(dokkaebi('minion', 0xf4b8a0, 3), 2.2, Math.PI - 0.6, -0.6); }
+  else { put(ureongGaksi('chick'), -0.8, Math.PI + 0.35); put(ureongGaksi('snail'), 1.0, Math.PI + 0.9); }
+  cam = new THREE.PerspectiveCamera(28, W / H, 0.1, 100); cam.position.set(0.4, 1.6, 7.2); cam.lookAt(0.4, 0.85, 0);
+  const fl = new THREE.Mesh(new THREE.CircleGeometry(8, 40), new THREE.MeshBasicMaterial({ color: 0xe6dccc })); fl.rotation.x = -Math.PI / 2; sc.add(fl);
+}
+const t = +(q.get('t') || 900); for (const it of items) it.update(t); r.render(sc, cam); window.done = true;
+</script></body></html>
