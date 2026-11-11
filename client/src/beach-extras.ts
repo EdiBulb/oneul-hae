@@ -52,6 +52,12 @@ const ss = (a: number, b: number, v: number) => { const t = clamp((v - a) / (b -
 /** 천왕봉 땅 높이: 뒤쪽 길은 내려가고, 앞으로 갈수록 올라가다 언덕을 넘으면 평평한 전망대 */
 /** 한라산 백록담 분화구 (걷는 길 왼쪽 위) */
 export const CRATER = { x: -17, z: 13, r: 7, depth: 4.5 };
+/** 새 장소 시안 (?spots=1) */
+export const SPOTS_ON = typeof location !== 'undefined' && new URLSearchParams(location.search).get('spots') === '1';
+/** 천왕샘 연못 (청학이 내려오는 곳): 통천문 지나 왼쪽 비탈을 평평하게 깎은 분지. 물은 타원 (rx, rz), 가운데 섬 */
+export const POND = { x: -21, z: 33, rx: 12.5, rz: 9.5, y: -3.0, isle: { dx: 1.5, dz: 0.5, r: 3.4 } };
+/** 연못 물 안인지 (섬 제외), 0 = 가장자리, 1 = 한가운데 */
+export function pondD(x: number, z: number) { return Math.hypot((x - POND.x) / POND.rx, (z - POND.z) / POND.rz); }
 // ---------- 지리산 등산로: 장터목(z≈92) → 제석봉 고사목(z≈50) → 통천문(z≈21) → 매일 시작하는 곳(z≈12) → 천왕봉(z≈0) ----------
 export const TRAIL = { gate: 21, jeseok: 50, jang: 92, end: 102 };
 /** 등산로 가운데 x (내려갈수록 굽이침) */
@@ -75,6 +81,17 @@ export function mountainY(x: number, z: number, id: PlaceId = terrain) {
   y -= Math.pow(Math.max(0, ax - edge), 1.35) * 0.22;
   y -= Math.pow(Math.max(0, z - (jiri ? TRAIL.end + 2 : 42)), 1.4) * 0.3;
   y += Math.sin(x * 0.9 + z * 0.4) * 0.06;
+  if (jiri && SPOTS_ON) {
+    // 연못 분지: 둘레를 평평하게, 물 안은 오목하게, 섬은 살짝 솟게
+    const d = pondD(x, z), w = 1 - ss(1.05, 1.75, d);
+    if (w > 0) {
+      let py = POND.y + 0.35;
+      if (d < 1) py = POND.y - 0.9 * (1 - d * d);
+      const id2 = Math.hypot(x - POND.x - POND.isle.dx, z - POND.z - POND.isle.dz) / POND.isle.r;
+      if (id2 < 1.25) py = Math.max(py, POND.y + 0.55 - ss(0.85, 1.25, id2) * 1.6);
+      y = y + (py - y) * w;
+    }
+  }
   if (id === 'hallasan') {
     // 분화구: 가장자리는 둥글게 솟고, 안쪽은 움푹 꺼짐
     const d = Math.hypot(x - CRATER.x, z - CRATER.z) / CRATER.r;

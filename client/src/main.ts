@@ -16,6 +16,7 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 import { NEST } from './mountain-scenery';
 import { stylize } from './look';
 import { PHOENIX_ROCK } from './landmarks';
+import { SPOTS_ON, POND, pondD } from './beach-extras';
 import { createHall, HALL } from './hall';
 import { initGoal, writeGoal, sendToSun } from './goal';
 import { createCastles } from './castles';
@@ -481,7 +482,7 @@ function fadeMe(k: number) {
 /** 카메라가 내려갈 수 있는 가장 낮은 각도. 그보다 더 밀면 하늘을 올려다봄 */
 const LOOK_MIN = 0.04;
 /** 걸어갈 수 있는 곳: 땅 + 청학당 외관 벽은 못 뚫음 (계단은 들어가는 입구) */
-const canGo = (x: number, z: number) => canStand(x, z) && !(place.id === 'jirisan' && !isIndoor(x, z) && hall.blocks(x, z) && !hall.atStairs(x, z));
+const canGo = (x: number, z: number) => canStand(x, z) && !(place.id === 'jirisan' && !isIndoor(x, z) && hall.blocks(x, z) && !hall.atStairs(x, z)) && !(SPOTS_ON && place.id === 'jirisan' && pondD(x, z) < 1.0 && Math.hypot(x - POND.x - POND.isle.dx, z - POND.z - POND.isle.dz) > POND.isle.r - 0.4);
 const inCamPos = new THREE.Vector3(), inLook = new THREE.Vector3();
 let freeCam: [THREE.Vector3, THREE.Vector3] | null = null;
 function updateCamera(dt: number) {

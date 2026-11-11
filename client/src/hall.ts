@@ -71,7 +71,7 @@ function latticeTex() {
   return stable(new THREE.CanvasTexture(c));
 }
 const box = (w: number, h: number, d: number, m: THREE.Material) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
-function hipRoof(w: number, d: number, h: number, lift: number, mat: THREE.Material) {
+export function hipRoof(w: number, d: number, h: number, lift: number, mat: THREE.Material) {
   const gq = new THREE.ConeGeometry(1, h, 4, 1); gq.rotateY(Math.PI / 4); gq.scale(w * 0.75, 1, d * 0.75);
   const p = gq.attributes.position;
   for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y < 0) { const ax = Math.abs(p.getX(i)) / (w * 0.53), az = Math.abs(p.getZ(i)) / (d * 0.53); p.setY(i, y + Math.pow(Math.min(1, Math.max(ax, az)), 3) * lift + (ax > 0.9 && az > 0.9 ? lift * 0.7 : 0)); } }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { stable } from './stable-tex';
 import { textSprite } from './character';
-import { CRATER, GATE, SHOPS, SUMMIT, SUMMIT_ROCKS, TRAIL, mountainY as mY, trailX, worldToShop } from './beach-extras';
+import { pondD, POND, CRATER, GATE, SHOPS, SUMMIT, SUMMIT_ROCKS, TRAIL, mountainY as mY, trailX, worldToShop } from './beach-extras';
 import { koreanPine } from './place-scenery';
 import { createShops } from './mountain-shops';
 import { HALL } from './hall';
@@ -79,7 +79,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   const mountainY = (x: number, z: number) => mY(x, z, id);
   const g = new THREE.Group(); scene.add(g); g.visible = false;
   /** 가게 자리 근처엔 나무·덤불·돌을 두지 않음 */
-  const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 5.8 && Math.hypot(x - FEED_AT.x, z - FEED_AT.z) > FEED_R + 1.4 && Math.hypot(x - NEST.x, z - NEST.z) > 2.6 && (!SPOTS_ON || (Math.hypot(x - SPRING.x, z - SPRING.z) > 2.8 && Math.hypot(x - DANGSAN.x, z - DANGSAN.z) > 6.5 && Math.hypot(x - SWING.x, z - SWING.z) > 3.6)));
+  const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 5.8 && Math.hypot(x - FEED_AT.x, z - FEED_AT.z) > FEED_R + 1.4 && Math.hypot(x - NEST.x, z - NEST.z) > 2.6 && (!SPOTS_ON || (pondD(x, z) > 1.9 && Math.hypot(x - DANGSAN.x, z - DANGSAN.z) > 6.5 && Math.hypot(x - SWING.x, z - SWING.z) > 3.6)));
 
   /** 꽃밭 (지리산, 시안): 제석봉 아래 오른쪽 비탈에 크게 */
   const FIELD = { z0: 38, z1: 75, x0: 2.8, x1: 30 };
@@ -104,6 +104,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
       c.copy(grass).lerp(g2, 0.5 + 0.5 * big).lerp(dry, Math.max(0, n - 0.2) * 0.5);
       if (z < SUMMIT.crestZ + 1.5 || (n > 0.7 && dx > 4)) c.copy(stone).lerp(dry, 0.2);
       if (inField(x, z)) c.set(LK.ground.field);
+      if (SPOTS_ON && jiri) { const pd = pondD(x, z); if (pd < 1.0) c.set(0x9fd8d0).lerp(new THREE.Color(0x4aa8c8), Math.max(0, 1 - pd * 1.2)); else if (pd < 1.35) c.lerp(new THREE.Color(0xe8dcc8), 0.6); if (Math.hypot(x - POND.x - POND.isle.dx, z - POND.z - POND.isle.dz) < POND.isle.r) c.set(LK.ground.grass); }
       const pw = 1.5 + Math.sin(z * 0.5) * 0.4;
       if (z > 1 && z < (jiri ? TRAIL.end : 40)) c.lerp(path, clamp01((pw + 0.6 - dx) / 1.2));
       c.multiplyScalar(1 - Math.min(0.18, Math.max(0, dx - 12) * 0.012));
