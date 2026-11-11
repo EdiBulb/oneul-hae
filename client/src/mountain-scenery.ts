@@ -7,6 +7,7 @@ import { createShops } from './mountain-shops';
 import { HALL } from './hall';
 import { FEED_AT, FEED_R } from './feed';
 import { LOOK, stylize } from './look';
+import { SPOTS_ON, SPRING, DANGSAN, SWING, createSpots } from './landmarks';
 /** 둥지 · 마고할미 (장터목 마당 아래쪽) */
 export const NEST = { x: trailX(98) - 0.8, z: 98 };
 
@@ -78,7 +79,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   const mountainY = (x: number, z: number) => mY(x, z, id);
   const g = new THREE.Group(); scene.add(g); g.visible = false;
   /** 가게 자리 근처엔 나무·덤불·돌을 두지 않음 */
-  const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 5.8 && Math.hypot(x - FEED_AT.x, z - FEED_AT.z) > FEED_R + 1.4 && Math.hypot(x - NEST.x, z - NEST.z) > 2.6);
+  const clearOf = (x: number, z: number) => id !== 'jirisan' || (SHOPS.every(s => { const [lx, lz] = worldToShop(s, x, z); return Math.abs(lx) > s.w / 2 + 3.2 || Math.abs(lz) > s.d / 2 + 2.6; }) && Math.hypot(x - HALL.x, z - HALL.z) > 5.8 && Math.hypot(x - FEED_AT.x, z - FEED_AT.z) > FEED_R + 1.4 && Math.hypot(x - NEST.x, z - NEST.z) > 2.6 && (!SPOTS_ON || (Math.hypot(x - SPRING.x, z - SPRING.z) > 2.8 && Math.hypot(x - DANGSAN.x, z - DANGSAN.z) > 6.5 && Math.hypot(x - SWING.x, z - SWING.z) > 3.6)));
 
   /** 꽃밭 (지리산, 시안): 제석봉 아래 오른쪽 비탈에 크게 */
   const FIELD = { z0: 38, z1: 75, x0: 2.8, x1: 30 };
@@ -386,10 +387,11 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
 
   const cDay = new THREE.Color(LK ? LK.cloudDay : 0xfffbf4), cNight = new THREE.Color(LK ? LK.cloudNight : 0x58628a), tmp = new THREE.Color(), dark = new THREE.Color(LK ? LK.ridgeNight : 0x10141f);
   if (LK) stylize(g);
+  const spots = id === 'jirisan' && SPOTS_ON ? createSpots(g, mountainY, GLOW) : null;
   return {
     group: g,
     update(dt: number, night: number, low: THREE.Color, t = 0) {
-      shops?.update(t, night);
+      shops?.update(t, night); spots?.update(t, night);
       // 억새가 바람에 살랑
       for (const tuft of seasonG.children) if (tuft.userData.ph !== undefined) tuft.rotation.z = Math.sin(t * 1.3 + tuft.userData.ph) * 0.06;
       // 구름 덩어리가 아주 천천히 흘러감

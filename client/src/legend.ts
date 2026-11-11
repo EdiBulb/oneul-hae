@@ -134,6 +134,11 @@ export function createLegends(scene: THREE.Scene, GLOW: THREE.Texture) {
       const side = Math.random() < 0.5 ? -1 : 1, span = kind === 'phoenix' ? 34 : 28;
       flights.push({ kind, t: 0, dur: kind === 'phoenix' ? 13 : 16, from: base.clone().addScaledVector(right, -span * side), to: base.clone().addScaledVector(right, span * side), arc: kind === 'phoenix' ? 5 : 2.5, scale: kind === "phoenix" ? 3.2 : 2.0, done });
     },
+    /** 정해진 곳에서 날아오기 (봉황바위 → 정상 앞을 지나감) */
+    flyFrom(kind: Kind, from: THREE.Vector3, to: THREE.Vector3, dur = 14, done?: () => void) {
+      if (flights.some(f => f.kind === kind)) return;
+      flights.push({ kind, t: 0, dur, from: from.clone(), to: to.clone(), arc: 6, scale: kind === 'phoenix' ? 3.2 : 2.0, done });
+    },
     flying: () => flights.length > 0,
     update(dt: number, t: number) {
       for (let i = flights.length - 1; i >= 0; i--) {
