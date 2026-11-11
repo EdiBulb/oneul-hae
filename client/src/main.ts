@@ -17,6 +17,7 @@ import { NEST } from './mountain-scenery';
 import { stylize } from './look';
 import { PHOENIX_ROCK } from './landmarks';
 import { createNpcs } from './npc';
+import { growthNow, GROW_NEED, talesDone, sunsSeen } from './progress';
 import { progDebug, canLearn, lessonsLeft, sunRose, lessonChoices, neededSkills, learn, LESSON, skillById, onProgress } from './progress';
 import { renderBook, renderQuests, pickLesson } from './book';
 import { createQuests } from './quests';
@@ -214,7 +215,9 @@ if (store.outfit && itemOf(store.outfit) && store.itemDay !== dateKey(Date.now()
 const me = makeChar(BODY_COLORS[store.look.body], HAT_COLORS[store.look.hat]);
 // 병아리 성장: 해를 본 날 수 (연속 기록 지키기로 채운 날은 빼고)
 const seenDays = () => Object.values(store.days).filter(v => v !== 'shield').length;
-store.look.g = growthOf(seenDays()); store.growthSeen ??= store.look.g;
+// 본 해 수: 예전 기록(해 본 날 수)부터 이어서
+if ((store.suns ?? 0) < seenDays()) { store.suns = seenDays(); save(); }
+store.look.g = growthNow(); store.growthSeen ??= store.look.g;
 setGrowth(me, store.look.g);
 // 지리산은 언제나 장터목 둥지에서 깨어남 (바쁘면 옆의 '정상 가기' 버튼으로 바로)
 const spawn = () => {
@@ -1420,7 +1423,7 @@ $('hopBtn').onclick = () => { if (me.state === 'lie' || onCushion) return; doEmo
 initTalk({ blip: p => amb.blip(p), ko: lang === 'ko' });
 let growLock = false; // 테스트용: 단계를 손으로 고정
 setInterval(() => {
-  const g = growthOf(seenDays());
+  const g = growthNow();
   if (growLock || g === growthStage(me)) return;
   store.look.g = g; setGrowth(me, g);
   if (g > (store.growthSeen ?? 0)) { store.growthSeen = g; setTimeout(() => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), 6000); track('grew', { stage: g }); }
@@ -1693,14 +1696,15 @@ function renderStreak() {
 }
 /** 둥지 일기: 지금 단계, 해를 맞은 횟수, 다음 변화까지 */
 function renderGrowth() {
-  const steps = [...GROWTH_DAYS, PHOENIX_AT], n = seenDays();
-  const g = steps.reduce((s, d, i) => (n >= d ? i : s), 0), next = steps[g + 1];
+  const n = sunsSeen(), t = talesDone(), g = store.phoenix ? GROW_NEED.length : growthNow(), next = GROW_NEED[g + 1];
   $('growIc').textContent = T.stageIcon[g]; $('growName').textContent = T.stageName[g];
-  $('growCount').innerHTML = T.growCount(n);
-  if (next === undefined) { $('growBar').style.width = '100%'; $('growNext').innerHTML = T.growDone; return; }
-  const from = steps[g];
-  $('growBar').style.width = `${Math.round((n - from) / (next - from) * 100)}%`;
-  $('growNext').innerHTML = T.growNext(next - n, g + 1);
+  $('growCount').innerHTML = T.growCount(n) + ` · 이야기 <b>${t}개</b>`;
+  if (store.phoenix) { $('growBar').style.width = '100%'; $('growNext').innerHTML = T.growDone; return; }
+  if (!next) { $('growBar').style.width = '100%'; $('growNext').innerHTML = '스킬 15개와 이야기 8개를 마치고 청학당에 가면 봉황이 돼요'; return; }
+  const from = GROW_NEED[g], k = Math.min(1, ((Math.min(n, next.suns) - from.suns) / Math.max(1, next.suns - from.suns) + (Math.min(t, next.tales) - from.tales) / Math.max(1, next.tales - from.tales)) / 2);
+  $('growBar').style.width = `${Math.round(k * 100)}%`;
+  const ls = Math.max(0, next.suns - n), lt = Math.max(0, next.tales - t);
+  $('growNext').innerHTML = [ls ? `해 <em>${ls}번</em>` : '', lt ? `이야기 <em>${lt}개</em>` : ''].filter(Boolean).join(' · ') + ' 더 하면 ' + ['', '껍질이 벗겨져요', '몸집이 커져요', '볏이 돋아요', '목청이 트여요', '다 자란 닭이 돼요'][g + 1];
 }
 
 // ================= 알람 =================
@@ -3102,4 +3106,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { me, amb, prog: progDebug, npcs, quests, blk: () => ({ lying, magoBusy, introRunning, sheet: openSheet?.id, cutscene }), time: (v: 'night' | 'dawn' | 'day' | null) => { dbgTime = v; }, lie: (v: boolean) => { lying = v; me.state = v ? 'lie' : 'idle'; }, sawSun: () => { store.days[dateKey(Date.now())] = 'live'; save(); }, scene, camera, gl: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles }), cam, camPos: camera.position, freeCam: (a: number[] | null) => { freeCam = a ? [new THREE.Vector3(a[0], a[1], a[2]), new THREE.Vector3(a[3], a[4], a[5])] : null; }, phoenixRock: (k: number) => { legends.flyFrom('phoenix', PHOENIX_ROCK.clone().add(new THREE.Vector3(1, 6, 0)), new THREE.Vector3(30, 8, -10), 16); legends.update(16 * k, performance.now()); }, floor: (x: number, z: number) => floorY(x, z), dummy: (x: number, z: number, g: number, mask: number, ry: number) => { const c = makeChar(0xffd65a, 0); setGrowth(c, g); setOutfit(c, mask); c.root.position.set(x, floorY(x, z), z); c.root.rotation.y = ry; scene.add(c.root); const tick = () => { animChar(c, 0.016); requestAnimationFrame(tick); }; tick(); }, magoTo: (x: number, z: number, ry: number) => { mago.root.position.set(x, floorY(x, z), z); mago.look(ry); mago.root.traverse(o => { if ((o as THREE.Sprite).isSprite) o.visible = false; }); }, skyAt: (ms: number | null) => setIntroSky(ms, 0), give: (id: string) => { const it = ITEMS.find(x => x.id === id); if (it) void giveItem(it); }, dayTitle: () => { store.titleDay = ''; showDayTitle(); }, feedNow: () => morningFeed(), feedLeft: () => feed.left, cafe: CAFE, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { me, amb, growth: () => [growthNow(), sunsSeen(), talesDone(), growthStage(me)], prog: progDebug, npcs, quests, blk: () => ({ lying, magoBusy, introRunning, sheet: openSheet?.id, cutscene }), time: (v: 'night' | 'dawn' | 'day' | null) => { dbgTime = v; }, lie: (v: boolean) => { lying = v; me.state = v ? 'lie' : 'idle'; }, sawSun: () => { store.days[dateKey(Date.now())] = 'live'; save(); }, scene, camera, gl: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles }), cam, camPos: camera.position, freeCam: (a: number[] | null) => { freeCam = a ? [new THREE.Vector3(a[0], a[1], a[2]), new THREE.Vector3(a[3], a[4], a[5])] : null; }, phoenixRock: (k: number) => { legends.flyFrom('phoenix', PHOENIX_ROCK.clone().add(new THREE.Vector3(1, 6, 0)), new THREE.Vector3(30, 8, -10), 16); legends.update(16 * k, performance.now()); }, floor: (x: number, z: number) => floorY(x, z), dummy: (x: number, z: number, g: number, mask: number, ry: number) => { const c = makeChar(0xffd65a, 0); setGrowth(c, g); setOutfit(c, mask); c.root.position.set(x, floorY(x, z), z); c.root.rotation.y = ry; scene.add(c.root); const tick = () => { animChar(c, 0.016); requestAnimationFrame(tick); }; tick(); }, magoTo: (x: number, z: number, ry: number) => { mago.root.position.set(x, floorY(x, z), z); mago.look(ry); mago.root.traverse(o => { if ((o as THREE.Sprite).isSprite) o.visible = false; }); }, skyAt: (ms: number | null) => setIntroSky(ms, 0), give: (id: string) => { const it = ITEMS.find(x => x.id === id); if (it) void giveItem(it); }, dayTitle: () => { store.titleDay = ''; showDayTitle(); }, feedNow: () => morningFeed(), feedLeft: () => feed.left, cafe: CAFE, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

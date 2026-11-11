@@ -167,6 +167,17 @@ export function neededSkills(): SkillId[] {
   return out;
 }
 /** 봉황이 될 수 있는지: 스킬 15개 + 메인 퀘스트 8개 */
+/** 성장: 본 해 수와 끝낸 메인 이야기 수를 둘 다 채워야 다음 단계 (해만 봐서는 안 자람) */
+export const GROW_NEED: { suns: number; tales: number }[] = [
+  { suns: 0, tales: 0 },  // 0 알에서 막 깸
+  { suns: 1, tales: 0 },  // 1 껍질이 벗겨짐 (첫 해)
+  { suns: 3, tales: 1 },  // 2 몸집이 커짐
+  { suns: 7, tales: 3 },  // 3 볏이 돋음
+  { suns: 14, tales: 5 }, // 4 목청이 트임
+  { suns: 20, tales: 7 }, // 5 다 자란 닭
+];
+export const talesDone = () => QUESTS.filter(q => q.main && questDone(q.id)).length;
+export const growthNow = () => GROW_NEED.reduce((g, n, i) => (sunsSeen() >= n.suns && talesDone() >= n.tales ? i : g), 0);
 export const phoenixReady = () => skillsDone() === SKILLS.length && QUESTS.filter(q => q.main).every(q => questDone(q.id));
 
 // ---------- 바뀜 알림 (화면의 📜 점, 스킬북 다시 그리기 등) ----------
