@@ -104,6 +104,9 @@ interface Saved {
   skills?: Partial<Record<string, number>>;
   quests?: Partial<Record<string, number>>;
   learnDay?: string;
+  /** 해가 뜰 때마다 1씩: 지금까지 본 해 수, 아직 안 쓴 배움 기회 */
+  suns?: number;
+  lessons?: number;
   /** 퀘스트: 하루 한 번 단계를 마지막으로 한 날, 모으는 중인 것(비트), 받은 기념품, 봉황이 된 날 */
   qday?: Record<string, string>;
   qbag?: Record<string, number>;

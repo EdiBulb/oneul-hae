@@ -33,23 +33,23 @@ export const hasSkill = (id: SkillId) => skillLv(id) >= 2;
 export const learnCount = () => Object.values(store.skills ?? {}).reduce<number>((a, b) => a + (b ?? 0), 0);
 export const skillsDone = () => SKILLS.filter(s => hasSkill(s.id)).length;
 
-/** 오늘 배울 수 있는지: 해를 본 날, 하루 한 번 */
-export function canLearnToday(sawSunToday: boolean) {
-  return sawSunToday && store.learnDay !== dateKey(Date.now());
-}
-/** 훈장님이 내미는 셋: 익히는 중인 것이 있으면 그게 먼저(이어서 익히기), 그다음 지금 퀘스트에 필요한 것, 나머지는 순서대로 */
+/** 해가 뜰 때마다(진짜 해든 연습 해든) 배움 기회 하나. 제한 없이 쌓임 */
+export function sunRose() { store.suns = (store.suns ?? 0) + 1; store.lessons = (store.lessons ?? 0) + 1; save(); emit({ kind: 'reset' }); }
+export const lessonsLeft = () => store.lessons ?? 0;
+export const sunsSeen = () => store.suns ?? 0;
+export function canLearn() { return lessonsLeft() > 0; }
+/** 훈장님이 내미는 셋: 지금 퀘스트에 필요한 것 → 익히는 중인 것(이어서 익히기) → 새 스킬 순서 */
 export function lessonChoices(): SkillId[] {
-  const half = SKILLS.filter(s => skillLv(s.id) === 1).map(s => s.id);
-  if (half.length) return half.slice(0, 1);
-  const open = SKILLS.filter(s => skillLv(s.id) === 0 && (!s.needs || hasSkill(s.needs))).map(s => s.id);
+  const open = SKILLS.filter(s => skillLv(s.id) < 2 && (!s.needs || hasSkill(s.needs))).map(s => s.id);
   const wanted = neededSkills().filter(id => open.includes(id));
-  const rest = open.filter(id => !wanted.includes(id));
-  return [...wanted, ...rest].slice(0, 3);
+  const half = open.filter(id => skillLv(id) === 1 && !wanted.includes(id));
+  const rest = open.filter(id => !wanted.includes(id) && !half.includes(id));
+  return [...wanted, ...half, ...rest].slice(0, 3);
 }
 export function learn(id: SkillId) {
   store.skills ??= {};
   const lv = Math.min(2, skillLv(id) + 1);
-  store.skills[id] = lv; store.learnDay = dateKey(Date.now()); save();
+  store.skills[id] = lv; store.learnDay = dateKey(Date.now()); store.lessons = Math.max(0, lessonsLeft() - 1); save();
   emit({ kind: 'skill', id, lv });
   return lv;
 }
@@ -183,7 +183,9 @@ export const progDebug = {
   learnAgain() { store.learnDay = undefined; save(); },
   reset() { store.skills = {}; store.quests = {}; store.learnDay = undefined; store.qday = {}; store.qbag = {}; store.keeps = []; store.phoenix = undefined; save(); emit({ kind: 'reset' }); },
   /** 하루 제한(매일 한 번 단계) 풀기 */
-  newDay() { store.qday = {}; store.learnDay = undefined; save(); },
+  newDay() { store.qday = {}; store.learnDay = undefined; sunRose(); },
+  /** 해 n번 본 것으로 (배움 기회 n개) */
+  suns(n = 1) { for (let i = 0; i < n; i++) sunRose(); },
   allQuests() { store.quests = Object.fromEntries(QUESTS.map(q => [q.id, q.steps.length])); save(); emit({ kind: 'reset' }); },
   dump: () => ({ skills: store.skills, quests: store.quests, learnDay: store.learnDay, learnCount: learnCount(), phoenix: phoenixReady() }),
 };

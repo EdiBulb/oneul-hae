@@ -17,7 +17,7 @@ import { NEST } from './mountain-scenery';
 import { stylize } from './look';
 import { PHOENIX_ROCK } from './landmarks';
 import { createNpcs } from './npc';
-import { progDebug, canLearnToday, lessonChoices, neededSkills, learn, LESSON, skillById, onProgress } from './progress';
+import { progDebug, canLearn, lessonsLeft, sunRose, lessonChoices, neededSkills, learn, LESSON, skillById, onProgress } from './progress';
 import { renderBook, renderQuests, pickLesson } from './book';
 import { createQuests } from './quests';
 import { createQuestWorld } from './quest-world';
@@ -765,7 +765,7 @@ function updateUI(vnow: number, alt: number, t: number) {
     $('headline').textContent = alt < -0.8 ? T.soon : T.risen;
     $('sub').textContent = T.sunriseAt(pn, hm(replay.sr, tz));
     if (k >= 1) {
-      replay = null; track('replay_finished', { place: place.id });
+      replay = null; track('replay_finished', { place: place.id }); sunRose();
       earnCycle();
       if (markSeen('replay')) { toast(T.replaySeen); track('sunrise_seen', { place: place.id, kind: 'replay', streak: streakCount() }); }
       // 다 본 뒤: 진짜 해돋이는 언제인지, 그리고 이때 처음으로 홈 화면 추가를 권함
@@ -999,24 +999,26 @@ async function hallWrite() {
   track('cushion_sit', { written: !!goalToday() });
   // 0) 스킬 15개 + 메인 이야기 8개를 다 하면: 봉황이 되는 날
   if (phoenixReady() && !store.phoenix) { await becomePhoenix(); hallBusy = false; return; }
-  // 1) 오늘의 배움: 해를 본 날, 하루 한 번
-  const saw = !!store.days[dateKey(Date.now())];
-  if (canLearnToday(saw)) {
+  let hallLearned = false;
+  // 1) 배움: 해가 뜰 때마다(진짜 해든 연습 해든) 하나씩, 제한 없이
+  while (canLearn()) {
     const choices = lessonChoices();
     if (choices.length) {
-      hall.talk(2.5); await talk([{ who: 'crane', text: '왔느냐. 오늘은 무엇을 배울 테냐?' }]);
+      if (!hallLearned) { hall.talk(2.5); await talk([{ who: 'crane', text: '왔느냐. 오늘은 무엇을 배울 테냐?' }]); }
       open('lessonSheet');
       const id = await pickLesson($('lessonBody'), choices, neededSkills());
       if (openSheet?.id === 'lessonSheet') close();
       if (id) {
+        hallLearned = true;
         const lv = learn(id), sk = skillById(id);
         track('skill_learn', { id, lv });
         hall.talk(4); await talk([{ who: 'crane', text: LESSON[id][lv - 1] }]);
         toast(lv === 2 ? `📖 ${sk.ko} · 익혔어요!` : `📖 ${sk.ko} · 첫 배움 (한 번 더 배우면 익혀요)`);
-      }
-    }
-  } else if (!saw) { hall.talk(3); await talk([{ who: 'crane', text: '해를 보고 오너라.\n배움은 해를 본 눈으로 하는 게야.' }]); }
-  else { hall.talk(2.5); await talk([{ who: 'crane', text: '오늘 배움은 여기까지.\n배운 건 자고 나면 익는 법이지.' }]); }
+      } else break;
+      if (!canLearn() || await ask('crane', `본 해가 아직 ${lessonsLeft()}번 남았구나.\n하나 더 배우겠느냐?`, ['더 배울래요', '오늘은 그만']) !== 0) break;
+    } else break;
+  }
+  if (!lessonsLeft() && !hallLearned) { hall.talk(3); await talk([{ who: 'crane', text: '해를 보고 오너라.\n해 한 번에 배움 하나, 배움은 해를 본 눈으로 하는 게야.' }]); }
   // 2) 오늘의 다짐 (원래 있던 것): 이제는 물어보고 씀
   if (!goalToday() && await ask('crane', '오늘의 다짐도 적어 보겠느냐?', ['적을래요', '다음에']) === 0) {
     const img = await writeGoal();
@@ -2734,6 +2736,7 @@ function sunRoseNow() {
   setTimeout(askAfterSun, 9000);
   // 5분 해도 오늘 도장(작은 도장) + 햇살 1 (하루 3번까지)
   if (cycling()) { markSeen('replay'); earnCycle(); }
+  sunRose(); toast(`🌅 해가 떴어요 · 청학당 배움 기회 ${lessonsLeft()}번`);
   if (key) {
     const k = Math.min(1, ((cheer.key === key ? cheer.total : 0) + BOT_CHEER) / CHEER_GOAL);
     if (k >= 1) {

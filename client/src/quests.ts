@@ -146,7 +146,8 @@ const OPEN: Partial<Record<QuestId, () => boolean>> = {
 };
 
 export function createQuests(c: QuestCtx) {
-  const today = () => dateKey(Date.now());
+  /** '하루 한 번' 단계는 이제 '해 한 번에 한 번' (진짜 해든 연습 해든) */
+  const sunKey = () => 's' + (store.suns ?? 0);
   const cur = (q: QuestId) => { const s = questStep(q); return s >= 0 && !questDone(q) ? { def: questById(q).steps[s], sc: SCRIPT[q][s], s } : null; };
   /** 지금 이 npc에게 볼일이 있는 퀘스트 */
   function jobFor(npc: string): { q: QuestId; start: boolean } | null {
@@ -161,10 +162,10 @@ export function createQuests(c: QuestCtx) {
     const { def, sc, s } = k;
     if (!timeOk(def.when)) { await c.say([['me', def.when === 'night' ? '(밤에 다시 와 보자.)' : '(새벽, 해 뜰 무렵에 다시 와 보자.)']]); return; }
     if (def.need && !hasSkill(def.need)) { await c.say([['me', `(${skillById(def.need).ko}… 그걸 할 줄 알아야 해.\n청학당에서 배우자.)`]]); return; }
-    if (sc.daily && store.qday?.[q] === today()) { await c.say([['me', '(오늘은 여기까지. 내일 다시 오자.)']]); return; }
+    if (sc.daily && store.qday?.[q] === sunKey()) { await c.say([['me', '(해가 한 번 더 뜨면 다시 오자.)']]); return; }
     if (sc.play && !(await PLAY[sc.play](q))) return;
     if (sc.lines) await c.say(sc.lines);
-    if (sc.daily) { store.qday ??= {}; store.qday[q] = today(); save(); }
+    if (sc.daily) { store.qday ??= {}; store.qday[q] = sunKey(); save(); }
     finish(q, s);
   }
   function finish(q: QuestId, s: number) {
@@ -243,7 +244,7 @@ export function createQuests(c: QuestCtx) {
     c.npcs.add({
       id, name, pitch, root, head: o.head ?? 1.7, place: 'jirisan', talkR: o.r ?? 3,
       visible: o.vis, idle: o.idle,
-      hasNews: () => { const j = jobFor(id); if (!j) return false; if (j.start) return true; const k = cur(j.q)!; return timeOk(k.def.when) && (!k.def.need || hasSkill(k.def.need)) && !(k.sc.daily && store.qday?.[j.q] === today()); },
+      hasNews: () => { const j = jobFor(id); if (!j) return false; if (j.start) return true; const k = cur(j.q)!; return timeOk(k.def.when) && (!k.def.need || hasSkill(k.def.need)) && !(k.sc.daily && store.qday?.[j.q] === sunKey()); },
       talk: async () => {
         const j = jobFor(id);
         if (j) { if (j.start) { startQuest(j.q); c.track('quest_start', { q: j.q }); } await runStep(j.q); return; }

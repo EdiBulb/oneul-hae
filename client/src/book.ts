@@ -41,7 +41,7 @@ export function renderQuests(el: HTMLElement, tab: 'now' | 'done' | 'unknown' = 
     if (tab === 'now') {
       h += `<ul class="bk-steps">` + q.steps.map((st, i) => `<li class="${i < s ? 'done' : i === s ? 'now' : 'lock'}">${i <= s ? esc(st.ko) : '…'}</li>`).join('') + `</ul>`;
       const cur = q.steps[s];
-      if (cur?.need && !hasSkill(cur.need)) h += `<div class="bk-need">필요한 스킬 <span class="bk-chip grey">${esc(skillById(cur.need).ko)} · ${skillLv(cur.need) ? '익히는 중' : '아직 못 배움'}</span><br>해를 본 날, 청학당에서 고를 수 있어요.</div>`;
+      if (cur?.need && !hasSkill(cur.need)) h += `<div class="bk-need">필요한 스킬 <span class="bk-chip grey">${esc(skillById(cur.need).ko)} · ${skillLv(cur.need) ? '익히는 중' : '아직 못 배움'}</span><br>해가 뜬 뒤 청학당에서 고를 수 있어요.</div>`;
       if (cur?.when || cur?.where) h += `<div class="bk-where">${cur.when === 'night' ? '🌙 밤에만 · ' : cur.when === 'dawn' ? '🌅 새벽에만 · ' : '📍 '}${esc(cur.where ?? '')}</div>`;
     }
     h += `</div>`;
