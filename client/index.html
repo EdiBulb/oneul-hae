@@ -12,7 +12,7 @@
   "name": "오늘의 해",
   "alternateName": "Oneul-hae",
   "url": "https://hae.abracadelulu.com/",
-  "description": "매일 아침 실제 일출 시각에 맞춰 3D 해변에서 다른 사람들과 함께 해돋이를 보는 온라인 서비스",
+  "description": "매일 아침 실제 일출 시각에 맞춰 지리산 천왕봉에서 다른 사람들과 함께 해돋이를 보는 온라인 서비스",
   "applicationCategory": "LifestyleApplication",
   "operatingSystem": "Web",
   "inLanguage": "ko",
@@ -72,7 +72,7 @@
 <div class="ui">
   <header>
     <div class="hleft pe">
-      <button class="iconbtn exitbtn" id="exitBtn" aria-label="해변에서 나가기" data-i18n-aria="exitAria" data-i18n-html="exit">‹<span class="exit-label"> 나가기</span></button>
+      <button class="iconbtn exitbtn" id="exitBtn" aria-label="나가기" data-i18n-aria="exitAria" data-i18n-html="exit">‹<span class="exit-label"> 나가기</span></button>
       <img class="brand-logo" src="/logo.svg" alt="" width="30" height="30">
       <!-- 접속자 수 (진짜 사람만, 봇은 빼고) -->
       <div class="viewers" id="viewers"><span class="dot off" id="liveDot"></span><b id="viewerCount">연결 중…</b><span id="viewerUnit"></span></div>
@@ -236,7 +236,7 @@
 <div class="sheet" id="photoSheet" role="dialog" aria-labelledby="photoTitle">
   <h2 id="photoTitle" data-i18n="photoTitle">오늘의 해를 찍었어요</h2>
   <div class="photo-mode" id="photoMode"><button data-m="sq" class="on" data-i18n="photoSq">프사용 정사각형</button><button data-m="full" data-i18n="photoFull">화면 그대로</button></div>
-  <img class="photo-prev" id="photoImg" alt="방금 찍은 해변 사진" data-i18n-alt="photoAlt">
+  <img class="photo-prev" id="photoImg" alt="방금 찍은 사진" data-i18n-alt="photoAlt">
   <p class="lead" data-i18n="photoLead">사진을 길게 눌러도 저장할 수 있어요.</p>
   <div class="photo-btns">
     <button class="btn primary" id="photoShare" data-i18n="share">공유하기</button>
@@ -246,7 +246,7 @@
 
 <div class="sheet" id="wishSheet" role="dialog" aria-labelledby="wishTitle">
   <h2 id="wishTitle" data-i18n="wishTitle">어떤 마음을 띄울까요?</h2>
-  <p class="lead" data-i18n="wishLead">띄운 소원은 해변의 다른 사람에게도 보여요. 직접 쓴 소원을 나만 보려면 &lsquo;내 소원 나만 보기&rsquo;를 체크하세요.</p>
+  <p class="lead" data-i18n="wishLead">띄운 소원은 산에 있는 다른 사람에게도 보여요. 직접 쓴 소원을 나만 보려면 &lsquo;내 소원 나만 보기&rsquo;를 체크하세요.</p>
   <form class="custom" id="wishForm" autocomplete="off">
     <input id="wishInput" maxlength="24" placeholder="예: 이번 주 면접 붙게 해주세요" aria-label="소원 직접 쓰기" data-i18n-ph="wishPh" data-i18n-aria="wishAria">
     <button type="submit" data-i18n="wishGo">띄우기</button>
@@ -274,7 +274,7 @@
   <div hidden><span id="alarmText"></span><button id="alarmBtn" aria-pressed="false"></button></div>
   <div class="block" id="supportBlock" hidden>
     <div class="big" data-i18n="supportTitle">햇살 한 잔 보내기 ☕</div>
-    <p class="muted" style="margin-top:6px" data-i18n="supportText">오늘의 해는 혼자 만들고 운영해요. 보내 주신 마음은 서버비와 새 해변을 만드는 데 쓰여요.</p>
+    <p class="muted" style="margin-top:6px" data-i18n="supportText">오늘의 해는 혼자 만들고 운영해요. 보내 주신 마음은 서버비와 새 이야기와 장소를 만드는 데 쓰여요.</p>
     <a class="btn support-btn kakao" id="kakaoBtn" href="#" target="_blank" rel="noopener" hidden data-i18n="kakaoBtn">카카오페이로 햇살 보내기</a>
     <div class="kakao-qr" id="kakaoQr" hidden>
       <img loading="lazy" src="/kakaopay-qr.png" alt="카카오페이 송금 QR 코드" data-i18n-alt="kakaoAlt" width="160" height="160">
@@ -339,8 +339,8 @@
 <div class="goodbye" id="goodbye" role="dialog" aria-labelledby="goodbyeTitle">
   <div class="bye-sun big" aria-hidden="true"></div>
   <h2 id="goodbyeTitle" data-i18n="goodbyeTitle">오늘도 좋은 하루 보내요</h2>
-  <p id="goodbyeText">내일 아침, 해변에서 다시 만나요.</p>
-  <button class="btn primary" id="comeBack" data-i18n="comeBack">다시 해변으로</button>
+  <p id="goodbyeText">내일 아침, 천왕봉에서 다시 만나요.</p>
+  <button class="btn primary" id="comeBack" data-i18n="comeBack">다시 산으로</button>
 </div>
 
 <div class="hint" id="hint">

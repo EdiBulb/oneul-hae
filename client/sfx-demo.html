@@ -1,0 +1,16 @@
+<!DOCTYPE html><html><body><script type="module">
+import { createAmbience } from './src/ambience.ts';
+window.play = async (ev, dur) => {
+  const orig = AudioNode.prototype.connect; let md = null, mr = null; const chunks = [];
+  AudioNode.prototype.connect = function (dst, ...r) { if (dst instanceof AudioDestinationNode) { const ctx = dst.context; if (!md) { md = ctx.createMediaStreamDestination(); mr = new MediaRecorder(md.stream, { mimeType: 'audio/webm' }); mr.ondataavailable = e => chunks.push(e.data); mr.start(100); } orig.call(this, md); } return orig.call(this, dst, ...r); };
+  const amb = createAmbience(); amb.setAlt?.(1900); amb.setOn(true); amb.unlock();
+  await new Promise(r => setTimeout(r, 300));
+  const t0 = performance.now();
+  for (const e of ev) setTimeout(() => e[0] === 'step' ? amb.step(e[2], e[3]) : amb.whoosh?.(), e[1]);
+  await new Promise(r => setTimeout(r, dur));
+  mr.stop(); await new Promise(r => setTimeout(r, 400));
+  const buf = new Uint8Array(await new Blob(chunks, { type: 'audio/webm' }).arrayBuffer()); let s = ''; for (const b of buf) s += String.fromCharCode(b);
+  return { b64: btoa(s), lead: t0 };
+};
+window.ready = true;
+</script></body></html>
