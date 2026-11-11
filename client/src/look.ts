@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-/** 맵 미감 시안: 주소에 ?look=a|b|c 를 붙이면 미리 볼 수 있음 (없으면 지금 모습) */
+/** 맵 미감: A(운해 파스텔)가 기본. ?look=b|c|base 로 다른 시안 비교 */
 export type LookId = 'base' | 'a' | 'b' | 'c';
 type Stop = [number, number, number, number];
 export interface Look {
@@ -16,7 +16,8 @@ export interface Look {
   line: number; lineW: number; darkLift: number;
 }
 const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
-export const LOOK_ID = (['a', 'b', 'c'].includes(params.get('look') ?? '') ? params.get('look') : 'base') as LookId;
+/** 기본은 A(운해 파스텔). ?look=base 면 예전 모습 */
+export const LOOK_ID = (['a', 'b', 'c', 'base'].includes(params.get('look') ?? '') ? params.get('look') : 'a') as LookId;
 
 const LOOKS: Record<Exclude<LookId, 'base'>, Look> = {
   // A. 운해 파스텔: 프사 병아리처럼 크림 종이 위 옅은 수채. 따뜻한 복숭아·연보라 능선
@@ -102,6 +103,7 @@ export function stylize(root: THREE.Object3D, opt: { outline?: boolean; minSize?
   const toon = (m: THREE.Material) => {
     if (cache.has(m)) return cache.get(m)!;
     const lm = m as THREE.MeshLambertMaterial;
+    if ((m as any).isMeshToonMaterial) { const tm = m as THREE.MeshToonMaterial, l2 = tm.color.getHSL(hsl).l; if (l2 < 0.32 && !tm.map) { const t2 = tm.clone(); t2.color.lerp(lift, 0.6); cache.set(m, t2); return t2; } cache.set(m, m); return m; }
     if (!(lm as any).isMeshLambertMaterial && !(lm as any).isMeshStandardMaterial && !(lm as any).isMeshPhongMaterial) { cache.set(m, m); return m; }
     const c = lm.color.clone(); c.getHSL(hsl);
     if (hsl.l < 0.32 && !lm.map) c.lerp(lift, 0.6);
