@@ -253,7 +253,7 @@ const ko = {
   // 공유
   sawToday: (p: string, n: number) => `☀ 오늘도 해 봤다 · ${p}${n ? ` · ${n}일째` : ''}`,
   copied: '문구를 복사했어요',
-  invite: '내일 아침 같이 해 보러 가요 ☀',
+  invite: '내일 아침, 지리산 꼭대기에서 같이 해 맞자 🐣☀',
   inviteCopied: '초대 링크를 복사했어요',
   // 기록
   weekdays: ['일', '월', '화', '수', '목', '금', '토'],
@@ -540,7 +540,7 @@ const en: Dict = {
   wishEmpty: 'Write a wish first',
   sawToday: (p: string, n: number) => `☀ Saw the sunrise today · ${p}${n ? ` · day ${n}` : ''}`,
   copied: 'Copied to clipboard',
-  invite: "Let's watch the sunrise together tomorrow morning ☀",
+  invite: "Let's greet tomorrow's sunrise together on the mountaintop 🐣☀",
   inviteCopied: 'Invite link copied',
   weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   today: 'Today',

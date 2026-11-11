@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 const SITE = 'https://hae.abracadelulu.com';
 const PAGES = {
   // jeongdongjin: { lang: 'ko', title: '정동진 · 오늘의 해, 온라인 해돋이', desc: '강릉 정동진 해변에서 사람들과 함께 실시간 해돋이를 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.' },
-  jirisan: { lang: 'ko', title: '지리산 천왕봉 · 오늘의 해, 온라인 해돋이', desc: '지리산 천왕봉 정상 끝까지 걸어가 운해 위로 떠오르는 해를 사람들과 함께 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.', image: 'og-jirisan.png', alt: '산 정상 난간 앞에서 구름 바다 위로 떠오르는 해를 바라보는 캐릭터들' },
+  jirisan: { lang: 'ko', title: '지리산 천왕봉 · 오늘의 해, 병아리들과 해돋이', desc: '지리산 꼭대기 둥지에서 깨어난 병아리가 되어, 매일 아침 사람들과 함께 실시간 해돋이를 맞아요. 해를 맞을 때마다 자라고, 서른 번째 아침엔 봉황이 돼요. 설치 없이 바로 접속하는 3D 온라인 해돋이.', image: 'og-chick.png', alt: '지리산 정상에서 마고할미와 병아리들이 구름 바다 위로 떠오르는 해를 바라보는 모습' },
   // hallasan: { lang: 'ko', title: '한라산 백록담 · 오늘의 해, 온라인 해돋이', desc: '남한에서 가장 높은 한라산 백록담 정상에서 끝없는 운해 위로 떠오르는 해를 사람들과 함께 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.', image: 'og-hallasan.png', alt: '한라산 정상에서 구름 바다 위로 떠오르는 해' },
   // seopjikoji: { lang: 'ko', title: '섭지코지 · 오늘의 해, 온라인 해돋이', desc: '제주 섭지코지의 검은 현무암 해안과 촛대바위 사이로 떠오르는 해를 사람들과 함께 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.', image: 'og-seopjikoji.png', alt: '검은 바위와 바다에 선 촛대바위 사이로 떠오르는 해' },
   // seongsan: { lang: 'ko', title: '성산일출봉 · 오늘의 해, 온라인 해돋이', desc: '제주 성산일출봉 앞바다에서 사람들과 함께 실시간 해돋이를 봐요. 설치 없이 바로 접속하는 3D 온라인 해돋이.' },
