@@ -2078,7 +2078,9 @@ net.on('sandRemove', id => { sandPosts = sandPosts.filter(p => p.id !== id); ren
 setInterval(() => { renderSandLabel(); if (sandOpen && !$('sand').hidden && openSheet?.id !== 'sandSheet') renderSand(); }, 60000);
 renderSandLabel();
 
-$('exitBtn').onclick = openBye;
+/** 나가기: 묻지 않고 바로 작별 화면으로 */
+function exitNow() { track('left_beach', { seenToday: !!store.days[dateKey(Date.now())], others: remotes.size }); leave(); }
+$('exitBtn').onclick = exitNow;
 $('langBtn').textContent = lang === 'ko' ? 'EN' : '한';
 $('langBtn').onclick = () => { track('lang_changed', { to: lang === 'ko' ? 'en' : 'ko' }); setLang(lang === 'ko' ? 'en' : 'ko'); };
 $('status').addEventListener('click', toggleBanner);
@@ -2102,7 +2104,7 @@ addEventListener('popstate', () => {
   if (openSheet && openSheet.id !== 'byeSheet') { close(); return; }
   if (sandOpen) { closeSand(); return; }
   if (openSheet?.id === 'byeSheet') { close(); return; }
-  openBye();
+  exitNow();
 });
 
 // ================= 분석 =================
