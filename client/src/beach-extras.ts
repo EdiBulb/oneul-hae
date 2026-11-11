@@ -53,7 +53,10 @@ const ss = (a: number, b: number, v: number) => { const t = clamp((v - a) / (b -
 /** 한라산 백록담 분화구 (걷는 길 왼쪽 위) */
 export const CRATER = { x: -17, z: 13, r: 7, depth: 4.5 };
 /** 새 장소 시안 (?spots=1) */
-export const SPOTS_ON = typeof location !== 'undefined' && new URLSearchParams(location.search).get('spots') === '1';
+/** 청학지 연못·봉황바위: 이제 모두에게 보임 (지형도 바뀜) */
+export const SPOTS_ON = true;
+/** 아직 할 일이 없는 시안 장소(당산나무·운해 그네)를 진행과 상관없이 미리 보기: ?spots=1 */
+export const SPOTS_PREVIEW = typeof location !== 'undefined' && new URLSearchParams(location.search).get('spots') === '1';
 /** 천왕샘 연못 (청학이 내려오는 곳): 통천문 지나 왼쪽 비탈을 평평하게 깎은 분지. 물은 타원 (rx, rz), 가운데 섬 */
 export const POND = { x: -21, z: 33, rx: 12.5, rz: 9.5, y: -3.0, isle: { dx: 1.5, dz: 0.5, r: 3.4 } };
 /** 연못 물 안인지 (섬 제외), 0 = 가장자리, 1 = 한가운데 */

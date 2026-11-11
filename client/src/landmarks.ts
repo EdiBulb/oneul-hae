@@ -6,6 +6,9 @@ import { blueCrane, craneEmblem } from './crane';
 import { koreanPine } from './place-scenery';
 import { stable } from './stable-tex';
 import { stylize } from './look';
+import { regionOpen } from './regions';
+import { bakeStatic } from './bake';
+import { onProgress } from './progress';
 
 /** 새 장소 시안 (주소에 ?spots=1): 천왕샘 · 당산나무 · 운해 그네 · 봉황바위 */
 export const SPOTS_ON = SPOTS;
@@ -19,6 +22,15 @@ export const SWING = { x: trailX(62) + 27.5, z: 62 };
 /** 봉황바위: 정상에서 왼쪽 앞 구름바다 위로 솟은 바위 봉우리 (못 가는 곳) */
 export const PHOENIX_ROCK = new THREE.Vector3(-46, 26, -128);
 
+/** 한옥 지붕: 기와 + 처마 밑(서까래 빛 판) + 단청 띠. 아래에서 봐도 납작한 판이 아니라 처마로 보이게 */
+function koreanRoof(w: number, d: number, h: number, lift: number, tile: number) {
+  const g = hipRoof(w, d, h, lift, new THREE.MeshToonMaterial({ color: tile }));
+  const under = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.86, d * 0.86), new THREE.MeshToonMaterial({ color: 0xe8d2a8, side: THREE.DoubleSide }));
+  under.rotation.x = Math.PI / 2; under.position.y = -h / 2 + 0.03; under.userData.noLine = true; g.add(under);
+  const band = new THREE.MeshToonMaterial({ color: 0x5aa88a });
+  for (const [bw, bd, x, z] of [[w * 0.8, 0.07, 0, d * 0.4], [w * 0.8, 0.07, 0, -d * 0.4], [0.07, d * 0.8, w * 0.4, 0], [0.07, d * 0.8, -w * 0.4, 0]] as const) { const b = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.09, bd), band); b.position.set(x, -h / 2 - 0.02, z); g.add(b); }
+  return g;
+}
 const toon = (c: number, extra: Partial<THREE.MeshToonMaterialParameters> = {}) => new THREE.MeshToonMaterial({ color: c, ...extra });
 const rand = (seed: number) => { let s = seed; return () => ((s = (s * 16807) % 2147483647) / 2147483647); };
 
@@ -82,7 +94,7 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
     for (const [w, d, x, z] of [[2.5, 0.16, 0, -1.15], [2.5, 0.16, 0, 1.15], [0.16, 2.5, -1.15, 0], [0.16, 2.5, 1.15, 0]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.26, d), green); b.position.set(x, 2.45, z); pav.add(b); }
     // 난간
     for (const [w, d, x, z] of [[2.3, 0.06, 0, -1.15], [0.06, 2.3, -1.15, 0], [0.06, 2.3, 1.15, 0]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, d), pillar); b.position.set(x, 0.85, z); pav.add(b); }
-    const roof = hipRoof(3.4, 3.4, 1.5, 0.55, toon(0x7c88aa)); roof.position.y = 3.25; pav.add(roof);
+    const roof = koreanRoof(3.6, 3.6, 1.4, 0.6, 0x8a96b8); roof.position.y = 3.2; pav.add(roof);
     const knob = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), toon(0xe6c272, { emissive: 0x5a4010 })); knob.position.y = 4.05; pav.add(knob);
     const plq = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.36), new THREE.MeshBasicMaterial({ map: carved(['靑鶴亭'], 512, 184, '#f4e2b4', false, '#2a3c7a') })); plq.position.set(0, 2.45, 1.25); pav.add(plq);
   }
@@ -93,7 +105,6 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
     const leafA = toon(0xc4e09a), leafB = toon(0xaed488);
     const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 1), leafB); crown.scale.set(1.1, 0.55, 1.1); crown.position.y = h + 0.1; w.add(crown);
     for (let i = 0; i < 46; i++) { const a = rnd() * 6.28, r = 0.3 + rnd() * 1.15, L = 1.2 + rnd() * (h - 0.6); const st = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.012, L, 4), i % 2 ? leafA : leafB); st.position.set(Math.cos(a) * r, h - L / 2 + 0.1, Math.sin(a) * r); st.userData.noLine = true; st.userData.ph = rnd() * 6; w.add(st); }
-    anim.push(t => { w.children.forEach((c, i) => { if (i > 1) c.rotation.z = Math.sin(t / 1500 + c.userData.ph) * 0.05; }); });
   };
   willow(ISLE.x - 1.9, ISLE.z - 1.6, 3.0); willow(ISLE.x + 0.4, ISLE.z + 2.4, 2.4);
   for (const [a, d, h] of [[0.6, 1.25, 3.2], [-0.7, 1.22, 3.0], [2.3, 1.2, 3.4], [-2.4, 1.25, 3.1], [1.5, 1.3, 2.8], [-1.5, 1.28, 3.3]] as const) { const [x, z] = at(a, d); willow(x, z, h); }
@@ -120,7 +131,7 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
     for (const sx of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.9, 0.22), post); p.position.set(sx * 1.2, 1.45, 0); gate.add(p); const ft = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.4), toon(0xd6cac4)); ft.position.set(sx * 1.2, 0.15, 0); gate.add(ft); }
     const lint = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.2, 0.24), post); lint.position.y = 2.0; gate.add(lint);
     const panel = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 0.12), toon(0xf0e4d2)); panel.position.y = 2.55; gate.add(panel);
-    const groof = hipRoof(3.0, 1.3, 0.75, 0.32, toon(0x9aa6c4)); groof.position.y = 3.3; gate.add(groof);
+    const groof = koreanRoof(3.2, 1.6, 0.9, 0.38, 0x9aa6c4); groof.position.y = 3.3; gate.add(groof);
     // 양옆 낮은 돌담 + 기와 지붕돌
     for (const sx of [-1, 1]) { const wl = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.4), toon(0xe2d6c8)); wl.position.set(sx * 2.55, 0.6, 0); gate.add(wl); const cap = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.18, 0.6), toon(0x9aa6c4)); cap.position.set(sx * 2.55, 1.28, 0); gate.add(cap); for (let i = 0; i < 4; i++) { const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16, 0), toon(0xbcaab6)); st.position.set(sx * (1.7 + i * 0.55), 0.35 + (i % 2) * 0.3, -0.21); gate.add(st); } }
     // 둥근 청학 문양: 두 인방 사이 (밖 = 길 쪽 -z 면)
@@ -135,7 +146,7 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
     sg2.position.set(1.7, 0.6, -1.3); gate.add(sg2);
   }
   // 자라 할아범: 선착장 앞 물 위에서 기다림. 등에 방석, 이끼 낀 등딱지, 하얀 눈썹
-  const turtle = new THREE.Group();
+  const turtle = new THREE.Group(); turtle.userData.dynamic = true;
   {
     const [tx, tz] = at(0, 0.82); turtle.position.set(tx, wy - 0.05, tz); turtle.rotation.y = -Math.PI / 2; pg.add(turtle); // 머리(+z)가 섬 쪽
     const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), toon(0x6fb08c)); shell.scale.set(1.15, 0.55, 1.4); turtle.add(shell);
@@ -154,16 +165,18 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
     const beard = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.3, 5), toon(0xffffff)); beard.rotation.x = Math.PI + 0.3; beard.position.set(0, -0.22, 0.24); beard.userData.noLine = true; hd.add(beard);
     for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 6), toon(0x8cc49c)); fl.scale.set(1.3, 0.25, 0.6); fl.position.set(sx * 1.1, -0.05, sz * 0.85); fl.rotation.y = sx * sz * 0.6; fl.userData.sx = sx; fl.userData.sz = sz; turtle.add(fl); }
     const wake = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.7, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false })); wake.rotation.x = -Math.PI / 2; wake.scale.set(1, 1.2, 1); wake.position.y = 0.06; wake.userData.noStyle = true; turtle.add(wake);
+    hd.userData.dynamic = true; bakeStatic(turtle);
     anim.push(t => { turtle.position.y = wy - 0.05 + Math.sin(t / 900) * 0.04; hd.rotation.y = Math.sin(t / 2600) * 0.25; wake.scale.setScalar(1 + ((t / 2400) % 1) * 0.25); (wake.material as THREE.MeshBasicMaterial).opacity = 0.35 * (1 - ((t / 2400) % 1)); });
   }
   // 청학: 섬 정자 앞에 서 있음 (가끔 내려옴) + 하늘을 도는 한 마리
-  const craneStand = blueCrane('stand'); craneStand.g.position.set(ISLE.x + 1.5, iy, ISLE.z - 1.5); craneStand.g.rotation.y = Math.PI / 2 + 0.5; craneStand.g.scale.setScalar(1.15); pg.add(craneStand.g);
-  const craneFly = blueCrane('fly'); craneFly.g.scale.setScalar(1.2); pg.add(craneFly.g);
+  const craneStand = blueCrane('stand'); craneStand.g.userData.dynamic = true; craneStand.g.position.set(ISLE.x + 1.5, iy, ISLE.z - 1.5); craneStand.g.rotation.y = Math.PI / 2 + 0.5; craneStand.g.scale.setScalar(1.15); pg.add(craneStand.g);
+  const craneFly = blueCrane('fly'); craneFly.g.userData.dynamic = true; craneFly.g.scale.setScalar(1.2); pg.add(craneFly.g);
   anim.push(t => { craneStand.update(t); craneFly.update(t); const a = t / 9000; craneFly.g.position.set(P0.x + Math.cos(a) * 9, wy + 7 + Math.sin(t / 2000) * 0.6, P0.z + Math.sin(a) * 7); craneFly.g.rotation.set(0, -a, -0.25); });
 
   // ---------- 당산나무 + 오색 소원 리본 ----------
+  const dangsanG = new THREE.Group(); g.add(dangsanG);
   {
-    const d = new THREE.Group(), y = mY(DANGSAN.x, DANGSAN.z); d.position.set(DANGSAN.x, y, DANGSAN.z); g.add(d);
+    const d = new THREE.Group(), y = mY(DANGSAN.x, DANGSAN.z); d.position.set(DANGSAN.x, y, DANGSAN.z); dangsanG.add(d);
     // 돌담 둘레 (낮은 단)
     for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2; rock(d, Math.cos(a) * 2.5, 0.2, Math.sin(a) * 2.5, 0.38, 0.28, 0.3); }
     const bed = new THREE.Mesh(new THREE.CylinderGeometry(2.45, 2.5, 0.32, 28), toon(0xb8cf8e)); bed.position.y = 0.16; d.add(bed);
@@ -191,7 +204,7 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
       const tp = tips[i % tips.length], k = 0.3 + rnd() * 0.6;
       const at = new THREE.Vector3(0, 3.3, 0).lerp(tp, k); at.y -= 0.1;
       const L = 0.5 + rnd() * 0.5, geo = new THREE.PlaneGeometry(0.07, L, 1, 4); geo.translate(0, -L / 2, 0);
-      const r = new THREE.Mesh(geo, toon(COLS[i % COLS.length], { side: THREE.DoubleSide })); r.position.copy(at); r.rotation.y = rnd() * 6; r.userData.ph = rnd() * 6; r.userData.noLine = true; d.add(r); ribbons.push(r);
+      const r = new THREE.Mesh(geo, toon(COLS[i % COLS.length], { side: THREE.DoubleSide })); r.position.copy(at); r.rotation.y = rnd() * 6; r.userData.ph = rnd() * 6; r.userData.noLine = true; r.userData.dynamic = true; d.add(r); ribbons.push(r);
     }
     anim.push(t => { for (const r of ribbons) { r.rotation.z = Math.sin(t / 700 + r.userData.ph) * 0.18; r.rotation.x = Math.sin(t / 900 + r.userData.ph * 1.3) * 0.12; } });
     // 안내 돌: 소원을 묶는 나무
@@ -201,15 +214,16 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
   }
 
   // ---------- 운해 그네 ----------
+  const swingG = new THREE.Group(); g.add(swingG);
   {
-    const w = new THREE.Group(), y = mY(SWING.x, SWING.z); w.position.set(SWING.x, y, SWING.z); w.rotation.y = -Math.PI / 2; g.add(w); // 앞(-z)이 바깥(+x)
+    const w = new THREE.Group(), y = mY(SWING.x, SWING.z); w.position.set(SWING.x, y, SWING.z); w.rotation.y = -Math.PI / 2; swingG.add(w); // 앞(-z)이 바깥(+x)
     // 바위 턱: 구름 쪽으로 툭 튀어나옴
     const ledge = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 1.6, 1.4, 9), stone[1]); ledge.position.set(0, -0.6, -1.0); ledge.scale.z = 1.25; w.add(ledge);
     rock(w, -2.2, -0.3, -0.4, 0.8, 0.6, 0.7); rock(w, 2.1, -0.2, -0.2, 0.7, 0.5, 0.6);
     const wood = toon(0xc08e5e);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 3.4, 7), wood); leg.position.set(sx * 1.25, 1.55, -1.0 + sz * 0.55); leg.rotation.x = -sz * 0.17; w.add(leg); }
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.9, 8), wood); beam.rotation.z = Math.PI / 2; beam.position.set(0, 3.2, -1.0); w.add(beam);
-    const swing = new THREE.Group(); swing.position.set(0, 3.15, -1.0); w.add(swing);
+    const swing = new THREE.Group(); swing.userData.dynamic = true; swing.position.set(0, 3.15, -1.0); w.add(swing);
     const ropeM = toon(0xe8d4a8);
     for (const sx of [-0.42, 0.42]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.5, 5), ropeM); r.position.set(sx, -1.25, 0); r.userData.noLine = true; swing.add(r); }
     const seat = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 0.38), toon(0xd8a26e)); seat.position.y = -2.5; swing.add(seat);
@@ -240,5 +254,10 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
   }
 
   stylize(g);
-  return { update(t: number, night: number) { for (const a of anim) a(t, night); } };
+  // 움직이지 않는 장식은 합쳐서 그리기 횟수를 줄임 (보였다 숨었다 하는 장소는 따로 합치고, 바깥 합치기에선 빼 둠)
+  for (const grp of [pg, dangsanG, swingG]) { bakeStatic(grp); grp.userData.dynamic = true; }
+  /** 진행에 따라 열리는 장소: regions.ts 조건으로 보였다 숨었다 */
+  const refresh = () => { dangsanG.visible = regionOpen('dangsan'); swingG.visible = regionOpen('swing'); };
+  refresh(); onProgress(refresh);
+  return { update(t: number, night: number) { for (const a of anim) a(t, night); }, refresh };
 }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bakeStatic } from './bake';
 
 /** 청학(靑鶴): 지리산 청학동 전설의 푸른 학. 쪽빛 몸 + 하늘빛 가슴, 붉은 정수리, 금빛 부리, 꼬리 깃은 짙은 남색에 금 테
  *  pose: 'stand' 서 있기 / 'fly' 날기. update(t)로 목·날개가 살아 움직임 */
@@ -98,6 +99,9 @@ export function blueCrane(pose: 'stand' | 'fly' = 'stand') {
     }
   };
   update(0);
+  // 움직이는 마디(머리·날개·꼬리·다리)마다 안쪽을 합쳐 그리기 횟수를 줄임
+  for (const part of [head, tail, ...wings, ...legs]) { bakeStatic(part); part.userData.dynamic = true; }
+  bakeStatic(root);
   return { g, update, head, root };
 }
 

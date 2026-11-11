@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { teacherCrane } from './crane';
+import { bakeStatic } from './bake';
 import { stable } from './stable-tex';
 import { animChar, makeChar, setGrowth, textSprite, toon } from './character';
 import { INDOOR, trailX } from './beach-extras';
@@ -133,6 +134,9 @@ export function createHall(groundAt: (x: number, z: number) => number) {
   const label = textSprite('학 훈장님', 0.6); label.position.set(0, 3.55, CRANE_Z); inner.add(label);
   const hint = textSprite('📜', 0.8); hint.position.set(0, 3.95, CRANE_Z); hint.visible = false; inner.add(hint);
 
+  // 훈장님(움직임)만 빼고 건물 안팎을 합쳐 그림
+  T.g.userData.dynamic = true; outCrane.g.userData.dynamic = true;
+  bakeStatic(root); bakeStatic(inner);
   const tmp = new THREE.Vector3();
   let talkT = 0;
   const stairs = toWorld(0, -D / 2 - 0.3 - (steps - 1) * 0.42 - 0.3);
