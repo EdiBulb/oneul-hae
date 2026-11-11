@@ -2183,16 +2183,14 @@ async function storyIntro() {
   await say('mago', a1 === 1 ? S.who : S.where);
   await say('say', S.mom);
   await say('mago', S.momGone);
-  const a2 = await pick(S.momVoice, S.ask2);
-  await say('mago', a2 === 1 ? S.again : S.phoenix);
-  await say('mago', S.crane);
+  // 세계관의 뼈대: 엄마는 떠나기 전 이웃들을 도왔다 → 그 길을 따라가면 나도 봉황
+  const a2 = await pick(S.foot, S.footAsk);
+  await say('mago', a2 === 1 ? S.footB : S.footA);
   // 청학당 쪽을 잠깐 비춤
   const saved = { d: cam.tDist, p: cam.tPitch, y: cam.tYaw };
   if (!skipped) setView(11, 0.42, Math.atan2(-(HALL.x - me.root.position.x), -(HALL.z - me.root.position.z)));
-  await say('mago', S.hall);
-  await say('mago', S.send);
+  await say('mago', S.learn);
   setView(saved.d, saved.p, saved.y);
-  await say('mago', S.grow);
   // ---- 여기부터는 건너뛰어도 꼭 ----
   if (skipped) track('story', { step: 'skipped' });
   setSkip(null); skipped = false;
@@ -2203,7 +2201,6 @@ async function storyIntro() {
   while (me.root.position.distanceTo(from) < 1.2 && performance.now() - t0 < 12000) await sleep(200);
   $('walkHint').hidden = true;
   await say('mago', S.good);
-  await say('mago', S.together);
   // ---- 정상: 할미와 함께 해돋이와 봉황을 봄 (모두에게 똑같은 장면) ----
   track('story', { step: 'summit' });
   await fade(true);
@@ -2225,8 +2222,6 @@ async function storyIntro() {
   { const p = me.root.position, m = mago.root.position; mago.look(faceAngle(p.x - m.x, p.z - m.z)); turnTo(me, faceAngle(m.x - p.x, m.z - p.z), 1); }
   await say('mago', S.saw);
   await say('mago', S.saw2);
-  const nx = sunriseInfo(place, Date.now()).next;
-  if (nx) await say('mago', S.sun(dayName(nx, place.tz), hm(nx, place.tz)));
   await say('mago', S.home);
   // ---- 둥지로: 여기서부터 진짜 (실제 시각, 다른 사람들) ----
   await fade(true);
