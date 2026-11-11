@@ -109,7 +109,7 @@ export function makeChar(_bodyC: number, hatC: number): Char {
   const bodyMat = toon(FEATHER); bodyMat.emissive.setHex(FEATHER).multiplyScalar(0.3); // 해를 등져도 까맣게 묻히지 않게
   const body = new THREE.Mesh(bodyGeo, bodyMat); body.position.y = CHICK.y; body.name = 'chickBody'; inner.add(body);
   // 외곽선: 뒷면을 살짝 크게 (갈색)
-  const ol = new THREE.Mesh(bodyGeo, new THREE.MeshBasicMaterial({ color: LINE, side: THREE.BackSide })); ol.position.y = CHICK.y; ol.scale.setScalar(1.022); // 가는 연필 선 ol.name = 'outline'; inner.add(ol);
+  const ol = new THREE.Mesh(bodyGeo, new THREE.MeshBasicMaterial({ color: LINE, side: THREE.BackSide })); ol.position.y = CHICK.y; ol.scale.setScalar(1.032); ol.name = 'outline'; inner.add(ol); // 프사처럼 또렷한 연필 선
   // 배
   const belly = new THREE.Mesh(new THREE.SphereGeometry(CHICK.r * 0.6, 16, 12), toon(0xf8e9a6)); belly.visible = false; belly.scale.set(0.95, 0.72, 0.4); belly.position.copy(onBody(0, -0.55, -0.85, 0.78)); inner.add(belly);
   // 눈: 크고 까맣게 + 반짝임 두 개
