@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, wearSet, itemOf, withItem, setGrowth, growthOf, growthStage, GROWTH_DAYS, PHOENIX_AT, setGoalPaper } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, wearSet, itemOf, withItem, setGrowth, growthOf, growthStage, GROWTH_DAYS, PHOENIX_AT } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
@@ -17,7 +17,7 @@ import { NEST } from './mountain-scenery';
 import { stylize } from './look';
 import { PHOENIX_ROCK } from './landmarks';
 import { createNpcs } from './npc';
-import { growthNow, GROW_NEED, talesDone, sunsSeen } from './progress';
+import { growthNow, GROW_NEED, talesDone, sunsSeen, skillsDone } from './progress';
 import { progDebug, canLearn, lessonsLeft, sunRose, lessonChoices, neededSkills, learn, LESSON, skillById, onProgress } from './progress';
 import { renderBook, renderQuests, pickLesson } from './book';
 import { createQuests } from './quests';
@@ -27,7 +27,6 @@ import { FOREST, VILLAGE } from './beach-extras';
 import { phoenixReady } from './progress';
 import { SPOTS_ON, POND, pondD } from './beach-extras';
 import { createHall, HALL } from './hall';
-import { initGoal, writeGoal, sendToSun } from './goal';
 import { createCastles } from './castles';
 import { createShells, PER_DAY, SHELLS } from './shells';
 import { createSkyLife } from './skylife';
@@ -867,14 +866,11 @@ async function magoTalk(auto: boolean, forceFirst = false) {
   mago.look(faceAngle(p.x - m.x, p.z - m.z));
   if (!auto) { if (mySeat !== null) standUp(); turnTo(me, faceAngle(m.x - p.x, m.z - p.z), 1); }
   track('mago_talk', { auto, first: !store.magoMet, again });
-  // 지난번 다짐이 있으면 그날 첫 인사 대신 그걸 물어봄 (새 아침의 시작)
-  const reflect = !forceFirst && !again && !!store.magoMet && !!store.goal && !store.goal.reflected && store.goal.day < today;
-  if (reflect) await reflectGoal();
-  else for (const text of lines) { mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who: 'mago', text }]); }
+  for (const text of lines) { mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who: 'mago', text }]); }
   store.magoMet = true; save();
   if (!forceFirst) await magoGifts();
   // 앱 설치는 처음에 묻지 않고, 해를 본 적 있는 사람에게 할미가 일주일에 한 번까지만 물어봄
-  if (!reflect && !isStandalone && installReady() && (installEvent || isIOS || isKakao) && Date.now() - (store.installAskAt ?? 0) > 7 * 86400000) {
+  if (!isStandalone && installReady() && (installEvent || isIOS || isKakao) && Date.now() - (store.installAskAt ?? 0) > 7 * 86400000) {
     store.installAskAt = Date.now(); save();
     mago.talk(4);
     const yes = await ask('mago', T.magoInstall, [T.magoInstallYes, T.magoInstallNo]) === 0;
@@ -895,22 +891,6 @@ function showDayTitle() {
   $('dtDate').textContent = T.dayDate(new Date()); $('dtNth').textContent = T.dayNth(n);
   const el = $('dayTitle'); el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 4200);
   track('day_title', { n });
-}
-/** 지난번에 쓴 다짐을 할미가 물어봄. 답은 기록하지 않음 (털어 내는 게 목적) */
-async function reflectGoal() {
-  const gl = store.goal, today = dateKey(Date.now());
-  if (!gl || gl.reflected || gl.day >= today) return;
-  gl.reflected = true; save();
-  const yest = gl.day === dateKey(Date.now() - 86400000), [, mm, dd] = gl.day.split('-').map(Number);
-  mago.talk(3); await talk([{ who: 'mago', text: T.reflectHi }]);
-  ($('goalPeekImg') as HTMLImageElement).src = gl.img; $('goalPeekWhen').textContent = T.reflectWhen(yest, T.dayDate(new Date(2000, mm - 1, dd)));
-  $('goalPeek').hidden = false;
-  mago.talk(4);
-  const pick = await ask('mago', T.reflectAsk(yest), T.reflectPick);
-  $('goalPeek').hidden = true;
-  track('goal_reflect'); // 무엇을 골랐는지는 남기지 않음
-  mago.talk(5); await talk([{ who: 'mago', text: T.reflectReply[Math.max(0, pick)] }]);
-  await talk([{ who: 'me', text: T.reflectMe }]);
 }
 
 // ================= 밤: 해를 기다리며 할 것 =================
@@ -958,7 +938,7 @@ async function tellTale(asked: boolean) {
   mago.look(magoHome); magoBusy = false;
 }
 
-// ================= 병아리 청학당 (오늘의 목표 쓰기) =================
+// ================= 청학당 (배움) =================
 // 땅 높이는 지리산 지형으로 직접 계산 (시작할 때는 아직 지형이 바뀌기 전이라 floorY를 쓰면 공중에 뜸)
 const hall = createHall((x, z) => mountainY(x, z, 'jirisan')); scene.add(hall.root, hall.inner); stylize(hall.root);
 let hallMoving = false;
@@ -984,14 +964,9 @@ async function hallDoor(goIn: boolean) {
   hallMoving = false;
 }
 let savedView: { d: number; p: number; y: number } | null = null;
-initGoal();
 let onCushion = false, hallBusy = false, inHall = false, hallGreeted = false, hallSaidAt = -1e9;
-const goalToday = () => store.goal?.day === dateKey(Date.now()) ? store.goal : undefined;
-/** 오늘 쓴 종이는 해에게 보내기 전까지 오른쪽 날개에 계속 쥐고 있음 (화면에 따로 띄우지 않음) */
-function renderGoalUi() { const gl = goalToday(); $('goalChip').hidden = true; setGoalPaper(me, !!gl && !gl.sent); setOutfit(me, outfitOf(me)); }
-renderGoalUi();
-($('goalBtn') as HTMLButtonElement).textContent = T.sitCushion;
-/** 방석에 앉기: 아직 목표를 안 썼으면 훈장님이 한마디 하고 종이가 펼쳐짐 */
+($('learnBtn') as HTMLButtonElement).textContent = T.sitCushion;
+/** 방석에 앉기: 훈장님께 배움 (해 한 번에 하나) */
 async function hallWrite() {
   if (hallBusy) return;
   hallBusy = true;
@@ -999,7 +974,7 @@ async function hallWrite() {
   // 가장 가까운 방석에 앉아 학 훈장님을 바라봄
   const c = hall.cushionNear(me.root.position.x, me.root.position.z);
   me.root.position.set(c.x, c.y, c.z); me.root.rotation.y = c.face; me.state = 'sit'; onCushion = true; lying = false;
-  track('cushion_sit', { written: !!goalToday() });
+  track('cushion_sit');
   // 0) 스킬 15개 + 메인 이야기 8개를 다 하면: 봉황이 되는 날
   if (phoenixReady() && !store.phoenix) { await becomePhoenix(); hallBusy = false; return; }
   let hallLearned = false;
@@ -1022,17 +997,7 @@ async function hallWrite() {
     } else break;
   }
   if (!lessonsLeft() && !hallLearned) { hall.talk(3); await talk([{ who: 'crane', text: '해를 보고 오너라.\n해 한 번에 배움 하나, 배움은 해를 본 눈으로 하는 게야.' }]); }
-  // 2) 오늘의 다짐 (원래 있던 것): 이제는 물어보고 씀
-  if (!goalToday() && await ask('crane', '오늘의 다짐도 적어 보겠느냐?', ['적을래요', '다음에']) === 0) {
-    const img = await writeGoal();
-    if (img) {
-      store.goal = { day: dateKey(Date.now()), img }; store.goalCount = (store.goalCount ?? 0) + 1; save(); renderGoalUi();
-      track('goal_written');
-      await talk([{ who: 'me', text: T.goalHold }]);
-      hall.talk(3); await talk([{ who: 'crane', text: T.craneDone }]);
-      await craneGifts();
-    }
-  }
+  if (hallLearned) await craneGifts();
   hallBusy = false;
 }
 /** 엔딩: 훈장님의 마지막 가르침 → 청학당 밖에서 날아올라 봉황바위로 */
@@ -1050,19 +1015,10 @@ async function becomePhoenix() {
   setGrowth(me, GROWTH_DAYS.length - 1); growLock = true;
   toast('🔥 봉황이 되었어요. 이제 봉황바위가 자네 자리예요.');
 }
-$('goalBtn').onclick = () => hallWrite();
-/** 해가 떠 있을 때 울면: 품에 있던 오늘의 목표를 해에게 보냄 */
-function deliverGoal() {
-  const gl = goalToday();
-  if (!gl || gl.sent || lastAltForBanner < -1.5) return;
-  gl.sent = true; save(); renderGoalUi();
-  sendToSun(gl.img, sunOnScreen());
-  track('goal_sent');
-  setTimeout(() => talk([{ who: 'me', text: T.goalSent }]), 2600);
-}
+$('learnBtn').onclick = () => hallWrite();
 function updateHall(dt: number, t: number) {
   const here = place.id === 'jirisan';
-  hall.root.visible = hall.inner.visible = here; if (!here) { $('goalBtn').hidden = true; return; }
+  hall.root.visible = hall.inner.visible = here; if (!here) { $('learnBtn').hidden = true; return; }
   hall.update(dt, t);
   const p = me.root.position, inside = indoorNow();
   world.setIndoor(inside);
@@ -1073,14 +1029,14 @@ function updateHall(dt: number, t: number) {
   }
   // 안에 들어와 있으면 어디서든 방석에 앉을 수 있음
   const near = inside && !hallMoving;
-  const b = $('goalBtn'), show = near && !lying && !hallBusy && !onCushion;
+  const b = $('learnBtn'), show = near && !lying && !hallBusy && !onCushion;
   if (b.hidden === show) b.hidden = !show;
-  hall.showHint(!goalToday());
+  hall.showHint(lessonsLeft() > 0);
   // 다가가면 바로 학 훈장님이 말을 검 (들어올 때마다, 너무 자주는 말고)
   // 다른 대화가 끝나기를 기다렸다가라도, 들어온 뒤 한 번은 꼭 말함
   if (near && !hallGreeted && !hallBusy && !talking() && !openSheet && performance.now() - hallSaidAt > 15000) {
     hallSaidAt = performance.now(); hallGreeted = true; hall.talk(3);
-    talk([{ who: 'crane', text: goalToday() ? T.craneAgain : T.craneHello }]);
+    talk([{ who: 'crane', text: lessonsLeft() ? T.craneHello : T.craneAgain }]);
   }
   if (!near) hallGreeted = false;
   inHall = near;
@@ -1160,8 +1116,7 @@ function sunriseLegends() {
     else if (Math.random() < 0.5) talk([{ who: 'me', text: T.phoenixAgain[Math.floor(Math.random() * T.phoenixAgain.length)] }]);
     if (craneToday()) setTimeout(() => legends.fly('crane', camera, world.sunDir, () => {
       track('crane_seen');
-      const gl = goalToday();
-      talk([{ who: 'me', text: T.craneSeen }, { who: 'me', text: gl?.sent ? T.craneGoal : T.craneNoGoal }]);
+      talk([{ who: 'me', text: T.craneSeen }]);
     }), 5000);
   }), 1800);
 }
@@ -1414,7 +1369,6 @@ function crow(from: string) {
   lastCrow = performance.now();
   me.emote = 'crow'; me.emoteT = 0; if (connected) net.emit('emote', 'crow');
   amb.unlock(); amb.crow(growthStage(me), 1); voiceBubble(me);
-  setTimeout(deliverGoal, 500);
   track('crow', { stage: growthStage(me), from });
 }
 $('crowBtn').onclick = () => crow('button');
@@ -2462,11 +2416,11 @@ async function giveItem(it: Item) {
 }
 const giftCtx = () => {
   const p = me.root.position, jiri = place.id === 'jirisan';
-  return { days: seenDays(), tales: store.taleNext ?? 0, goals: store.goalCount ?? 0, fedTogether: !!store.feedTogetherDay, season: seasonNow(), atSummit: jiri && p.z < 14 && p.z > -1, atJeseok: jiri && p.z > 40 && p.z < 62 };
+  return { days: seenDays(), tales: store.taleNext ?? 0, skills: skillsDone(), fedTogether: !!store.feedTogetherDay, season: seasonNow(), atSummit: jiri && p.z < 14 && p.z > -1, atJeseok: jiri && p.z > 40 && p.z < 62 };
 };
 /** 할미가 건네는 것 (어미가 맡긴 것 포함): 할미와 이야기할 때 */
 async function magoGifts() { for (const it of earnable(giftCtx()).filter(x => x.giver === 'mother' || x.giver === 'mago')) await giveItem(it); }
-/** 훈장님이 주는 것: 다짐을 쓴 뒤 */
+/** 훈장님이 주는 것: 배운 뒤 */
 async function craneGifts() { for (const it of earnable(giftCtx()).filter(x => x.giver === 'crane')) await giveItem(it); }
 /** 산과 계절이 주는 것: 그 자리·그 계절에 있으면 바로 */
 let giftScanAt = 0;

@@ -197,7 +197,7 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
     // 금줄: 새끼줄 + 하얀 종이
     const rope = new THREE.Mesh(new THREE.TorusGeometry(0.82, 0.05, 6, 28), toon(0xd8c08a)); rope.rotation.x = Math.PI / 2; rope.position.y = 1.5; d.add(rope);
     for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, pp = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.3), toon(0xffffff, { side: THREE.DoubleSide })); pp.position.set(Math.cos(a) * 0.84, 1.33, Math.sin(a) * 0.84); pp.rotation.y = -a + Math.PI / 2; d.add(pp); }
-    // 오색 리본: 낮은 가지에서 늘어져 바람에 살랑 (나중엔 모두의 '오늘의 다짐'이 리본 하나씩)
+    // 오색 리본: 낮은 가지에서 늘어져 바람에 살랑
     const COLS = [0xf28c8c, 0xf6d26a, 0x8cc4f0, 0xffffff, 0x9fd49a, 0xf7a8c8];
     const ribbons: THREE.Mesh[] = [];
     for (let i = 0; i < 90; i++) {
@@ -208,7 +208,7 @@ export function createSpots(parent: THREE.Group, mY: (x: number, z: number) => n
     }
     anim.push(t => { for (const r of ribbons) { r.rotation.z = Math.sin(t / 700 + r.userData.ph) * 0.18; r.rotation.x = Math.sin(t / 900 + r.userData.ph * 1.3) * 0.12; } });
     // 안내 돌: 소원을 묶는 나무
-    const sg = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.6, 0.12), [toon(0xb08a66), toon(0xb08a66), toon(0xb08a66), toon(0xb08a66), new THREE.MeshToonMaterial({ color: 0xffffff, map: carved(['당산나무', '오늘의 다짐을 묶어요'], 512, 256, '#5a4030', false, '#f3e4c8') }), toon(0xb08a66)]);
+    const sg = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.6, 0.12), [toon(0xb08a66), toon(0xb08a66), toon(0xb08a66), toon(0xb08a66), new THREE.MeshToonMaterial({ color: 0xffffff, map: carved(['당산나무'], 512, 256, '#5a4030', false, '#f3e4c8') }), toon(0xb08a66)]);
     sg.position.set(2.0, 0.75, 2.6); sg.rotation.y = 0.6; d.add(sg);
     const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 6), toon(0x8a6a4e)); sp.position.set(2.0, 0.3, 2.6); d.add(sp);
   }

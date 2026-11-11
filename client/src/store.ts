@@ -29,8 +29,7 @@ interface Saved {
   /** 마고할미: 처음 이야기를 들었는지, 오늘 인사했는지 */
   magoMet?: boolean;
   magoDay?: string;
-  /** 오늘의 목표 종이 (청학당에서 쓴 그림), 학 훈장님과 인사한 날, 마고할미가 앱 설치를 물어본 때 */
-  goal?: { day: string; img: string; sent?: boolean; reflected?: boolean };
+  /** 학 훈장님과 인사한 날, 마고할미가 앱 설치를 물어본 때 */
   /** 해 뜨는 순간 '11월 12일 · N번째 아침' 제목을 띄운 날 (하루 한 번) */
   titleDay?: string;
   craneDay?: string;
@@ -47,7 +46,6 @@ interface Saved {
   /** 옷장: 받은 것, 아직 옷장에서 못 본 새 것, 지금까지 쓴 다짐 수 */
   got?: string[];
   gotNew?: string[];
-  goalCount?: number;
   feedTogetherDay?: string;
   /** 마고할미 옛날이야기: 다음에 들려줄 번호, 마지막으로 들은 날 */
   taleNext?: number;
