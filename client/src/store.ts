@@ -100,6 +100,10 @@ interface Saved {
   remindAt?: number;
   /** 배경 소리 켜짐 (기본 켜짐) */
   soundOn: boolean;
+  /** 봉황이 되는 길: 스킬별 배움 단계(0~2), 퀘스트별 지금 단계(-1 모름 ~ 끝), 마지막으로 배운 날 */
+  skills?: Partial<Record<string, number>>;
+  quests?: Partial<Record<string, number>>;
+  learnDay?: string;
 }
 
 function load(): Partial<Saved> {

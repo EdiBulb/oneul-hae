@@ -1,11 +1,14 @@
 // 대화창: 동그란 말풍선 + 이름표 + 한 글자씩 나오는 글씨 + 톡톡 소리.
 // 누르면 글씨가 바로 다 나오고, 한 번 더 누르면 다음 줄 / 닫힘.
 
-export type Speaker = 'mago' | 'me' | 'say' | 'crane';
+export type Speaker = 'mago' | 'me' | 'say' | 'crane' | (string & {});
 export interface Line { who: Speaker; text: string; choices?: string[] }
-const NAME: Record<Speaker, [string, string]> = { mago: ['마고할미', 'Grandma Mago'], me: ['나 (속마음)', 'Me (thinking)'], say: ['나', 'Me'], crane: ['학 훈장님', 'Master Crane'] };
+const NAME: Record<string, [string, string]> = { mago: ['마고할미', 'Grandma Mago'], me: ['나 (속마음)', 'Me (thinking)'], say: ['나', 'Me'], crane: ['학 훈장님', 'Master Crane'] };
 /** 말하는 사람마다 목소리 높이 (톡톡 소리) */
-const PITCH: Record<Speaker, number> = { mago: 330, me: 880, say: 880, crane: 520 };
+const PITCH: Record<string, number> = { mago: 330, me: 880, say: 880, crane: 520 };
+
+/** 새 NPC가 대화창에 이름과 목소리 높이를 등록 */
+export function addSpeaker(id: string, name: [string, string], pitch: number) { NAME[id] = name; PITCH[id] = pitch; }
 
 let box: HTMLElement, nameEl: HTMLElement, textEl: HTMLElement, choiceEl: HTMLElement, cur: Line | null = null, picked: ((i: number) => void) | null = null;
 let queue: Line[] = [], typing = 0, full = '', shown = 0, done: (() => void) | null = null, autoT = 0;
@@ -46,14 +49,14 @@ export function ask(who: Speaker, text: string, choices: string[]): Promise<numb
 function show(l: Line) {
   cur = l; choiceEl.hidden = true; choiceEl.innerHTML = '';
   box.hidden = false; box.dataset.who = l.who;
-  nameEl.textContent = NAME[l.who][isKo ? 0 : 1];
+  nameEl.textContent = NAME[l.who]?.[isKo ? 0 : 1] ?? l.who;
   full = l.text; shown = 0; textEl.textContent = ''; box.classList.remove('ready');
   box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
   clearInterval(typing); clearTimeout(autoT);
   typing = window.setInterval(() => {
     shown++; textEl.textContent = full.slice(0, shown);
     const ch = full[shown - 1];
-    if (shown % 2 === 1 && ch && ch.trim() && !/[.,!?…"'·]/.test(ch)) blip?.(PITCH[l.who] * (0.92 + Math.random() * 0.16));
+    if (shown % 2 === 1 && ch && ch.trim() && !/[.,!?…"'·]/.test(ch)) blip?.((PITCH[l.who] ?? 600) * (0.92 + Math.random() * 0.16));
     if (shown >= full.length) finishLine();
   }, 42);
 }
