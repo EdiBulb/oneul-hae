@@ -79,14 +79,14 @@ export const QUESTS: Quest[] = [
     { ko: '뚝딱이에게 방망이 돌려주기', when: 'night', where: '도깨비 소굴' },
   ] },
   { id: 'heungbu', main: true, title: '윷판의 흥부', tale: '흥부와 놀부', place: '장터목', icon: '🎋', steps: [
-    { ko: '놀부의 부탁 듣기', where: '장터목 마당' },
-    { ko: '윷판에서 흥부와 한 판 두기', where: '장터목 윷판' },
-    { ko: '마음 읽기로 흥부의 속마음 보기', need: 'mind', where: '장터목 윷판' },
+    { ko: '놀부의 부탁 듣기', where: '청학당 옆 마당' },
+    { ko: '윷판에서 흥부와 한 판 두기', where: '청학당 옆 윷판' },
+    { ko: '마음 읽기로 흥부의 속마음 보기', need: 'mind', where: '청학당 옆 윷판' },
     { ko: '새소리 듣기로 제비의 말 알아듣기', need: 'birds', where: '윷판 옆 제비' },
     { ko: '흥부와 박에 물 주기 (1/3)', need: 'patience', where: '윷판 옆 박 넝쿨' },
     { ko: '흥부와 박에 물 주기 (2/3)', need: 'patience', where: '윷판 옆 박 넝쿨' },
     { ko: '흥부와 박에 물 주기 (3/3)', need: 'patience', where: '윷판 옆 박 넝쿨' },
-    { ko: '박을 타고, 흥부와 함께 놀부에게', where: '장터목 마당' },
+    { ko: '박을 타고, 흥부와 함께 놀부에게', where: '청학당 옆 마당' },
   ] },
   { id: 'ureong', main: true, title: '숨을 곳이 없는 우렁각시', tale: '우렁각시', place: '청학지', icon: '🐚', steps: [
     { ko: '둥지에 차려진 아침상 살펴보기', where: '둥지' },

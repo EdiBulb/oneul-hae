@@ -34,10 +34,10 @@ export const SPOTS = {
   clue: rim(-0.2), bisok: rim(0.16, 1.22), pebble: rim(-0.1, 1.12), sansin: { x: POND.x + POND.rx * 0.8, z: POND.z - 2.6 },
   ureong: rim(0.38), shadow: side(40, -6), seonnyeo: rim(-0.38), sang: { x: NEST.x + 1.7, z: NEST.z + 0.9 },
   den: { x: FOREST.x, z: FOREST.z }, hokburi: { x: FOREST.x + 3.5, z: FOREST.z + 3 },
-  nolbu: side(89, 5.2), heungbu: side(94.5, 5.6), jebi: side(96.2, 4.4), bak: side(96.6, 7.2),
+  nolbu: side(88.6, 5.0), heungbu: side(86.5, 5.8), jebi: side(85.7, 4.3), bak: side(85.3, 7.4),
   kkachi: { x: FEED_AT.x - 2.4, z: FEED_AT.z + 1.2 }, dal: { x: 1.6, z: 1.3 }, jiknyeo: { x: -2.2, z: 1.4 },
   tiger: side(TRAIL.end - 0.2, 0.3), patjuk: { x: VILLAGE.x - 6, z: VILLAGE.z - 3 }, kongjwi: { x: VILLAGE.x + 6, z: VILLAGE.z - 1 }, dukkeobi: { x: VILLAGE.x + 7.6, z: VILLAGE.z + 1.4 }, bang: { x: VILLAGE.x - 1, z: VILLAGE.z + 6 },
-  herbs: [side(58, -5), side(47, -4.6), side(76, 5.4)], flowers: [42, 48, 54, 60, 66].map(z => side(z, 6)),
+  herbs: [side(58, -5), side(47, -4.6), side(63, -5.5)], flowers: [42, 48, 54, 60, 66].map(z => side(z, 6)),
 };
 
 // ---------- 줄거리 ----------
@@ -322,7 +322,7 @@ export function createQuests(c: QuestCtx) {
   { const wm = new THREE.MeshBasicMaterial({ color: 0x7fd8ff, transparent: true, opacity: 0.85 });
     for (let i = 0; i < 9; i++) { const k = i / 8, x = trailX(FOREST.z + 6) - 2 + (FOREST.x - trailX(FOREST.z + 6) + 4) * k, z = FOREST.z + 6 - 5 * k; const w = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), wm); w.scale.y = 1.5; w.position.set(x, c.floor(x, z) + 1.1, z); w.userData = { y: w.position.y, ph: i }; c.scene.add(w); wisps.push(w); } }
 
-  let tick = 0, lieT = 0;
+  let tick = 0, lieT = 0, lieBusy = false;
   onProgress(() => { tick = 0; });
   return {
     spots: SPOTS,
@@ -335,16 +335,16 @@ export function createQuests(c: QuestCtx) {
       for (const n of turn) { if (!n.root.visible) continue; const d = Math.hypot(p.x - n.root.position.x, p.z - n.root.position.z); const want2 = d < 6 ? faceAngle(p.x - n.root.position.x, p.z - n.root.position.z) : n.home; let dd = want2 - n.root.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); n.root.rotation.y += dd * Math.min(1, dt * 4); }
       const ws = hasSkill('dokkaebi') && c.night() && regionOpen('nightForest');
       for (const w of wisps) { w.visible = ws; if (ws) w.position.y = w.userData.y + Math.sin(t * 2 + w.userData.ph) * 0.15; }
-      tick -= dt; if (tick > 0) return; tick = 1;
+      const nowMs = performance.now(); if (nowMs < tick) return; tick = nowMs + 1000; // 1초에 한 번 (느린 폰에서도 같은 박자)
       // 저절로 넘어가는 단계
       for (const q of QUESTS) {
         const k = cur(q.id); if (!k) continue;
         if (k.sc.auto === 'skill' && k.def.need && hasSkill(k.def.need)) finish(q.id, k.s);
       }
       // 견우와 직녀: 까치 이야기를 끝내고, 별자리 읽기를 익히고, 밤에 누워 있으면 시작
-      if (c.lying() && c.night() && hasSkill('stars') && questDone('kkachi') && questStep('gyeonu') <= 0) {
+      if (!lieBusy && c.lying() && c.night() && hasSkill('stars') && questDone('kkachi') && questStep('gyeonu') <= 0) {
         lieT += 1;
-        if (lieT >= 4) { lieT = 0; if (questStep('gyeonu') < 0) startQuest('gyeonu'); void c.say([['me', '(은하수 양쪽에 유난히 밝은 별 둘.\n…견우성과 직녀성이다.)'], ['me', '(직녀성 쪽에서 누가 부르는 것 같다.\n정상에 가 보자.)']]).then(() => finish('gyeonu', 0)); }
+        if (lieT >= 4) { lieT = 0; lieBusy = true; if (questStep('gyeonu') < 0) startQuest('gyeonu'); void c.say([['me', '(은하수 양쪽에 유난히 밝은 별 둘.\n…견우성과 직녀성이다.)'], ['me', '(직녀성 쪽에서 누가 부르는 것 같다.\n정상에 가 보자.)']]).then(() => { finish('gyeonu', 0); lieBusy = false; }); }
       } else lieT = 0;
     },
   };
