@@ -36,7 +36,9 @@
   .ticker{min-height:20px;text-align:center;font-size:12px;color:var(--ink-dim);margin-bottom:10px;text-shadow:0 1px 6px rgba(0,0,0,.6);opacity:0;transform:translateY(4px);transition:opacity .5s,transform .5s}
   .ticker.show{opacity:1;transform:none}
   .controls{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
-  .joy{width:124px;height:124px;border-radius:50%;background:rgba(12,14,30,.32);border:1px solid var(--line);position:relative;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none}
+  .joy{width:124px;height:124px;border-radius:50%;background:rgba(12,14,30,.32);border:1px solid var(--line);position:relative;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none;transition:box-shadow .25s,border-color .25s}
+  /* 빠른 걸음: 테두리에 금빛 링만 (글자 없음) */
+  .joy.fast{border-color:rgba(255,214,120,.95);box-shadow:0 0 0 3px rgba(255,214,120,.45),0 0 18px rgba(255,200,90,.55)}
   .joy i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,248,239,.85);box-shadow:0 4px 18px rgba(0,0,0,.3)}
   .joy span{position:absolute;left:0;right:0;bottom:-18px;text-align:center;font-size:10.5px;color:var(--ink-faint)}
   .actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end}

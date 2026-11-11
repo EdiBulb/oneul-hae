@@ -11,6 +11,8 @@ export interface Char {
   inner: THREE.Group;
   armL: THREE.Group; armR: THREE.Group; legL: THREE.Group; legR: THREE.Group;
   phase: number;
+  /** 걸음 빠르기 (1 = 보통, 0.6 살살, 1.6 빠른 걸음) */
+  pace: number;
   state: CharState;
   /** 통나무처럼 높은 자리에 앉았는지 (다리를 아래로 내림) */
   bench: boolean;
@@ -201,7 +203,7 @@ export function makeChar(_bodyC: number, hatC: number): Char {
   const sh = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.02; root.add(sh);
-  return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, state: 'idle', bench: false, emote: null, emoteT: 0, mug, steam, blanket };
+  return { root, inner, armL, armR, legL, legR, phase: Math.random() * 6, pace: 1, state: 'idle', bench: false, emote: null, emoteT: 0, mug, steam, blanket };
 }
 
 export function disposeChar(c: Char) {
@@ -216,11 +218,14 @@ export function disposeChar(c: Char) {
 /** 걷기·앉기·기지개·손 흔들기·짠 동작을 부드럽게 보간 */
 const EMOTE_T: Record<Emote, number> = { stretch: 1.8, wave: 1.9, cheers: 2.6, clink: 2.6, clap: 2.2, skip: 1.1, dig: 1.6, give: 2.2, take: 2.2, eat: 1.8, pet: 2.0, dance: 4.0, yaho: 2.2, raise: 3.2, crow: 2.0, hop: 0.9, peck: 1.8 };
 export function animChar(c: Char, dt: number) {
-  c.phase += dt * (c.state === 'walk' ? 9 : 1.6);
+  const fast = c.state === 'walk' ? Math.max(0, Math.min(1, (c.pace - 1.15) / 0.4)) : 0;
+  c.phase += dt * (c.state === 'walk' ? 9 * Math.max(0.65, c.pace) * (1 + fast * 0.25) : 1.6);
   let aL = 0, aR = 0, aRz = 0, aLz = 0, lL = 0, lR = 0, y = 0, rx = 0;
   if (c.state === 'walk') {
     const s = Math.sin(c.phase);
     lL = s * 0.6; lR = -s * 0.6; aL = -s * 0.3; aR = s * 0.3; aLz = -0.25; aRz = 0.25; y = Math.abs(Math.cos(c.phase)) * 0.05;
+    // 빠른 걸음 (총총): 몸을 앞으로 숙이고, 날개를 옆으로 벌려 파닥, 보폭은 짧게, 통통 튀게
+    if (fast > 0) { lL *= 1 - fast * 0.25; lR *= 1 - fast * 0.25; aLz = -0.25 - fast * (0.55 + Math.abs(s) * 0.35); aRz = 0.25 + fast * (0.55 + Math.abs(s) * 0.35); aL *= 1 - fast * 0.6; aR *= 1 - fast * 0.6; y += fast * Math.abs(Math.cos(c.phase)) * 0.06; rx = fast * 0.2; }
   } else if (c.state === 'sit') {
     // 방석: 다리를 앞으로 쭉 / 통나무: 무릎 아래로 다리를 내리고 손은 무릎 위에
     y = -0.16;

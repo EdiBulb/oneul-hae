@@ -234,9 +234,15 @@ export function createAmbience() {
     setAlt(a: number) { alt = a; },
     setWeather(w: Weather) { weather = w; },
     /** 내 발걸음: 물에서는 찰박, 데크에서는 통통 */
-    step(kind: 'sand' | 'water' | 'wood') {
+    step(kind: 'sand' | 'water' | 'wood', fast = false) {
       if (!ctx || ctx.state !== 'running') return;
       const t = ctx.currentTime + 0.01, pan = rand(-0.15, 0.15);
+      if (fast && kind !== 'water') {
+        // 빠른 걸음: 더 짧고 가볍고 살짝 높은 '톡'
+        if (kind === 'wood') { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(rand(210, 250), t); o.frequency.exponentialRampToValueAtTime(110, t + 0.05); const g = ctx.createGain(); g.gain.setValueAtTime(0.45, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.07); o.connect(g).connect(fxBus); o.start(t); o.stop(t + 0.08); }
+        burst(t, 0.035, 'bandpass', rand(2300, 3200), 0.9, 0.07, pan);
+        return;
+      }
       if (kind === 'water') {
         const f = burst(t, 0.22, 'bandpass', rand(900, 1400), 0.8, 0.9, pan);
         f.frequency.exponentialRampToValueAtTime(rand(380, 600), t + 0.2);
@@ -250,6 +256,12 @@ export function createAmbience() {
       } else {
         burst(t, 0.07, 'bandpass', rand(1500, 2400), 0.7, 0.08, pan);
       }
+    },
+    /** 빠른 걸음 시작: 짧은 '휙' */
+    whoosh() {
+      if (!ctx || ctx.state !== 'running') return;
+      const t = ctx.currentTime + 0.01, f = burst(t, 0.22, 'bandpass', 700, 1.2, 0.12, 0);
+      f.frequency.exponentialRampToValueAtTime(2600, t + 0.2);
     },
     /** 박수 짝짝짝 (vol: 가까울수록 큼) */
     /** 강아지 '멍!' (두 번 짧게) */

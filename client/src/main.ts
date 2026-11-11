@@ -256,7 +256,9 @@ function updateRemotes(dt: number) {
     const p = r.c.root.position;
     const dx = r.tx - p.x, dz = r.tz - p.z, d = Math.hypot(dx, dz);
     // 서버에서 초당 8번 정도 오는 위치 사이를 부드럽게 채움
+    const ox = p.x, oz = p.z;
     if (d > 6) { p.x = r.tx; p.z = r.tz; } else { p.x += dx * e; p.z += dz * e; }
+    if (dt > 0 && d <= 6) { const v = Math.hypot(p.x - ox, p.z - oz) / dt; r.c.pace += (Math.max(0.7, Math.min(1.7, v / 3.2)) - r.c.pace) * Math.min(1, dt * 4); }
     const bench = r.st === 2 ? benchAt(p.x, p.z) : null;
     r.c.bench = !!bench;
     p.y = bench ? bench.y : floorY(p.x, p.z) + (r.st === 2 ? 0.07 : 0);
@@ -424,6 +426,8 @@ joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyMove(e)
 const joyEnd = (e: PointerEvent) => { if (e.pointerId !== joyId) return; joyId = null; joyVec = { x: 0, y: 0 }; knob.style.transform = ''; };
 joy.addEventListener('pointerup', joyEnd); joy.addEventListener('pointercancel', joyEnd);
 
+/** 빠른 걸음: 조이스틱을 끝까지 0.5초 밀고 있거나 Shift */
+let fastWalk = false, edgeT = 0, myPace = 1, lastStepSin = 0, lastSurf: 'sand' | 'water' | 'wood' = 'sand';
 function readInput() {
   if (sandOpen) { input.x = input.y = 0; return; } // 게시판을 보는 동안은 제자리
   let { x, y } = joyVec;
@@ -639,9 +643,17 @@ function updateMe(dt: number) {
     // 조이스틱 위쪽 = 카메라가 바라보는 방향
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
     const mx = rx * input.x + fx * input.y, mz = rz * input.x + fz * input.y;
-    // 등산로 오르막에서는 걸음이 살짝 느려짐
-    let sp = 3.2 * dt;
-    if (place.id === 'jirisan' && p.z > 14) { const up = floorY(p.x + mx * 0.5, p.z + mz * 0.5) - floorY(p.x, p.z); if (up > 0.03) sp *= Math.max(0.72, 1 - up * 2.2); }
+    // 미는 만큼 속도: 살살(약 2.2) ~ 보통(3.2), 끝까지 0.5초 밀고 있으면 빠른 걸음(5.2)
+    const mag = Math.min(1, Math.hypot(input.x, input.y)), shift = !!keys['shift'];
+    edgeT = joyId !== null && mag > 0.93 ? edgeT + dt : 0;
+    const wantFast = shift || edgeT > 0.5;
+    if (wantFast && !fastWalk) amb.whoosh();
+    fastWalk = wantFast; joy.classList.toggle('fast', fastWalk && !shift);
+    const base = fastWalk ? 5.2 : 2.2 + 1.0 * Math.max(0, Math.min(1, (mag - 0.3) / 0.6));
+    myPace += (base / 3.2 - myPace) * Math.min(1, dt * 8); me.pace = myPace;
+    // 등산로 오르막에서는 걸음이 살짝 느려짐 (빠른 걸음일 땐 덜)
+    let sp = myPace * 3.2 * dt / Math.max(0.3, mag);
+    if (place.id === 'jirisan' && p.z > 14) { const up = floorY(p.x + mx * 0.5, p.z + mz * 0.5) - floorY(p.x, p.z); if (up > 0.03) sp *= Math.max(fastWalk ? 0.82 : 0.72, 1 - up * (fastWalk ? 1.4 : 2.2)); }
     // 갈 수 있는 곳만: 막히면 벽을 따라 미끄러지듯
     const nx = p.x + mx * sp, nz = p.z + mz * sp;
     if (canGo(nx, nz)) { p.x = nx; p.z = nz; }
@@ -649,8 +661,13 @@ function updateMe(dt: number) {
     else if (canGo(p.x, nz)) p.z = nz;
     p.y = floorY(p.x, p.z); me.state = 'walk'; turnTo(me, faceAngle(mx, mz), dt);
     const surf = prints.step('me', p.x, p.z, me.root.rotation.y);
-    if (surf) amb.step(surf === 'grass' ? 'sand' : surf);
+    if (surf) lastSurf = surf === 'grass' ? 'sand' : surf;
+    // 발소리는 발이 땅에 닿는 순간(걷기 애니메이션 박자)에 맞춰서: 빨리 걸으면 총총총
+    const ss = Math.sin(me.phase);
+    if (Math.sign(ss) !== Math.sign(lastStepSin) && lastStepSin !== 0) amb.step(lastSurf, fastWalk);
+    lastStepSin = ss;
   } else if (mySeat === null) {
+    if (fastWalk) { fastWalk = false; joy.classList.remove('fast'); } edgeT = 0; myPace = 1; me.pace = 1; lastStepSin = 0;
     me.state = lying ? 'lie' : onCushion ? 'sit' : 'idle';
     // 사진 자리: 동그라미에 서면 맞은편 자리를 바라봄
     if (!lying && hasPhotoSpots()) {
@@ -2994,4 +3011,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { me, cam, camPos: camera.position, freeCam: (a: number[] | null) => { freeCam = a ? [new THREE.Vector3(a[0], a[1], a[2]), new THREE.Vector3(a[3], a[4], a[5])] : null; }, phoenixRock: (k: number) => { legends.flyFrom('phoenix', PHOENIX_ROCK.clone().add(new THREE.Vector3(1, 6, 0)), new THREE.Vector3(30, 8, -10), 16); legends.update(16 * k, performance.now()); }, floor: (x: number, z: number) => floorY(x, z), dummy: (x: number, z: number, g: number, mask: number, ry: number) => { const c = makeChar(0xffd65a, 0); setGrowth(c, g); setOutfit(c, mask); c.root.position.set(x, floorY(x, z), z); c.root.rotation.y = ry; scene.add(c.root); const tick = () => { animChar(c, 0.016); requestAnimationFrame(tick); }; tick(); }, magoTo: (x: number, z: number, ry: number) => { mago.root.position.set(x, floorY(x, z), z); mago.look(ry); mago.root.traverse(o => { if ((o as THREE.Sprite).isSprite) o.visible = false; }); }, skyAt: (ms: number | null) => setIntroSky(ms, 0), give: (id: string) => { const it = ITEMS.find(x => x.id === id); if (it) void giveItem(it); }, dayTitle: () => { store.titleDay = ''; showDayTitle(); }, feedNow: () => morningFeed(), feedLeft: () => feed.left, cafe: CAFE, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { me, amb, cam, camPos: camera.position, freeCam: (a: number[] | null) => { freeCam = a ? [new THREE.Vector3(a[0], a[1], a[2]), new THREE.Vector3(a[3], a[4], a[5])] : null; }, phoenixRock: (k: number) => { legends.flyFrom('phoenix', PHOENIX_ROCK.clone().add(new THREE.Vector3(1, 6, 0)), new THREE.Vector3(30, 8, -10), 16); legends.update(16 * k, performance.now()); }, floor: (x: number, z: number) => floorY(x, z), dummy: (x: number, z: number, g: number, mask: number, ry: number) => { const c = makeChar(0xffd65a, 0); setGrowth(c, g); setOutfit(c, mask); c.root.position.set(x, floorY(x, z), z); c.root.rotation.y = ry; scene.add(c.root); const tick = () => { animChar(c, 0.016); requestAnimationFrame(tick); }; tick(); }, magoTo: (x: number, z: number, ry: number) => { mago.root.position.set(x, floorY(x, z), z); mago.look(ry); mago.root.traverse(o => { if ((o as THREE.Sprite).isSprite) o.visible = false; }); }, skyAt: (ms: number | null) => setIntroSky(ms, 0), give: (id: string) => { const it = ITEMS.find(x => x.id === id); if (it) void giveItem(it); }, dayTitle: () => { store.titleDay = ''; showDayTitle(); }, feedNow: () => morningFeed(), feedLeft: () => feed.left, cafe: CAFE, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
