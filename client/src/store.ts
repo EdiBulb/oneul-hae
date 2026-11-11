@@ -104,6 +104,11 @@ interface Saved {
   skills?: Partial<Record<string, number>>;
   quests?: Partial<Record<string, number>>;
   learnDay?: string;
+  /** 퀘스트: 하루 한 번 단계를 마지막으로 한 날, 모으는 중인 것(비트), 받은 기념품, 봉황이 된 날 */
+  qday?: Record<string, string>;
+  qbag?: Record<string, number>;
+  keeps?: string[];
+  phoenix?: string;
 }
 
 function load(): Partial<Saved> {

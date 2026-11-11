@@ -137,3 +137,81 @@ export function ureongGaksi(form: 'chick' | 'snail') {
   update(0);
   return { g, update: (t: number) => update(t) };
 }
+
+// ---------- 전래 동화 사람들: 마고할미와 같은 2등신 틀 ----------
+export interface FolkOpt { robe: number; sleeve?: number; skin?: number; hair?: number; top?: 'gat' | 'bun' | 'topknot' | 'band' | 'braid' | 'halo' | 'straw'; accent?: number; lump?: boolean; beard?: boolean; faceTint?: number; scale?: number; glow?: number }
+export function folk(o: FolkOpt) {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body); body.scale.setScalar(o.scale ?? 1);
+  const skinM = tn(o.faceTint ?? o.skin ?? 0xfbe4cf, 0.3), robeM = tn(o.robe), hairM = tn(o.hair ?? 0x3a3038, 0.15), acc = tn(o.accent ?? 0xe0606a, 0.3);
+  const pts = [[0, 0], [0.42, 0], [0.44, 0.06], [0.4, 0.3], [0.32, 0.52], [0.22, 0.64], [0, 0.66]].map(([x, y]) => new THREE.Vector2(x, y));
+  body.add(lined(new THREE.Mesh(new THREE.LatheGeometry(pts, 24), robeM), 0.025));
+  const sash = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.03, 6, 22), acc); sash.rotation.x = Math.PI / 2; sash.position.y = 0.4; body.add(sash);
+  const arms: THREE.Group[] = [];
+  for (const sx of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(sx * 0.3, 0.5, 0); body.add(piv); const sl = lined(new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.16, 4, 10), tn(o.sleeve ?? o.robe)), 0.015); sl.position.set(sx * 0.07, -0.12, -0.06); sl.rotation.set(-0.3, 0, sx * 0.4); piv.add(sl); const hand = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), skinM); hand.position.set(sx * 0.13, -0.25, -0.12); piv.add(hand); arms.push(piv); }
+  const head = new THREE.Group(); head.position.y = 0.97; body.add(head);
+  const skull = lined(new THREE.Mesh(new THREE.SphereGeometry(0.36, 22, 16), skinM), 0.025); skull.scale.set(1, 0.96, 0.94); head.add(skull);
+  face(head, -0.01, -0.33, 0.13, 0.95);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.011, 4, 12, Math.PI), black); mouth.position.set(0, -0.13, -0.335); mouth.rotation.z = Math.PI; head.add(mouth);
+  // 머리칼: 뒤통수를 덮는 반구
+  if (o.top !== 'halo' || o.hair) { const h = lined(new THREE.Mesh(new THREE.SphereGeometry(0.375, 20, 14, 0, Math.PI * 2, 0, 1.5), hairM), 0.015); h.rotation.x = 0.75; h.position.set(0, 0.03, 0.03); head.add(h); }
+  const ink = tn(0x2c2836, 0.1);
+  if (o.top === 'gat') { const brim = lined(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.02, 24), ink), 0.01); brim.position.y = 0.3; head.add(brim); const cr = lined(new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.26, 16), ink), 0.01); cr.position.y = 0.43; head.add(cr); }
+  if (o.top === 'straw') { const cone = lined(new THREE.Mesh(new THREE.ConeGeometry(0.52, 0.3, 20), tn(0xe8d08a)), 0.012); cone.position.y = 0.4; head.add(cone); }
+  if (o.top === 'bun' || o.top === 'halo') { const bun = lined(new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 10), hairM), 0.02); bun.position.set(0, o.top === 'halo' ? 0.4 : 0.18, o.top === 'halo' ? 0 : 0.3); head.add(bun); const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.46, 6), tn(0xe6c272, 0.4)); pin.rotation.z = Math.PI / 2; pin.position.copy(bun.position); head.add(pin); }
+  if (o.top === 'halo') { for (const sx of [-1, 1]) { const rb = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.025, 6, 20, Math.PI * 1.2), acc); rb.position.set(sx * 0.3, 0.5, 0.1); rb.rotation.set(0, 0, sx * 0.6); head.add(rb); } }
+  if (o.top === 'topknot') { const tk = lined(new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), hairM), 0.015); tk.position.y = 0.4; head.add(tk); }
+  if (o.top === 'band') { const bd = new THREE.Mesh(new THREE.TorusGeometry(0.355, 0.035, 6, 22), tn(0xfffaf2, 0.4)); bd.rotation.x = Math.PI / 2 + 0.15; bd.position.y = 0.12; head.add(bd); const tk = lined(new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), hairM), 0.015); tk.position.y = 0.4; head.add(tk); }
+  if (o.top === 'braid') { const br = lined(new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.5, 4, 8), hairM), 0.012); br.position.set(0, -0.3, 0.36); head.add(br); const rb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), acc); rb.position.set(0, -0.62, 0.36); head.add(rb); }
+  if (o.lump) { const l = lined(new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), skinM), 0.02); l.position.set(0.33, -0.16, -0.12); head.add(l); }
+  if (o.beard) { const b = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 8), tn(0xfbf8f2, 0.4)); b.rotation.x = Math.PI; b.position.set(0, -0.4, -0.26); head.add(b); }
+  if (o.glow) { const gl = new THREE.Mesh(new THREE.SphereGeometry(0.75, 14, 10), new THREE.MeshBasicMaterial({ color: o.glow, transparent: true, opacity: 0.16, depthWrite: false })); gl.position.y = 0.6; body.add(gl); }
+  const update = (t: number) => { body.position.y = Math.sin(t / 600) * 0.015; head.rotation.z = Math.sin(t / 900) * 0.05; arms[0].rotation.x = Math.sin(t / 700) * 0.08; };
+  return { g, update, head, arms };
+}
+/** 호랑이: 주황 몸에 줄무늬, 둥근 귀. 앉아 있는 모습 (병아리 3배) */
+export function tiger() {
+  const g = new THREE.Group(), or = tn(0xf2a455), wh = tn(0xfff4e0, 0.35), st = tn(0x4a3830, 0.1);
+  const body = lined(new THREE.Mesh(new THREE.SphereGeometry(1.0, 22, 16), or)); body.scale.set(1, 1.05, 1.1); body.position.y = 1.0; g.add(body);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.8, 18, 12), wh); belly.scale.set(0.8, 0.9, 0.5); belly.position.set(0, 0.85, -0.75); g.add(belly);
+  const head = new THREE.Group(); head.position.set(0, 2.2, -0.35); g.add(head);
+  const sk = lined(new THREE.Mesh(new THREE.SphereGeometry(0.8, 22, 16), or)); sk.scale.set(1.1, 0.9, 0.95); head.add(sk);
+  const muz = new THREE.Mesh(new THREE.SphereGeometry(0.36, 14, 10), wh); muz.scale.set(1.2, 0.75, 0.6); muz.position.set(0, -0.2, -0.66); head.add(muz);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), tn(0xe0707a, 0.3)); nose.position.set(0, -0.1, -0.86); head.add(nose);
+  face(head, 0.12, -0.7, 0.3, 1.9);
+  for (const sx of [-1, 1]) { const e = lined(new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), or), 0.02); e.position.set(sx * 0.6, 0.6, 0); head.add(e); for (const y of [0.25, 0.0]) { const s = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.05), st); s.position.set(sx * 0.72, y, -0.42); s.rotation.z = sx * 0.3; head.add(s); } const paw = lined(new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), or), 0.02); paw.scale.y = 0.6; paw.position.set(sx * 0.5, 0.16, -0.9); g.add(paw); }
+  for (let i = 0; i < 3; i++) { const s = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.05), st); s.position.set(0, 0.74 - i * 0.02, -0.62 + i * 0.3); s.rotation.x = -Math.PI / 2; s.position.y = 2.95; head.add(s); s.position.set(0, 0.7, -0.3 + i * 0.25); }
+  const tail = lined(new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 1.2, 4, 8), or), 0.02); tail.position.set(0.9, 0.5, 0.8); tail.rotation.set(0.6, 0, -0.9); g.add(tail);
+  const update = (t: number) => { head.rotation.z = Math.sin(t / 1100) * 0.06; tail.rotation.z = -0.9 + Math.sin(t / 500) * 0.25; };
+  return { g, update };
+}
+/** 작은 새 (까치·제비): 몸 색 둘 */
+export function littleBird(dark: number, light: number, tailLong = false) {
+  const g = new THREE.Group(), d = tn(dark, 0.15), l = tn(light, 0.35);
+  const body = lined(new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), d), 0.02); body.scale.set(0.9, 0.95, 1.15); body.position.y = 0.34; g.add(body);
+  const bel = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), l); bel.scale.set(0.8, 0.8, 0.6); bel.position.set(0, 0.28, -0.16); g.add(bel);
+  const head = new THREE.Group(); head.position.set(0, 0.62, -0.12); g.add(head);
+  head.add(lined(new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), d), 0.02)); face(head, 0.02, -0.17, 0.08, 0.55);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.14, 6), tn(0xe8a45b, 0.3)); beak.rotation.x = -Math.PI / 2; beak.position.set(0, -0.03, -0.24); head.add(beak);
+  const tail = lined(new THREE.Mesh(new THREE.ConeGeometry(0.08, tailLong ? 0.7 : 0.45, 5), d), 0.012); tail.rotation.x = Math.PI / 2 + 0.5; tail.position.set(0, 0.36, 0.45); g.add(tail);
+  for (const sx of [-1, 1]) { const w = lined(new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), d), 0.012); w.scale.set(0.35, 0.8, 1.1); w.position.set(sx * 0.23, 0.36, 0.05); g.add(w); }
+  const update = (t: number) => { g.position.y = Math.abs(Math.sin(t / 300)) * 0.03; head.rotation.y = Math.sin(t / 800) * 0.4; };
+  return { g, update };
+}
+/** 두꺼비: 납작한 올리브 몸, 큰 입 */
+export function toad() {
+  const g = new THREE.Group(), gr = tn(0x9cae6a), be = tn(0xe8e2b8, 0.3);
+  const body = lined(new THREE.Mesh(new THREE.SphereGeometry(0.5, 18, 14), gr)); body.scale.set(1.15, 0.7, 1.1); body.position.y = 0.36; g.add(body);
+  const bel = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10), be); bel.scale.set(1, 0.55, 0.6); bel.position.set(0, 0.26, -0.3); g.add(bel);
+  for (const sx of [-1, 1]) { const e = lined(new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), gr), 0.015); e.position.set(sx * 0.24, 0.72, -0.25); g.add(e); const p = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), black); p.position.set(sx * 0.24, 0.74, -0.36); g.add(p); const lg = lined(new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), gr), 0.015); lg.scale.set(1, 0.5, 1.2); lg.position.set(sx * 0.5, 0.1, 0.1); g.add(lg); }
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.015, 4, 14, Math.PI), black); mouth.rotation.z = Math.PI; mouth.position.set(0, 0.5, -0.5); g.add(mouth);
+  const update = (t: number) => { body.scale.y = 0.7 + Math.sin(t / 700) * 0.03; };
+  return { g, update };
+}
+/** 말 걸 수 있는 물건 자리: 반짝이는 표시 (아이콘 스프라이트는 npc 틀이 붙임) */
+export function spot(color = 0xffe08a) {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.44, 24), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; g.add(ring);
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.13), new THREE.MeshBasicMaterial({ color })); gem.position.y = 0.55; g.add(gem);
+  const update = (t: number) => { gem.position.y = 0.55 + Math.sin(t / 400) * 0.06; gem.rotation.y = t / 600; ring.scale.setScalar(1 + Math.sin(t / 500) * 0.08); };
+  return { g, update };
+}

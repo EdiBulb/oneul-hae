@@ -46,6 +46,8 @@ export function createNpcs(opts: { scene: THREE.Scene; me: () => THREE.Vector3; 
       list.push({ ...def, bubble: null, bubbleT: 3 + Math.random() * 4, idleN: Math.floor(Math.random() * 5), news });
     },
     get busy() { return busy; },
+    /** 테스트용: 이웃이 서 있는 곳, 지금 보이는지 */
+    where(id: string) { const n = list.find(x => x.id === id); return n ? { x: n.root.position.x, z: n.root.position.z, vis: n.root.visible, r: n.talkR ?? 3 } : null; },
     /** 지금 대화 버튼이 가리키는 NPC */
     get near() { return near?.id ?? null; },
     update(dt: number, t: number) {

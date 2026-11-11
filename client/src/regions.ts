@@ -10,8 +10,8 @@ export const REGION_OPEN: Record<RegionId, () => boolean> = {
   phoenixRock: () => true,                            // 봉황바위: 처음부터 멀리 보임 (못 감)
   dangsan: () => SPOTS_PREVIEW,                       // 당산나무: 할 일(다짐 리본)이 생기면 조건을 정함
   swing: () => SPOTS_PREVIEW,                         // 운해 그네: 할 일(앉아서 타기)이 생기면 조건을 정함
-  nightForest: () => hasSkill('dokkaebi') || questStep('jara') >= 3, // 밤 숲: 도깨비불 보기를 배운 뒤
-  village: () => questDone('tteok'),                  // 고갯길 너머 산아랫마을: 떡 호랑이를 풀면
+  nightForest: () => hasSkill('dokkaebi') || questStep('jara') >= 3 || SPOTS_PREVIEW, // 밤 숲: 도깨비불 보기를 배운 뒤
+  village: () => questDone('tteok') || SPOTS_PREVIEW,  // 고갯길 너머 산아랫마을: 떡 호랑이를 풀면
   milkyway: () => hasSkill('fly'),                    // 은하수: 날기를 배운 뒤
 };
 export const regionOpen = (id: RegionId) => REGION_OPEN[id]();

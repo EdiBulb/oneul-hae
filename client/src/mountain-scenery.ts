@@ -90,7 +90,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   const inField = (x: number, z: number) => !!LK && z > FIELD.z0 && z < FIELD.z1 && x - trailX(z) > FIELD.x0 && x - trailX(z) < FIELD.x1 + Math.sin(z * 0.2) * 3;
   // ---------- 정상 땅 (바위와 풀이 섞인 능선) ----------
   const jiri = id === 'jirisan';
-  const W = 150, D = jiri ? 124 : 76, geo = new THREE.PlaneGeometry(W, D, 110, jiri ? 104 : 64);
+  const W = 150, D = jiri ? 166 : 76, geo = new THREE.PlaneGeometry(W, D, 110, jiri ? 138 : 64);
   geo.rotateX(-Math.PI / 2); geo.translate(0, 0, D / 2 - 1.2);
   const p = geo.attributes.position, col: number[] = [];
   const SNOW = new THREE.Color(0xeef2f7), grass = new THREE.Color(V.grass), dry = new THREE.Color(V.dry), stone = new THREE.Color(V.stone), path = new THREE.Color(V.path), c = new THREE.Color();
@@ -110,7 +110,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
       if (inField(x, z)) c.set(LK.ground.field);
       if (SPOTS_ON && jiri) { const pd = pondD(x, z); if (pd < 1.0) c.set(0x9fd8d0).lerp(new THREE.Color(0x4aa8c8), Math.max(0, 1 - pd * 1.2)); else if (pd < 1.35) c.lerp(new THREE.Color(0xe8dcc8), 0.6); if (Math.hypot(x - POND.x - POND.isle.dx, z - POND.z - POND.isle.dz) < POND.isle.r) c.set(LK.ground.grass); }
       const pw = 1.5 + Math.sin(z * 0.5) * 0.4;
-      if (z > 1 && z < (jiri ? TRAIL.end : 40)) c.lerp(path, clamp01((pw + 0.6 - dx) / 1.2));
+      if (z > 1 && z < (jiri ? 146 : 40)) c.lerp(path, clamp01((pw + 0.6 - dx) / 1.2));
       c.multiplyScalar(1 - Math.min(0.18, Math.max(0, dx - 12) * 0.012));
     }
     if (SEASON === 'winter' && (n > -0.15 || Math.abs(x) > 4)) c.lerp(SNOW, 0.55 + 0.35 * Math.max(0, n));

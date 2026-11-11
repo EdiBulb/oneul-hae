@@ -1,6 +1,7 @@
 // 스킬북(📖) · 이야기 보따리(📜) · 청학당 '오늘은 무엇을 배울 테냐?'
 import { SKILLS, skillLv, skillsDone, skillById, QUESTS, questStep, questDone, hasSkill, type SkillId, type Mado } from './progress';
 import { skillIcon } from './skill-icons';
+import { store } from './store';
 
 const MADO: Record<Mado, string> = { read: '세상을 읽는 법', body: '몸과 손을 쓰는 법', heart: '마음을 다스리는 법' };
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -31,6 +32,7 @@ export function renderQuests(el: HTMLElement, tab: 'now' | 'done' | 'unknown' = 
   const now = QUESTS.filter(q => questStep(q.id) >= 0 && !questDone(q.id)), done = QUESTS.filter(q => questDone(q.id)), unknown = QUESTS.filter(q => questStep(q.id) < 0);
   let h = `<div class="bk-tabs">${([['now', `진행 중 ${now.length}`], ['done', `끝낸 이야기 ${done.length}`], ['unknown', `아직 모름 ${unknown.length}`]] as const).map(([k, t]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${t}</button>`).join('')}</div>`;
   const list = tab === 'now' ? now : tab === 'done' ? done : unknown;
+  if (tab === 'done' && store.keeps?.length) h += `<div class="bk-need" style="margin:0 0 10px">받은 기념품<br>${store.keeps.map(esc).join(' · ')}</div>`;
   if (!list.length) h += `<p class="bk-empty">${tab === 'now' ? '아직 받은 이야기가 없어요.<br>산 곳곳의 이웃들에게 말을 걸어 보세요.' : tab === 'done' ? '아직 끝낸 이야기가 없어요.' : '모든 이야기를 만났어요!'}</p>`;
   for (const q of list) {
     const s = questStep(q.id);

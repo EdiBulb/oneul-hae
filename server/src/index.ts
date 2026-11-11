@@ -32,7 +32,7 @@ const PLACES: Record<PlaceId, { tz: string }> = {
 const SEAT_COUNT = 56; // 해변 방석 22 + 높은 자리 20 + 지리산 가게 의자·평상 11 (+여유)
 // 해변 + 얕은 물 + 바다로 뻗은 데크(z -26까지). 세부 모양은 클라이언트가 막는다
 // 지리산 등산로가 장터목(z≈102)까지 이어져서 maxZ를 넉넉히 (예전엔 17이라 정상 뒤쪽 사람이 남에게 z=17에 붙어 보였음)
-const BOUNDS = { minX: -22, maxX: 22, minZ: -26, maxZ: 110 };
+const BOUNDS = { minX: -40, maxX: 40, minZ: -26, maxZ: 160 }; // 밤 숲·산아랫마을까지
 /** 짠: 이 거리(m) 안에서, 이 시간(ms) 안에 둘 다 눌러야 컵이 부딪친다 */
 const CHEERS_DIST = 3, CHEERS_WINDOW = 3000;
 

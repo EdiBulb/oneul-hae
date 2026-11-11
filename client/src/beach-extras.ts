@@ -66,7 +66,11 @@ export const TRAIL = { gate: 21, jeseok: 50, jang: 92, end: 102 };
 /** 등산로 가운데 x (내려갈수록 굽이침) */
 export const trailX = (z: number) => z < 16 ? 0 : Math.sin((z - 16) * 0.07) * 3.2 * Math.min(1, (z - 16) / 10);
 /** 등산로 높이 (z만): 매일 시작하는 곳 아래로 내려가다 제석봉에서 한 번 솟고 장터목 마당에서 평평 */
-const JIRI_KEYS: [number, number][] = [[14, 0], [22, -0.7], [36, -2.6], [50, -1.5], [64, -3.0], [86, -5.2], [102, -5.3]];
+const JIRI_KEYS: [number, number][] = [[14, 0], [22, -0.7], [36, -2.6], [50, -1.5], [64, -3.0], [86, -5.2], [102, -5.3], [112, -6.6], [150, -8.2]];
+/** 진행에 따라 열리는 새 땅: 밤 숲 빈터(길 왼쪽 아래), 고갯길 너머 산아랫마을 마당. 둘레를 평평하게 다짐 */
+export const FOREST = { x: trailX(70) - 17, z: 70, r: 8 };
+export const VILLAGE = { x: trailX(130), z: 130, r: 13, z0: 102, z1: 146 };
+const PADS = [{ ...FOREST, y: -5.6 }, { ...VILLAGE, y: -7.5 }];
 function jiriTrailY(z: number) {
   for (let i = 0; i < JIRI_KEYS.length - 1; i++) { const [z0, y0] = JIRI_KEYS[i], [z1, y1] = JIRI_KEYS[i + 1]; if (z <= z1) return y0 + (y1 - y0) * ss(z0, z1, z); }
   return JIRI_KEYS[JIRI_KEYS.length - 1][1];
@@ -82,8 +86,9 @@ export function mountainY(x: number, z: number, id: PlaceId = terrain) {
   // 능선 위를 걷는 느낌: 길에서 멀어질수록 양옆이 아래로 떨어지고(벽 없음), 멀리 운해 속으로 잠김
   const edge = z < SUMMIT.crestZ ? 5.6 : 7;
   y -= Math.pow(Math.max(0, ax - edge), 1.35) * 0.22;
-  y -= Math.pow(Math.max(0, z - (jiri ? TRAIL.end + 2 : 42)), 1.4) * 0.3;
+  y -= Math.pow(Math.max(0, z - (jiri ? VILLAGE.z1 + 2 : 42)), 1.4) * 0.3;
   y += Math.sin(x * 0.9 + z * 0.4) * 0.06;
+  if (jiri) for (const P of PADS) { const d = Math.hypot(x - P.x, z - P.z) / P.r, w = 1 - ss(1.0, 1.6, d); if (w > 0) y += (P.y - y) * w; }
   if (jiri && SPOTS_ON) {
     // 연못 분지: 둘레를 평평하게, 물 안은 오목하게, 섬은 살짝 솟게
     const d = pondD(x, z), w = 1 - ss(1.05, 1.75, d);
