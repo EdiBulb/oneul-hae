@@ -32,6 +32,8 @@ export function renderQuests(el: HTMLElement, tab: 'now' | 'done' | 'unknown' = 
   const now = QUESTS.filter(q => questStep(q.id) >= 0 && !questDone(q.id)), done = QUESTS.filter(q => questDone(q.id)), unknown = QUESTS.filter(q => questStep(q.id) < 0);
   let h = `<div class="bk-tabs">${([['now', `진행 중 ${now.length}`], ['done', `끝낸 이야기 ${done.length}`], ['unknown', `아직 모름 ${unknown.length}`]] as const).map(([k, t]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${t}</button>`).join('')}</div>`;
   const list = tab === 'now' ? now : tab === 'done' ? done : unknown;
+  const mom = QUESTS.filter(q => q.main && questDone(q.id)).length;
+  h += `<div class="bk-mom">🪶 엄마의 발자취 <b>${mom} / 8</b><span>${mom ? '엄마가 도왔던 이웃들을 따라가고 있어요' : '이 산의 이웃들은 모두 엄마에게 도움을 받았대요'}</span></div>`;
   if (tab === 'done' && store.keeps?.length) h += `<div class="bk-need" style="margin:0 0 10px">받은 기념품<br>${store.keeps.map(esc).join(' · ')}</div>`;
   if (!list.length) h += `<p class="bk-empty">${tab === 'now' ? '아직 받은 이야기가 없어요.<br>산 곳곳의 이웃들에게 말을 걸어 보세요.' : tab === 'done' ? '아직 끝낸 이야기가 없어요.' : '모든 이야기를 만났어요!'}</p>`;
   for (const q of list) {

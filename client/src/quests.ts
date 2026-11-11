@@ -138,6 +138,18 @@ const SCRIPT: Record<QuestId, Script[]> = {
     { npc: 'bang', lines: [['say', '바람 타는 연습을 하는데,\n힘 좀 빌려주실래요?'], ['bang', '…정말? 그럼, 뒤로 물러서.'], ['me', '(뿌우우웅—!\n몸이 붕 떴다. 꽤 멀리 날았다!)'], ['bang', '아, 살 것 같다.']] },
   ],
 };
+/** 엄마 봉황의 발자취: 엄마는 떠나기 전 이 산의 이웃들을 한 명씩 도왔다. 이야기를 끝낼 때마다 그 이웃이 들려줌 */
+export const MOTHER: Partial<Record<QuestId, L[]>> = {
+  jara: [['jara', '…자네 눈이 꼭 그 봉황을 닮았구먼.'], ['jara', '토끼한테 속고 부끄러워 숨어 다닐 때,\n날 이 샘까지 데려다준 게 자네 어머니였네.'], ['jara', '“부끄러운 건 끝이 아니라 시작이에요.”\n그러더군.']],
+  bangmang: [['ttuk', '너, 봉황 아주머니 냄새가 나.'], ['ttuk', '사람 마을에서 쫓겨났을 때\n우리한테 이 숲을 내준 게 그 아주머니야.'], ['ttuk', '아주머니가 떠나고 우린 또 말썽만 부렸지.\n…이제 안 그럴게.']],
+  heungbu: [['nolbu', '우리 형제가 처음 갈라섰을 때도\n제비를 우리 집 처마로 이끈 금빛 새가 있었지.'], ['nolbu', '자네 어머니였어.\n두 번이나 같은 집안 신세를 지는구먼.']],
+  ureong: [['ureong', '사실 나한테 처음 변신술을 알려 준 건\n봉황 언니였어.'], ['ureong', '언니가 떠나고 다 잊어버렸는데…\n네가 언니랑 똑같이 가르쳐 줬어.']],
+  haedal: [['hae', '동아줄이 끊어질 뻔했을 때\n우리 남매를 하늘까지 받쳐 준 날개가 있었다.'], ['dal', '금빛 날개였지. …네 어머니.'], ['hae', '그 은혜를 이제야 갚는구나.\n아침마다 네 둥지부터 비춰 주마.']],
+  seonnyeo: [['seonnyeo', '날개옷을 처음 잃었을 때\n하늘 가는 길을 알려 준 것도 봉황님이었어.'], ['seonnyeo', '그분 딸이 이번엔 옷을 고쳐 주네.']],
+  kkachi: [['kkachi', '옛날 다리 놓는 날 길을 잃은 우리를\n은하수까지 데려간 게 자네 어머니야.'], ['kkachi', '그래서 우린 이 산에 둥지를 틀었지.\n은혜는 꼭 갚는다, 까치는. 이제 자네한테.']],
+  gyeonu: [['jiknyeo', '처음 다리가 놓이던 날,\n맨 가운데 칸은 금빛 봉황이었어.'], ['gyeonu', '오늘은 네가 거기 섰구나.'], ['me', '(엄마가 걸었던 길을, 내가 다 걸었다.)']],
+};
+export const motherCount = () => QUESTS.filter(q => q.main && questDone(q.id)).length;
 const KEEP: Record<QuestId, string> = { jara: '🥽 헌 물안경', bangmang: '🔨 작은 은방망이', heungbu: '🍶 금테 표주박', ureong: '🐚 우렁 껍데기 단추', haedal: '🌙 달 노리개', seonnyeo: '🌈 무지개 날개옷 조각', kkachi: '✨ 까치의 반짝이', gyeonu: '⭐ 은하수 별 조각', hokburi: '🎵 도깨비 잔치 노래', tteok: '🍡 호랑이가 나눠 준 떡 반쪽', patjuk: '🥣 팥죽 한 그릇', kongjwi: '🏺 독 조각 부적', bang: '💨 큰바람 한 줌' };
 /** 시작 조건 */
 const OPEN: Partial<Record<QuestId, () => boolean>> = {
@@ -167,6 +179,7 @@ export function createQuests(c: QuestCtx) {
     if (sc.lines) await c.say(sc.lines);
     if (sc.daily) { store.qday ??= {}; store.qday[q] = sunKey(); save(); }
     finish(q, s);
+    if (questDone(q) && MOTHER[q]) { await c.say(MOTHER[q]!); c.toast(`🪶 엄마의 발자취 ${motherCount()} / 8`); }
   }
   function finish(q: QuestId, s: number) {
     if (!advance(q, s)) return;

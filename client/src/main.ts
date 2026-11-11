@@ -1038,7 +1038,7 @@ async function hallWrite() {
 /** 엔딩: 훈장님의 마지막 가르침 → 청학당 밖에서 날아올라 봉황바위로 */
 async function becomePhoenix() {
   hall.talk(5);
-  for (const text of ['…다 익혔구나.', '처음 변신술을 가르칠 때 한 말을 기억하느냐.\n되고자 한다는 것은 잊게. 그저 그들을 이해하게.', '자네는 자라를, 도깨비를, 흥부를,\n해와 달을 이해했네.', '이제 내가 가르칠 게 없네.\n봉황은 되는 것이 아니라, 그렇게 살아온 이를 부르는 이름일세.', '가 보게. 저 바위가 자네를 기다렸네.']) await talk([{ who: 'crane', text }]);
+  for (const text of ['…다 익혔구나.', '자네 어머니도 꼭 이 방석에 앉았었네.\n그리고 자네가 걸은 그 길을 먼저 걸었지.', '자라를, 도깨비를, 흥부를, 해와 달을…\n이웃 한 명, 한 명을 이해하면서.', '처음 변신술을 가르칠 때 한 말을 기억하느냐.\n되고자 한다는 것은 잊게. 그저 그들을 이해하게.', '이제 내가 가르칠 게 없네.\n봉황은 되는 것이 아니라, 그렇게 살아온 이를 부르는 이름일세.', '가 보게. 자네 어머니의 바위가 기다리네.']) await talk([{ who: 'crane', text }]);
   store.phoenix = dateKey(Date.now()); save(); track('phoenix');
   await hallDoor(false);
   cutscene = true;
