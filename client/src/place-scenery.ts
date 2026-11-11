@@ -223,7 +223,7 @@ function seopjikoji(scene: THREE.Scene, GLOW: THREE.Texture) {
 /** 한국 소나무 실루엣: 휘어진 줄기 + 납작한 솔잎 덩어리 층. 해돋이 땐 거의 검게 보여 화면 테두리가 된다 */
 export function koreanPine(h: number, lean: number, seed: number) {
   const g = new THREE.Group();
-  const bark = new THREE.MeshLambertMaterial({ color: 0x1a1512 }), leaf = new THREE.MeshLambertMaterial({ color: 0x18201a, flatShading: true });
+  const bark = new THREE.MeshLambertMaterial({ color: 0x8a6a4e }), leaf = new THREE.MeshLambertMaterial({ color: 0x7f9a72, flatShading: true }); // 소나무도 연한 수채 톤
   const rnd = (i: number) => { const x = Math.sin(seed * 91.7 + i * 12.9898) * 43758.5453; return x - Math.floor(x); };
   const pts: THREE.Vector3[] = [];
   for (let i = 0; i <= 6; i++) { const k = i / 6; pts.push(new THREE.Vector3(Math.sin(k * 2.2 + seed) * 0.5 + lean * k * k * h * 0.35, k * h, Math.cos(k * 1.7 + seed) * 0.3)); }

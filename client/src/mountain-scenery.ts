@@ -65,7 +65,7 @@ function trailSign(name: string) {
 
 /** 산마다 다른 점: 땅 색, 나무, 표지석 글자, 먼 능선 (한라산은 섬이라 사방이 운해) */
 const VARIANTS = {
-  jirisan: { grass: 0x6d7a45, dry: 0x8c8456, stone: 0x7d786f, path: 0x9b9180, rock: [0x5b5752, 0x6a655e, 0x4c4843], trees: 34, dead: 0.22, stoneText: ['지', '리', '산', '천', '왕', '봉'], height: '1,915m', sign: '천왕봉', ridges: 5, crater: false },
+  jirisan: { grass: 0xb8c08e, dry: 0xd6c8a2, stone: 0xc8b9a6, path: 0xe4d6bc, rock: [0xb9aa98, 0xc6b8a7, 0xa99b8b], trees: 34, dead: 0.22, stoneText: ['지', '리', '산', '천', '왕', '봉'], height: '1,915m', sign: '천왕봉', ridges: 5, crater: false },
   hallasan: { grass: 0x6f7340, dry: 0x8a6e4c, stone: 0x5a4a42, path: 0x7a5e4e, rock: [0x3e3532, 0x4a3f3a, 0x2f2a28], trees: 16, dead: 0.45, stoneText: ['한', '라', '산', '백', '록', '담'], height: '1,947m', sign: '백록담', ridges: 1, crater: true },
 } as const;
 export type MountainId = keyof typeof VARIANTS;
@@ -119,7 +119,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   for (let i = 0; i < 40; i++) { const x = (rnd() - 0.5) * 22, z = 3 + rnd() * 22; if (Math.abs(x) < 2.2 || !clearOf(x, z)) continue; boulder(x, mountainY(x, z) + 0.1, z, 0.25 + rnd() * 0.4, 0.6); }
 
   // ---------- 나무: 키 작은 구상나무와 하얗게 말라 죽은 고사목 ----------
-  const pineM = lam(0x2f4a32), pineM2 = lam(0x3b5a3a), deadM = lam(0xcfc7b8);
+  const pineM = lam(0x8fa77c), pineM2 = lam(0x9fb58a), deadM = lam(0xe2dbcd); // 연한 수채 초록
   for (let i = 0; i < V.trees; i++) {
     const sx = rnd() < 0.5 ? -1 : 1, x = sx * (7 + rnd() * 10), z = 4 + rnd() * 24, y = mountainY(x, z);
     if (!clearOf(x, z)) continue;
@@ -138,11 +138,12 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   // 낮은 덤불
   // 가을 단풍 든 덤불 (살짝 어두운 붉은색·주황·갈색)
   const BUSH: Record<Season, number[]> = {
-    spring: [0x55693a, 0xd8689c, 0x4f6a34, 0xe58ab4, 0xc94f86], // 철쭉·진달래
-    summer: [0x4f6a34, 0x5d7a3a, 0x44602e, 0x5d7a3a, 0x6b8440],
-    autumn: [0x55693a, 0x8e3a22, 0xa65a26, 0x7a4a24, 0x9a6a2a], // 단풍
-    late: [0x6a5a3e, 0x7a4a2a, 0x82704a, 0x5e5038, 0x8a6a40],
-    winter: [0x5a5248, 0x6a6258, 0x4e4a44, 0x625a50, 0x58524a],
+    // 프사 그림 톤: 모두 옅은 수채
+    spring: [0xa8b88a, 0xf0a6c4, 0x9fb282, 0xf4bcd2, 0xe892b4], // 철쭉·진달래
+    summer: [0x9fb282, 0xa8bc88, 0x96aa7a, 0xa8bc88, 0xb0c48e],
+    autumn: [0xa7b07e, 0xd88a6a, 0xe0a46e, 0xc69a72, 0xd8b07a], // 단풍
+    late: [0xb8a882, 0xc49a7a, 0xc8b890, 0xae9e7e, 0xcaa888],
+    winter: [0xb8b0a6, 0xc4bcb2, 0xaca69e, 0xbcb4aa, 0xb4aea6],
   };
   const bushMs = BUSH[SEASON].map(c => lam(c));
   for (let i = 0; i < 34; i++) { const x = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 6), z = 4 + rnd() * 16; if (!clearOf(x, z)) continue; const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + rnd() * 0.4, 0), bushMs[i % bushMs.length]); b.scale.y = 0.6; b.position.set(x, mountainY(x, z) + 0.2, z); g.add(b); }
@@ -180,7 +181,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   }
 
   // ---------- 정상: 데크·난간 없이 층층이 쪼개진 화강암 (해만 보는 곳) ----------
-  const graniteM = [lam(0x6b6660), lam(0x77716a), lam(0x5f5a54)];
+  const graniteM = [lam(0xbcae9c), lam(0xc8bba9), lam(0xb0a290)];
   const slab = (x: number, z: number, sx: number, sy: number, sz: number, ry: number, top: number) => {
     const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), graniteM[Math.floor(rnd() * 3)]);
     m.scale.set(sx, sy, sz); m.rotation.set((rnd() - 0.5) * 0.25, ry, (rnd() - 0.5) * 0.25);
@@ -205,7 +206,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   if (jiri) {
     // 통천문: 길 양쪽 큰 바위 둘 + 그 위에 얹힌 바위 하나, 사이로 나무 계단
     const gateG = new THREE.Group(); gateG.position.set(GATE.x, 0, GATE.z); g.add(gateG);
-    const gy = mY(GATE.x, GATE.z, id), gm = [lam(0x5e5852), lam(0x6a645d), lam(0x534d48)];
+    const gy = mY(GATE.x, GATE.z, id), gm = [lam(0xb4a594), lam(0xc0b2a1), lam(0xa89a89)];
     const big = (x: number, sx: number, sy: number, sz: number, y: number, m: THREE.Material) => { const b = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 1), m); b.scale.set(sx, sy, sz); b.position.set(x, gy + y, 0); b.rotation.set(0.1, rnd(), 0.05); gateG.add(b); return b; };
     for (const sx of [-1, 1]) { big(sx * (GATE.gap + GATE.w / 2), GATE.w / 2 + 0.2, 2.2, GATE.d / 2 + 0.2, 1.4, gm[0]); big(sx * (GATE.gap + 2.6), 1.4, 1.4, 1.5, 0.6, gm[2]); }
     big(0, 2.4, 0.75, 1.5, 3.55, gm[1]);
@@ -254,7 +255,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   }
 
   // ---------- 정상 표지석과 안내판 ----------
-  const st = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.7, 0.45), [lam(0x625d57), lam(0x625d57), lam(0x625d57), lam(0x625d57), new THREE.MeshLambertMaterial({ map: stoneFace([...V.stoneText], V.height) }), lam(0x625d57)]);
+  const st = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.7, 0.45), [lam(0x8a8079), lam(0x8a8079), lam(0x8a8079), lam(0x8a8079), new THREE.MeshLambertMaterial({ map: stoneFace([...V.stoneText], V.height) }), lam(0x625d57)]);
   st.position.set(SUMMIT.stone.x, mountainY(SUMMIT.stone.x, SUMMIT.stone.z) + 0.85, SUMMIT.stone.z); st.rotation.y = 0.25; g.add(st);
   const sign = new THREE.Group(); sign.position.set(2.6, mountainY(2.6, 12.5), 12.5); g.add(sign);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.8, 6), postM); pole.position.y = 0.9; sign.add(pole);
@@ -296,27 +297,30 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   const puffTex = (() => {
     const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
     const x = cv.getContext('2d')!;
-    for (let i = 0; i < 14; i++) {
-      const cx = 40 + rnd() * 176, cy = 60 + rnd() * 30, r = 22 + rnd() * 34;
-      const gr = x.createRadialGradient(cx, cy - r * 0.3, r * 0.1, cx, cy, r);
-      gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.7, 'rgba(235,238,245,0.7)'); gr.addColorStop(1, 'rgba(220,225,235,0)');
-      x.fillStyle = gr; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill();
-    }
+    // 프사 그림처럼: 하얀 몽글 구름 + 위쪽에 연필 테두리
+    const blobs: [number, number, number][] = [];
+    for (let i = 0; i < 9; i++) blobs.push([34 + rnd() * 188, 70 + rnd() * 18, 20 + rnd() * 26]);
+    x.fillStyle = '#ffffff';
+    for (const [cx, cy, r] of blobs) { x.beginPath(); x.ellipse(cx, cy, r, r * 0.72, 0, 0, Math.PI * 2); x.fill(); }
+    x.beginPath(); x.ellipse(128, 92, 104, 22, 0, 0, Math.PI * 2); x.fill(); // 아래쪽도 둥글게 (네모 끝이 보이지 않게)
+    x.globalCompositeOperation = 'destination-over'; x.strokeStyle = 'rgba(160,140,132,0.55)'; x.lineWidth = 3;
+    for (const [cx, cy, r] of blobs) { x.beginPath(); x.ellipse(cx, cy, r + 2, r * 0.72 + 2, 0, Math.PI * 1.05, Math.PI * 1.95); x.stroke(); }
+    x.globalCompositeOperation = 'source-over';
     return stable(new THREE.CanvasTexture(cv));
   })();
   const puffs: THREE.Sprite[] = [];
   for (let i = 0; i < 190; i++) {
     // 앞쪽은 멀리까지, 양옆은 가까운 골짜기부터 (능선을 트면서 옆이 보이게 됐으므로)
     const ang = i < 150 ? (rnd() - 0.5) * Math.PI * 1.4 : (rnd() < 0.5 ? -1 : 1) * (Math.PI * (0.35 + rnd() * 0.45)), d = i < 150 ? 24 + Math.pow(rnd(), 0.8) * 520 : 30 + rnd() * 140;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 0.92 }));
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 1 }));
     const w = 18 + d * 0.22 + rnd() * 30; sp.scale.set(w, w * 0.45, 1);
     sp.position.set(Math.sin(ang) * d, -31 + rnd() * 10 + w * 0.12, -Math.cos(ang) * d - 4); g.add(sp); puffs.push(sp);
   }
 
   // ---------- 겹겹이 이어진 먼 능선 (가까울수록 진하게) ----------
   const ridges = [
-    ridge(95, -20, 12, 0x3a4658, 9.1), ridge(160, -24, 16, 0x4e5d70, 1.2), ridge(300, -24, 20, 0x5f7187, 3.1),
-    ridge(470, -28, 26, 0x72859b, 5.7), ridge(700, -34, 32, 0x8798ad, 8.4),
+    ridge(95, -20, 12, 0xc7bdd3, 9.1), ridge(160, -24, 16, 0xd0c6db, 1.2), ridge(300, -24, 20, 0xd9d0e2, 3.1),
+    ridge(470, -28, 26, 0xe2dbea, 5.7), ridge(700, -34, 32, 0xebe6f1, 8.4),
   ].slice(-V.ridges);
   // 양옆으로도 둘러싸게
   // 양옆으로도 겹겹이 (같은 재질이라 밤낮 색이 함께 바뀜)
@@ -330,7 +334,7 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
   }
   const ridgeBase = ridges.map(r => (r.material as THREE.MeshBasicMaterial).color.clone());
 
-  const cDay = new THREE.Color(0xf6f8fb), cNight = new THREE.Color(0x2a3352), tmp = new THREE.Color(), dark = new THREE.Color(0x10141f);
+  const cDay = new THREE.Color(0xfffbf4), cNight = new THREE.Color(0x58628a), tmp = new THREE.Color(), dark = new THREE.Color(0x10141f);
   return {
     group: g,
     update(dt: number, night: number, low: THREE.Color, t = 0) {
@@ -340,11 +344,11 @@ export function createMountain(scene: THREE.Scene, id: MountainId, GLOW: THREE.T
       // 구름 덩어리가 아주 천천히 흘러감
       for (const [i, sp] of puffs.entries()) { sp.position.x += dt * (0.4 + (i % 5) * 0.12); if (sp.position.x > 600) sp.position.x -= 1200; }
       // 구름색: 낮엔 하얗게, 해 뜰 무렵엔 하늘 아래쪽 색(분홍·주황)이 물듦, 밤엔 푸르스름하게 어둡게
-      tmp.copy(cDay).lerp(cNight, night).lerp(low, 0.35 * (1 - night * 0.6));
+      tmp.copy(cDay).lerp(cNight, night).lerp(low, 0.12 * (1 - night * 0.6));
       for (const m of [base, haze]) (m.material as THREE.MeshBasicMaterial).color.copy(tmp);
       for (const sp of puffs) sp.material.color.copy(tmp);
       (base.material as THREE.MeshBasicMaterial).color.multiplyScalar(0.92);
-      ridges.forEach((r, i) => (r.material as THREE.MeshBasicMaterial).color.copy(ridgeBase[i]).lerp(dark, night * 0.75));
+      ridges.forEach((r, i) => (r.material as THREE.MeshBasicMaterial).color.copy(ridgeBase[i]).lerp(dark, night * 0.55));
     },
   };
 }

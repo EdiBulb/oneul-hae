@@ -85,12 +85,12 @@ export const HAND_Y = -0.3;
 let gradTex: THREE.DataTexture | null = null;
 function toonGrad() {
   if (gradTex) return gradTex;
-  gradTex = new THREE.DataTexture(new Uint8Array([150, 215, 255]), 3, 1, THREE.RedFormat);
+  gradTex = new THREE.DataTexture(new Uint8Array([212, 240, 255]), 3, 1, THREE.RedFormat); // 프사 그림처럼 거의 단색 (아주 옅은 2단)
   gradTex.minFilter = gradTex.magFilter = THREE.NearestFilter; gradTex.needsUpdate = true;
   return gradTex;
 }
 export const toon = (c: number) => new THREE.MeshToonMaterial({ color: c, gradientMap: toonGrad() });
-const FEATHER = 0xffd84a, FEATHER2 = 0xf2c43c, BEAK = 0xff9a2a;
+const FEATHER = 0xf8e7a0, FEATHER2 = 0xf1dc92, BEAK = 0xe8a45b, LINE = 0x3c3530;
 /** 구 위의 한 점 (몸 비율 반영) */
 const onBody = (x: number, y: number, z: number, k = 1) => new THREE.Vector3(x, y, z).normalize().multiply(new THREE.Vector3(CHICK.sx, CHICK.sy, CHICK.sz)).multiplyScalar(CHICK.r * k).add(new THREE.Vector3(0, CHICK.y, 0));
 let bodyGeo: THREE.BufferGeometry | null = null;
@@ -99,32 +99,39 @@ export function makeChar(_bodyC: number, hatC: number): Char {
   const root = new THREE.Group(), inner = new THREE.Group();
   root.add(inner);
   const M = (c: number) => new THREE.MeshLambertMaterial({ color: c });
-  bodyGeo ??= new THREE.SphereGeometry(CHICK.r, 28, 20).scale(CHICK.sx, CHICK.sy, CHICK.sz);
+  bodyGeo ??= (() => {
+    const g = new THREE.SphereGeometry(CHICK.r, 32, 24).scale(CHICK.sx, CHICK.sy, CHICK.sz), p = g.attributes.position;
+    // 프사처럼 아래가 넓은 달걀형: 위로 갈수록 살짝 좁게
+    for (let i = 0; i < p.count; i++) { const y = p.getY(i) / CHICK.r, k = 1 - Math.max(0, y) * 0.12 + Math.max(0, -y) * 0.04; p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); }
+    g.computeVertexNormals(); return g;
+  })();
   // 몸 (첫 번째 메시: 다른 코드가 몸으로 찾음)
-  const body = new THREE.Mesh(bodyGeo, toon(FEATHER)); body.position.y = CHICK.y; body.name = 'chickBody'; inner.add(body);
+  const bodyMat = toon(FEATHER); bodyMat.emissive.setHex(FEATHER).multiplyScalar(0.3); // 해를 등져도 까맣게 묻히지 않게
+  const body = new THREE.Mesh(bodyGeo, bodyMat); body.position.y = CHICK.y; body.name = 'chickBody'; inner.add(body);
   // 외곽선: 뒷면을 살짝 크게 (갈색)
-  const ol = new THREE.Mesh(bodyGeo, new THREE.MeshBasicMaterial({ color: 0x5a2e14, side: THREE.BackSide })); ol.position.y = CHICK.y; ol.scale.setScalar(1.03); ol.name = 'outline'; inner.add(ol);
+  const ol = new THREE.Mesh(bodyGeo, new THREE.MeshBasicMaterial({ color: LINE, side: THREE.BackSide })); ol.position.y = CHICK.y; ol.scale.setScalar(1.022); // 가는 연필 선 ol.name = 'outline'; inner.add(ol);
   // 배
-  const belly = new THREE.Mesh(new THREE.SphereGeometry(CHICK.r * 0.6, 16, 12), toon(0xfff4c8)); belly.scale.set(0.95, 0.72, 0.4); belly.position.copy(onBody(0, -0.55, -0.85, 0.78)); inner.add(belly);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(CHICK.r * 0.6, 16, 12), toon(0xf8e9a6)); belly.visible = false; belly.scale.set(0.95, 0.72, 0.4); belly.position.copy(onBody(0, -0.55, -0.85, 0.78)); inner.add(belly);
   // 눈: 크고 까맣게 + 반짝임 두 개
   const eyeM = new THREE.MeshBasicMaterial({ color: 0x24140c }), hiM = new THREE.MeshBasicMaterial({ color: 0xffffff });
   for (const sx of [-1, 1]) {
-    const e = new THREE.Group(); e.name = 'eye'; e.position.copy(onBody(sx * 0.3, 0.2, -0.92, 0.985));
+    const e = new THREE.Group(); e.name = 'eye'; e.position.copy(onBody(sx * 0.4, 0.14, -0.9, 0.99));
     e.lookAt(e.position.clone().sub(new THREE.Vector3(0, CHICK.y, 0)).multiplyScalar(3).add(new THREE.Vector3(0, CHICK.y, 0)));
-    const er = CHICK.r * 0.13;
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(er, 12, 10), eyeM); ball.scale.set(0.9, 1.08, 0.45); e.add(ball);
-    const h1 = new THREE.Mesh(new THREE.SphereGeometry(er * 0.34, 8, 6), hiM); h1.position.set(er * 0.32, er * 0.38, er * 0.38); e.add(h1);
-    const h2 = new THREE.Mesh(new THREE.SphereGeometry(er * 0.16, 6, 4), hiM); h2.position.set(-er * 0.3, -er * 0.36, er * 0.4); e.add(h2);
+    const er = CHICK.r * 0.075; // 프사처럼 작은 점 눈
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(er, 12, 10), eyeM); ball.scale.set(1, 1.1, 0.45); e.add(ball);
+    const h1 = new THREE.Mesh(new THREE.SphereGeometry(er * 0.34, 8, 6), hiM); h1.visible = false; h1.position.set(er * 0.32, er * 0.38, er * 0.38); e.add(h1);
+    const h2 = new THREE.Mesh(new THREE.SphereGeometry(er * 0.16, 6, 4), hiM); h2.visible = false; h2.position.set(-er * 0.3, -er * 0.36, er * 0.4); e.add(h2);
     inner.add(e);
     // 볼터치
-    const ck = new THREE.Mesh(new THREE.CircleGeometry(CHICK.r * 0.12, 16), new THREE.MeshBasicMaterial({ color: 0xff8a8a, transparent: true, opacity: 0.55, depthWrite: false }));
+    const ck = new THREE.Mesh(new THREE.CircleGeometry(CHICK.r * 0.12, 16), new THREE.MeshBasicMaterial({ color: 0xf2a08a, transparent: true, opacity: 0.32, depthWrite: false }));
     ck.position.copy(onBody(sx * 0.56, 0.02, -0.8, 1.015)); ck.lookAt(ck.position.clone().sub(new THREE.Vector3(0, CHICK.y, 0)).multiplyScalar(3).add(new THREE.Vector3(0, CHICK.y, 0))); ck.scale.y = 0.62; inner.add(ck);
   }
   // 부리 (위·아래)
-  const beakM = toon(BEAK), beak = new THREE.Group(); beak.name = 'beak'; beak.position.copy(onBody(0, 0.06, -1, 0.99)); inner.add(beak);
-  const bt = new THREE.Mesh(new THREE.ConeGeometry(CHICK.r * 0.13, CHICK.r * 0.22, 12), beakM); bt.rotation.x = -Math.PI / 2; bt.scale.set(1.15, 1, 0.6); bt.position.set(0, CHICK.r * 0.03, -CHICK.r * 0.07); beak.add(bt);
+  const beakM = toon(BEAK); beakM.emissive.setHex(BEAK).multiplyScalar(0.2);
+  const beak = new THREE.Group(); beak.name = 'beak'; beak.position.copy(onBody(0, 0.0, -1, 0.99)); inner.add(beak);
+  const bt = new THREE.Mesh(new THREE.ConeGeometry(CHICK.r * 0.13, CHICK.r * 0.22, 12), beakM); bt.rotation.x = -Math.PI / 2; bt.scale.set(1.5, 0.55, 0.42); bt.position.set(0, CHICK.r * 0.03, -CHICK.r * 0.07); beak.add(bt);
   const lower = new THREE.Group(); lower.name = 'beakLow'; beak.add(lower);
-  const bb = new THREE.Mesh(new THREE.ConeGeometry(CHICK.r * 0.1, CHICK.r * 0.15, 12), beakM); bb.rotation.x = -Math.PI / 2; bb.scale.set(1.1, 1, 0.5); bb.position.set(0, -CHICK.r * 0.04, -CHICK.r * 0.045); lower.add(bb);
+  const bb = new THREE.Mesh(new THREE.ConeGeometry(CHICK.r * 0.1, CHICK.r * 0.15, 12), beakM); bb.rotation.x = -Math.PI / 2; bb.scale.set(1.4, 0.5, 0.4); bb.position.set(0, -CHICK.r * 0.04, -CHICK.r * 0.045); lower.add(bb);
   // 머리 위 솜털 세 가닥 (모자를 쓰면 숨김)
   const tuft = new THREE.Group(); tuft.name = 'tuft'; tuft.position.set(0, CHICK.y + CHICK.r * CHICK.sy * 0.97, -0.03); inner.add(tuft);
   for (const [a, h] of [[-0.45, 0.1], [0, 0.13], [0.45, 0.095]] as const) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.026, h, 6), body.material); t.position.set(Math.sin(a) * 0.03, h / 2 - 0.01, 0); t.rotation.z = -a * 0.9; tuft.add(t); }
@@ -134,12 +141,14 @@ export function makeChar(_bodyC: number, hatC: number): Char {
   const cuff0 = new THREE.Mesh(new THREE.TorusGeometry(capR * Math.sin(1.05) * 0.99, 0.045, 6, 24), M(new THREE.Color(hatC).multiplyScalar(0.82).getHex())); cuff0.rotation.x = Math.PI / 2; cuff0.position.y = CHICK.y + 0.02 + capR * CHICK.sy * Math.cos(1.05); hat0.add(cuff0); cuff0.position.y -= hat0.position.y;
   const pom0 = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), M(0xfff4e6)); pom0.position.y = CHICK.y + CHICK.r * CHICK.sy + 0.1; pom0.name = 'pom0'; inner.add(pom0);
   // 알껍질 모자 (해를 한 번도 안 본 첫날)
-  const shellR = CHICK.r * 1.06;
-  const shellGeo = new THREE.SphereGeometry(shellR, 32, 12, 0, Math.PI * 2, 0, 1.0), sp = shellGeo.attributes.position, v3 = new THREE.Vector3();
-  for (let i = 0; i < sp.count; i++) { v3.fromBufferAttribute(sp, i); const polar = Math.acos(v3.y / shellR); if (polar > 0.8) { const a = Math.atan2(v3.z, v3.x), zig = Math.abs(((a / (Math.PI * 2)) * 11 % 1 + 1) % 1 - 0.5) * 2; sp.setY(i, v3.y + (zig - 0.5) * 0.09 * ((polar - 0.8) / 0.2)); } }
+  // 프사처럼 머리 위 1/3을 덮는 큰 껍데기, 아래가 굵은 지그재그
+  const shellR = CHICK.r * 1.1;
+  const shellGeo = new THREE.SphereGeometry(shellR, 44, 14, 0, Math.PI * 2, 0, 1.28), sp = shellGeo.attributes.position, v3 = new THREE.Vector3();
+  for (let i = 0; i < sp.count; i++) { v3.fromBufferAttribute(sp, i); const polar = Math.acos(Math.max(-1, Math.min(1, v3.y / shellR))); if (polar > 0.95) { const a = Math.atan2(v3.z, v3.x), zig = Math.abs(((a / (Math.PI * 2)) * 9 % 1 + 1) % 1 - 0.5) * 2; sp.setY(i, v3.y + (zig - 0.5) * 0.15 * ((polar - 0.95) / 0.33)); } }
   shellGeo.computeVertexNormals();
-  const shell = new THREE.Mesh(shellGeo, toon(0xfbf6ea)); shell.scale.set(CHICK.sx, CHICK.sy, CHICK.sz); shell.position.y = CHICK.y + 0.03; shell.rotation.z = -0.12; shell.name = 'eggshell'; shell.visible = false; inner.add(shell);
-  const sho = new THREE.Mesh(shellGeo, new THREE.MeshBasicMaterial({ color: 0x8a6a4a, side: THREE.BackSide })); sho.scale.setScalar(1.03); shell.add(sho);
+  const shellM = toon(0xf5f2e1); shellM.emissive.setHex(0xf5f2e1).multiplyScalar(0.25); shellM.side = THREE.DoubleSide;
+  const shell = new THREE.Mesh(shellGeo, shellM); shell.scale.set(CHICK.sx, CHICK.sy * 0.95, CHICK.sz); shell.position.y = CHICK.y + 0.12; shell.rotation.z = 0.08; shell.name = 'eggshell'; shell.visible = false; inner.add(shell);
+  const sho = new THREE.Mesh(shellGeo, new THREE.MeshBasicMaterial({ color: LINE, side: THREE.BackSide })); sho.scale.setScalar(1.022); shell.add(sho);
   // 볏 · 고기수염 · 꽁지 (자라면서 커짐)
   const redM = toon(0xe8463a);
   const comb = new THREE.Group(); comb.name = 'comb'; comb.position.set(0, CHICK.y + CHICK.r * CHICK.sy * 0.95, -0.06); comb.visible = false; inner.add(comb);
@@ -155,16 +164,19 @@ export function makeChar(_bodyC: number, hatC: number): Char {
   const outlineM = ol.material as THREE.Material;
   const wing = (sx: number) => {
     const piv = new THREE.Group(); piv.position.set(sx * CHICK.r * 0.9, CHICK.y + 0.03, 0); inner.add(piv);
-    const w = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), toon(FEATHER2)); w.scale.set(0.34, 0.85, 0.62); w.position.set(sx * 0.04, -0.14, 0); w.rotation.z = sx * 0.25; w.name = 'wing'; piv.add(w);
-    const wo = new THREE.Mesh(w.geometry, outlineM); wo.scale.copy(w.scale).multiplyScalar(1.07); wo.position.copy(w.position); wo.rotation.copy(w.rotation); piv.add(wo);
+    const wm = toon(FEATHER2); wm.emissive.setHex(FEATHER2).multiplyScalar(0.2);
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), wm); w.scale.set(0.3, 0.68, 0.6); w.position.set(sx * 0.03, -0.17, 0.02); w.rotation.z = sx * 0.35; w.name = 'wing'; piv.add(w);
+    const wo = new THREE.Mesh(w.geometry, outlineM); wo.scale.copy(w.scale).multiplyScalar(1.06); wo.position.copy(w.position); wo.rotation.copy(w.rotation); piv.add(wo);
     return piv;
   };
   const armL = wing(-1), armR = wing(1);
   // 다리 = 짧은 주황 다리 + 발가락 셋
   const leg = (sx: number) => {
     const piv = new THREE.Group(); piv.position.set(sx * 0.15, 0.2, 0); inner.add(piv);
-    const l = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.028, 0.18, 6), beakM); l.position.y = -0.09; piv.add(l);
-    for (const a of [-0.55, 0, 0.55]) { const toe = new THREE.Mesh(new THREE.CapsuleGeometry(0.028, 0.06, 3, 6), beakM); toe.rotation.set(-Math.PI / 2, 0, -a); toe.position.set(-Math.sin(a) * 0.05, -0.18, -Math.cos(a) * 0.05); piv.add(toe); }
+    // 프사처럼 가는 검은 선 다리 + 발가락 셋
+    const legM = new THREE.MeshBasicMaterial({ color: 0x2a2522 });
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.19, 6), legM); l.position.y = -0.095; piv.add(l);
+    for (const a of [-0.6, 0, 0.6]) { const toe = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.09, 5), legM); toe.rotation.set(-Math.PI / 2, 0, -a); toe.position.set(-Math.sin(a) * 0.04, -0.19, -Math.cos(a) * 0.04); piv.add(toe); }
     return piv;
   };
   const legL = leg(-1), legR = leg(1);
@@ -502,6 +514,7 @@ export function setGrowth(c: Char, g: number) {
   c.inner.scale.setScalar(G.s);
   const body = c.inner.getObjectByName('chickBody') as THREE.Mesh;
   (body.material as THREE.MeshToonMaterial).color.copy(YEL).lerp(WHT, G.w);
+  (body.material as THREE.MeshToonMaterial).emissive.copy((body.material as THREE.MeshToonMaterial).color).multiplyScalar(0.3);
   for (const arm of [c.armL, c.armR]) ((arm.getObjectByName('wing') as THREE.Mesh).material as THREE.MeshToonMaterial).color.copy(YEL2).lerp(WHT2, G.w);
   c.inner.getObjectByName('tailF')!.traverse(o => { if (o.name === 'tailFeather') ((o as THREE.Mesh).material as THREE.MeshToonMaterial).color.copy(YEL2).lerp(WHT2, G.w); });
   const comb = c.inner.getObjectByName('comb')!, wat = c.inner.getObjectByName('wattle')!, tail = c.inner.getObjectByName('tailF')!;
@@ -593,7 +606,7 @@ export function setOutfit(c: Char, mask: number) {
     o = new THREE.Group(); o.name = 'outfit'; c.inner.add(o);
     // 빨간 목도리: 목에 두르고 한 자락은 가슴 앞으로
     const scarf = new THREE.Group(); scarf.name = 'scarf';
-    const red = new THREE.MeshLambertMaterial({ color: 0xc92a2a });
+    const red = new THREE.MeshLambertMaterial({ color: 0xd06a5c }); // 옅은 수채 다홍
     const ring = new THREE.Mesh(new THREE.TorusGeometry(CHICK.r * 0.9, 0.075, 8, 24), red); ring.rotation.x = Math.PI / 2 - 0.12; ring.position.y = CHICK.y - 0.1; scarf.add(ring);
     const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.05), red); tail.position.set(0.12, CHICK.y - 0.27, -CHICK.r * 0.93); tail.rotation.set(0.3, 0, 0.08); scarf.add(tail);
     o.add(scarf);

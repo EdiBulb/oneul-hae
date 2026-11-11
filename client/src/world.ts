@@ -11,13 +11,14 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const C = (r: number, g: number, b: number) => new THREE.Color(r / 255, g / 255, b / 255);
 const SKY: [number, THREE.Color, THREE.Color, THREE.Color][] = [
   // 참고: 실제 일출 사진 — 주황·다홍 하늘 + 검은 실루엣. 해 뜰 무렵엔 위로 갈수록 짙은 적갈색
-  [-18, C(4, 6, 26), C(9, 13, 42), C(17, 22, 58)],
-  [-10, C(10, 14, 44), C(34, 30, 70), C(80, 44, 70)],
-  [-5, C(34, 26, 56), C(130, 56, 52), C(226, 92, 40)],
-  [-1.5, C(78, 36, 40), C(196, 78, 30), C(255, 122, 30)],
-  [1.5, C(104, 48, 38), C(222, 100, 30), C(255, 150, 46)],
-  [5, C(96, 96, 132), C(236, 156, 92), C(255, 198, 118)],
-  [12, C(90, 152, 210), C(152, 196, 232), C(230, 240, 246)],
+  // 프사 그림처럼: 크림색 종이 위 옅은 수채. 밤도 그림책처럼 부드러운 남색
+  [-18, C(30, 36, 70), C(44, 52, 92), C(66, 74, 118)],
+  [-10, C(52, 56, 100), C(96, 90, 134), C(150, 124, 150)],
+  [-5, C(120, 110, 160), C(214, 168, 168), C(246, 196, 170)],
+  [-1.5, C(186, 164, 192), C(246, 204, 176), C(252, 222, 190)],
+  [1.5, C(214, 192, 204), C(250, 220, 192), C(253, 234, 210)],
+  [5, C(214, 212, 228), C(250, 230, 208), C(253, 243, 226)],
+  [12, C(190, 216, 234), C(228, 238, 240), C(250, 246, 236)],
 ];
 
 /** 앉을 자리. 방석·데크는 바다(ry 0)를, 통나무는 모닥불을 바라본다.
@@ -70,11 +71,11 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
         // 해 쪽 수평선은 주황 띠가 옆으로 길게 번지고, 반대쪽은 짙은 적갈색으로 가라앉는다
         vec2 dh = normalize(d.xz + 1e-5), sh = normalize(sunDir.xz + 1e-5);
         float side = pow(clamp(dot(dh, sh) * 0.5 + 0.5, 0.0, 1.0), 3.0), hh = max(h, 0.0);
-        c += vec3(1.0, 0.42, 0.08) * exp(-hh * 10.0) * side * 0.5 * dawn;
-        c *= mix(1.0, 0.55, (1.0 - side) * dawn);
+        c += vec3(1.0, 0.62, 0.36) * exp(-hh * 10.0) * side * 0.16 * dawn;
+        c *= mix(1.0, 0.9, (1.0 - side) * dawn);
         float s = max(dot(d, sunDir), 0.0);
-        c += vec3(1.0, 0.5, 0.18) * pow(s, 5.0) * (0.3 + 0.25 * dawn) * glow;
-        c += vec3(1.0, 0.78, 0.45) * pow(s, 60.0) * (0.4 + 0.3 * dawn) * glow;
+        c += vec3(1.0, 0.7, 0.45) * pow(s, 5.0) * (0.12 + 0.1 * dawn) * glow;
+        c += vec3(1.0, 0.85, 0.65) * pow(s, 60.0) * (0.25 + 0.15 * dawn) * glow;
         // 별은 밤에만 계산 (낮에 0을 곱해도 정밀도가 낮은 기기에선 계산이 넘쳐 잡티가 될 수 있음)
         if (stars > 0.001) c += vec3(step(0.9965, hash(floor(d * 520.0))) * stars * smoothstep(0.03, 0.25, h));
         gl_FragColor = vec4(c, 1.0);
@@ -297,11 +298,11 @@ export function createWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer, G
     const dayK = clamp((alt + 6) / 18, 0, 1);
     hemi.color.copy(mid).multiplyScalar(0.6).add(tmp.setRGB(0.24, 0.26, 0.4));
     // 해가 낮게 떠 있을 땐 역광: 주변광을 줄여 앞쪽 바위·사람이 실루엣처럼 어둡게 → 해가 더 빛남
-    const backlit = clamp(1 - Math.abs(alt - 1.5) / 7, 0, 1);
-    hemi.intensity = (0.75 + 0.3 * dayK) * (1 - 0.45 * backlit) * (1 - 0.7 * dawn) * Math.PI;
+    const backlit = 0; // 역광 실루엣은 끔: 그림처럼 해를 등져도 캐릭터가 밝게
+    hemi.intensity = (0.72 + 0.22 * dayK) * (1 - 0.45 * backlit) * (1 - 0.2 * dawn) * Math.PI; // 새벽에도 그림처럼 밝게
     moon.intensity = 0.4 * (1 - dayK) * Math.PI;
     sunLight.color.copy(sunCol);
-    sunLight.intensity = clamp((alt + 2) / 8, 0, 1) * 0.95 * (1 - 0.5 * dawn) * Math.PI;
+    sunLight.intensity = clamp((alt + 2) / 8, 0, 1) * 0.6 * (1 - 0.5 * dawn) * Math.PI;
     sunLight.position.copy(sunDir).multiplyScalar(50);
     // 실내(청학당): 바깥 시각과 상관없이 따뜻하게 밝은 방
     if (indoor) { hemi.color.setRGB(1, 0.95, 0.86); hemi.intensity = 1.05 * Math.PI; moon.intensity = 0; sunLight.color.setRGB(1, 0.92, 0.8); sunLight.intensity = 0.55 * Math.PI; sunLight.position.set(-20, 40, -12); }
