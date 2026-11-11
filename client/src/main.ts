@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import type { PlayerInfo, SandPost, St, Stats } from '../../server/src/protocol';
 import { createSandBoard } from './sand-board';
-import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, itemOf, withItem, setGrowth, growthOf, growthStage, GROWTH_DAYS, PHOENIX_AT, setGoalPaper } from './character';
+import { animChar, disposeChar, faceAngle, makeChar, textSprite, turnTo, type Char, OUTFIT, HELD, OUTFIT_MAX, JWIBUL, jwColor, setOutfit, outfitOf, showLeftFlowers, wearSet, itemOf, withItem, setGrowth, growthOf, growthStage, GROWTH_DAYS, PHOENIX_AT, setGoalPaper } from './character';
 import { createAmbience, fetchWeather, windLabel, type Weather } from './ambience';
 import { initAnalytics, track } from './analytics';
 import { createBeachLife } from './beach-life';
@@ -34,7 +34,7 @@ import { calendarUrl, canPush, initPush, schedulePush } from './reminder';
 import { BODY_COLORS, HAT_COLORS, PLACES, WISHES, localizeNick, localizeWish, placeName, placeRegion, type Place, placeBlurb, placeRoute, type PlaceGroup } from './places';
 import { T, applyHtml, lang, locale, num, setLang } from './i18n';
 import { dateKey, markSeen, save, store, streakCount, wokeToday } from './store';
-import { ITEMS, SLOT_NAME, itemName, migrateOwned, unlocked } from './wardrobe';
+import { ITEMS, SLOTS, SLOT_NAME, earnable, grant as grantItem, has as hasItem, isOn, itemDesc, itemHow, itemName, migrateWardrobe, seasonNow, toggleWear, type Item } from './wardrobe';
 import { EARN, PRICE, buy, grant, earnCycle, earnGolden, earnLive, onSun, owns, shieldOffer, shieldsLeft, spend, sunTotal, useShield, markShieldAsked } from './sunpoints';
 import { dayName, dur, hm, mmss, sunPos, sunriseInfo, sunrises } from './sun';
 import { createWorld, glowTexture, groundY } from './world';
@@ -820,6 +820,7 @@ async function magoTalk(auto: boolean, forceFirst = false) {
   if (reflect) await reflectGoal();
   else for (const text of lines) { mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who: 'mago', text }]); }
   store.magoMet = true; save();
+  if (!forceFirst) await magoGifts();
   // 앱 설치는 처음에 묻지 않고, 해를 본 적 있는 사람에게 할미가 일주일에 한 번까지만 물어봄
   if (!reflect && !isStandalone && installReady() && (installEvent || isIOS || isKakao) && Date.now() - (store.installAskAt ?? 0) > 7 * 86400000) {
     store.installAskAt = Date.now(); save();
@@ -901,6 +902,7 @@ async function tellTale(asked: boolean) {
   for (const text of T.tales[i]) { mago.talk(Math.min(6, text.length * 0.09)); await talk([{ who: 'mago', text }]); }
   await talk([{ who: 'mago', text: T.taleEnd }]);
   store.taleNext = i + 1; store.taleDay = dateKey(Date.now()); save();
+  await magoGifts(); // 다섯 편을 다 들었으면 어미의 노리개
   mago.look(magoHome); magoBusy = false;
 }
 
@@ -950,10 +952,11 @@ async function hallWrite() {
   hall.talk(4); await talk([{ who: 'crane', text: T.craneHow }]);
   const img = await writeGoal();
   if (img) {
-    store.goal = { day: dateKey(Date.now()), img }; save(); renderGoalUi();
+    store.goal = { day: dateKey(Date.now()), img }; store.goalCount = (store.goalCount ?? 0) + 1; save(); renderGoalUi();
     track('goal_written');
     await talk([{ who: 'me', text: T.goalHold }]);
     hall.talk(3); await talk([{ who: 'crane', text: T.craneDone }]);
+    await craneGifts();
   }
   hallBusy = false;
 }
@@ -1176,6 +1179,7 @@ function loop(t: number) {
   updateHall(dt, t / 1000);
   updateTrail();
   updateCafe(dt, t / 1000);
+  if (place.id === 'jirisan') mountainGifts();
   const cyc = cycling();
   const info = cyc ? null : sunriseInfo(place, now);
   const ref = cyc || introSky ? cycleRefs().sr : replay ? replay.sr : (info!.windowSR ?? info!.next ?? info!.last ?? now);
@@ -2282,58 +2286,78 @@ function updateShops(dt: number) {
   if (it && fb.dataset.k !== String(it)) { fb.dataset.k = String(it); $('finishIc').textContent = it === 1 ? '🍙' : it === 2 ? '☕' : '🍶'; $('finishLabel').textContent = T.finish[it]; }
 }
 
-// ================= 옷장 =================
+// ================= 옷장 (모으기) =================
 function setWear(mask: number) {
   store.outfit = mask & ~TEMP; save();
   setOutfit(me, store.outfit | (outfitOf(me) & TEMP));
   if (connected) net.emit('outfit', outfitOf(me));
 }
-let tryOn: (typeof ITEMS)[number] | null = null;
 const KO = lang === 'ko';
 function renderWardrobe() {
-  const cur = tryOn ? tryOn.set(store.outfit ?? 0) : store.outfit ?? 0;
-  $('wardrobe').innerHTML = (Object.keys(SLOT_NAME) as (keyof typeof SLOT_NAME)[]).map(slot => {
+  const cur = store.outfit ?? 0, got = store.got ?? [], fresh = store.gotNew ?? [];
+  $('wearCount').innerHTML = T.wearCount(ITEMS.filter(it => hasItem(it.id)).length, ITEMS.length);
+  $('wardrobe').innerHTML = SLOTS.map(slot => {
     const tiles = ITEMS.filter(it => it.slot === slot).map(it => {
-      const open_ = unlocked(it), on = it.get(cur);
-      const dot = it.color ? `<em class="sw" style="background:${it.color}"></em>` : '';
-      const tag = open_ ? '' : `<small class="price">${KO ? '햇살' : 'Sun'} ${it.price}</small>`;
-      return `<button class="tile wear${open_ ? '' : ' locked'}${tryOn === it ? ' trying' : ''}" data-w="${it.id}" aria-pressed="${on}"><i>${it.icon}${dot}</i><span>${itemName(it)}</span>${tag}</button>`;
+      const mine = got.includes(it.id), on = mine && isOn(it, cur);
+      const mom = it.giver === 'mother' ? `<em class="bdg mom">🕊️</em>` : it.season && !mine ? `<em class="bdg ssn">${KO ? { spring: '봄', summer: '여름', autumn: '가을', winter: '겨울', seollal: '설날' }[it.season] : { spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter', seollal: 'New Year' }[it.season]}</em>` : '';
+      const nw = fresh.includes(it.id) ? '<em class="bdg new">NEW</em>' : '';
+      return mine
+        ? `<button class="tile wear" data-w="${it.id}" aria-pressed="${on}">${mom}${nw}<i>${it.icon}</i><span>${itemName(it)}</span>${it.giver === 'mother' ? `<small>${T.wearMother}</small>` : ''}</button>`
+        : `<div class="tile wear locked">${mom}<i>${it.icon}</i><span>${T.wearLocked}</span><small class="how">${itemHow(it)}</small></div>`;
     }).join('');
     return `<h3 class="wear-h">${SLOT_NAME[slot][KO ? 0 : 1]}</h3><div class="outfit-grid wear-grid">${tiles}</div>`;
   }).join('');
-  const bar = $('wearBuy');
-  bar.hidden = !tryOn;
-  if (tryOn) {
-    $('wearBuyText').innerHTML = `<b>${itemName(tryOn)}</b><small>${KO ? '입어 보는 중' : 'Trying on'} · ${KO ? '내 햇살' : 'You have'} ${sunTotal()}</small>`;
-    const btn = $('wearBuyBtn') as HTMLButtonElement;
-    btn.textContent = `${KO ? '햇살' : 'Sun'} ${tryOn.price} ${KO ? '사기' : 'Buy'}`;
-    btn.disabled = sunTotal() < (tryOn.price ?? 0);
-  }
 }
-function endTryOn() { if (!tryOn) return; tryOn = null; setOutfit(me, (store.outfit ?? 0) | (outfitOf(me) & TEMP)); }
 $('wardrobe').addEventListener('click', e => {
   const btn = (e.target as HTMLElement).closest('[data-w]') as HTMLElement | null; if (!btn) return;
-  const it = ITEMS.find(x => x.id === btn.dataset.w); if (!it) return;
-  if (!unlocked(it)) {
-    // 안 가진 옷: 먼저 입어 보기 (나에게만 보임) → 아래 '사기' 버튼
-    tryOn = it; setOutfit(me, it.set(store.outfit ?? 0) | (outfitOf(me) & TEMP)); renderWardrobe();
-    track('wear_try', { item: it.id });
-    return;
-  }
-  tryOn = null;
-  setWear(it.set(store.outfit ?? 0)); renderWardrobe();
+  const it = ITEMS.find(x => x.id === btn.dataset.w); if (!it || !hasItem(it.id)) return;
+  setWear(toggleWear(it, store.outfit ?? 0)); renderWardrobe();
   track('wear', { slot: it.slot, item: it.id });
 });
-$('wearBuyBtn').onclick = () => {
-  const it = tryOn; if (!it) return;
-  if (!buy(it.id, it.price ?? 0)) { toast(KO ? '햇살이 모자라요' : 'Not enough sunlight'); return; }
-  tryOn = null; setWear(it.set(store.outfit ?? 0)); renderWardrobe();
-  toast(KO ? `${itemName(it)} 샀어요 ✨` : `Bought ${itemName(it)} ✨`);
-  track('sun_buy', { item: it.id, price: it.price });
-};
-migrateOwned();
+function endTryOn() { /* 사기·입어 보기는 없어짐 (모으기만) */ }
+migrateWardrobe();
 setOutfit(me, store.outfit ?? 0);
-const openWardrobe = () => { renderWardrobe(); open('outfitSheet'); track('wardrobe_open'); };
+
+/** 받는 순간: 주는 이의 말 → 카드 (어미가 남긴 건 금테) → 지금 하기 / 나중에 */
+let giving = false;
+async function giveItem(it: Item) {
+  if (giving || hasItem(it.id)) return;
+  giving = true;
+  grantItem(it);
+  const who = it.giver === 'crane' ? 'crane' : 'mago';
+  for (const [w, text] of T.gift[it.id] ?? []) {
+    if (w === 'g') { if (who === 'mago') mago.talk(Math.min(6, text.length * 0.09)); else hall.talk(3); await talk([{ who, text }]); }
+    else await talk([{ who: 'me', text }]);
+  }
+  const mom = it.giver === 'mother';
+  $('giftCard').classList.toggle('mom', mom); $('gcMom').hidden = !mom; $('gcMom').textContent = '🕊️ ' + T.wearMother;
+  $('gcIc').textContent = it.icon; $('gcName').textContent = itemName(it); $('gcDesc').textContent = itemDesc(it);
+  $('gcNow').textContent = T.wearNow; $('gcLater').textContent = T.wearLater;
+  $('giftCard').hidden = false; amb.blip(880); setTimeout(() => amb.blip(1180), 140);
+  track('item_got', { item: it.id, giver: it.giver });
+  const now = await new Promise<boolean>(res => { $('gcNow').onclick = () => res(true); $('gcLater').onclick = () => res(false); });
+  $('giftCard').hidden = true;
+  if (now) { setWear(wearSet(store.outfit ?? 0, it.slot, it.val)); store.gotNew = (store.gotNew ?? []).filter(x => x !== it.id); save(); }
+  if (mom) await talk([{ who: 'me', text: T.giftMom }]);
+  giving = false;
+}
+const giftCtx = () => {
+  const p = me.root.position, jiri = place.id === 'jirisan';
+  return { days: seenDays(), tales: store.taleNext ?? 0, goals: store.goalCount ?? 0, fedTogether: !!store.feedTogetherDay, season: seasonNow(), atSummit: jiri && p.z < 14 && p.z > -1, atJeseok: jiri && p.z > 40 && p.z < 62 };
+};
+/** 할미가 건네는 것 (어미가 맡긴 것 포함): 할미와 이야기할 때 */
+async function magoGifts() { for (const it of earnable(giftCtx()).filter(x => x.giver === 'mother' || x.giver === 'mago')) await giveItem(it); }
+/** 훈장님이 주는 것: 다짐을 쓴 뒤 */
+async function craneGifts() { for (const it of earnable(giftCtx()).filter(x => x.giver === 'crane')) await giveItem(it); }
+/** 산과 계절이 주는 것: 그 자리·그 계절에 있으면 바로 */
+let giftScanAt = 0;
+function mountainGifts() {
+  if (performance.now() - giftScanAt < 2000 || giving || talking() || introSolo || introRunning || hallMoving) return;
+  giftScanAt = performance.now();
+  const it = earnable(giftCtx()).find(x => x.giver === 'mountain');
+  if (it) void giveItem(it);
+}
+const openWardrobe = () => { renderWardrobe(); open('outfitSheet'); track('wardrobe_open'); setTimeout(() => { store.gotNew = []; save(); }, 400); };
 $('wearBtn').onclick = openWardrobe;
 $('wearTile').onclick = () => { setTray(false); openWardrobe(); };
 $('outfitBtn').onclick = openWardrobe;
@@ -2955,4 +2979,4 @@ setTimeout(() => {
 $('shYes').onclick = () => { if (useShield()) { close(); toast(SL(`연속 기록을 지켰어요 · ${streakCount()}일째`, `Streak saved · day ${streakCount()}`)); track('shield_use'); } };
 $('shNo').onclick = () => close();
 
-Object.assign(window, { __hae: { me, dayTitle: () => { store.titleDay = ''; showDayTitle(); }, feedNow: () => morningFeed(), feedLeft: () => feed.left, cafe: CAFE, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });
+Object.assign(window, { __hae: { me, give: (id: string) => { const it = ITEMS.find(x => x.id === id); if (it) void giveItem(it); }, dayTitle: () => { store.titleDay = ''; showDayTitle(); }, feedNow: () => morningFeed(), feedLeft: () => feed.left, cafe: CAFE, dress: (m: number) => setOutfit(me, m), grow: (g: number) => { growLock = true; setGrowth(me, g); }, mago: () => magoTalk(false), magoPos: MAGO_AT, legend: (k: 'phoenix' | 'crane') => { const d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0.08; d.normalize(); legends.fly(k, camera, d); }, hall: () => hallWrite(), crow: () => { lastCrow = 0; crow('test'); }, crane: () => hall.craneWorld(), talk: (g: number) => talk(T.growUp[g].map(([who, text]) => ({ who, text }))), birdDbg: () => birds.debug(), bird: (k: 'fromSun' | 'ribbon' | 'golden' | 'swallows' | 'murmur') => birds.spawn(k, camera, world.sunDir), ageLetter: () => { if (store.letter) { store.letter.day = '2000-01-01'; save(); } }, cheerState: () => ({ cheer, myCheers, w: cheerWindow() }), gag: () => ({ bub: me.root.userData.bubble ? (() => { const v = new THREE.Vector3(); me.root.userData.bubble.getWorldPosition(v); const p = v.clone().project(camera); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight), me.root.userData.bubble.scale.x.toFixed(2), me.root.userData.bubble.visible, me.root.visible]; })() : null, lz: late.pos.z, late: late.busy, bubble: !!me.root.userData.bubble, cyc: cycling(), ph: cyclePhase(), peak: has.peak(place.id) }), project: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, bots: () => bots.count, dogPos: () => [life.dogPos.x, life.dogPos.z], shot: (on: boolean) => { shotMode = on; }, view: (d: number, p: number, y: number) => setView(d, p, y), forceStar: () => sky.force(), shellsLeft: () => shells.left, castles: () => castles.count, remotes: () => remotes.size, connected: () => connected, seats: () => seats.map(s => s.occ), ghosts: () => traces.count, pos: me.root.position, today: () => stats?.today[place.id] ?? todayVisitors } });

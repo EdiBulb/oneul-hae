@@ -157,8 +157,8 @@
 
 <div class="flash" id="flash"></div>
 <div class="sheet" id="outfitSheet" role="dialog" aria-labelledby="outfitTitle">
-  <h2 id="outfitTitle" data-i18n="wearTitle">옷 입기</h2>
-  <p class="lead" data-i18n="wearLead">새벽 바다·산 정상은 추워요. 칸마다 하나씩 골라 보세요. 다른 사람에게도 보여요.</p>
+  <div class="wear-top"><h2 id="outfitTitle" data-i18n="wearTitle">옷장</h2><span id="wearCount"></span></div>
+  <p class="lead" data-i18n="wearLead">사는 게 아니라 모으는 거예요. 해를 맞고, 다짐을 쓰고, 할미 이야기를 들으면 하나씩 받아요. 입은 건 다른 사람에게도 보여요.</p>
   <div id="wardrobe"></div>
   <div class="wear-buy" id="wearBuy" hidden><span id="wearBuyText"></span><button class="btn primary" id="wearBuyBtn"></button></div>
 </div>
@@ -386,6 +386,7 @@
 <button class="goal-chip" id="goalChip" hidden aria-label="오늘의 목표 보기">📜</button>
 <div class="day-title" id="dayTitle" aria-live="polite"><div class="dt-date" id="dtDate"></div><div class="dt-nth" id="dtNth"></div><div class="dt-line"></div></div>
 <div class="goal-peek" id="goalPeek" hidden><small id="goalPeekWhen"></small><img id="goalPeekImg" alt=""></div>
+<div class="gift-card" id="giftCard" hidden><div class="gc-in"><span class="gc-mom" id="gcMom" hidden></span><div class="gc-ic" id="gcIc"></div><h3 id="gcName"></h3><p id="gcDesc"></p><div class="gc-btns"><button class="btn" id="gcLater"></button><button class="btn primary" id="gcNow"></button></div></div></div>
 <div class="fade" id="fade"><div class="fade-name" id="fadeName">靑鶴堂<small>병아리 청학당</small></div></div>
 <!-- 인트로: 알이 깨지고 눈을 뜸 -->
 <div class="intro" id="intro" hidden>

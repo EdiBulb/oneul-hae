@@ -635,3 +635,28 @@ body.in-intro header,body.in-intro #center,body.in-intro #chips,body.in-intro #t
 .goal-peek small{display:block;font-size:11px;color:#9a8a70;margin-bottom:6px}
 .goal-peek img{display:block;width:100%;height:auto}
 @keyframes peekIn{from{opacity:0;transform:rotate(-3deg) scale(.9)}}
+
+/* ---------- 옷장 (모으기) ---------- */
+.wear-top{display:flex;align-items:baseline;justify-content:space-between}
+.wear-top span{font-size:12px;color:var(--ink-dim)}
+.wear-top b{color:#ffc36b}
+.wear-grid .tile .how{display:block;font-size:10px;line-height:1.3;color:#ffc36b;margin-top:2px}
+.wear-grid .tile.locked{opacity:1;cursor:default}
+.wear-grid .tile.locked i{filter:grayscale(1) brightness(.35)}
+.wear-grid .tile.locked span{color:var(--ink-faint)}
+.wear-grid .tile .bdg{position:absolute;top:4px;font-size:9px;font-weight:800;border-radius:6px;padding:1px 5px;line-height:1.4}
+.wear-grid .tile .bdg.new{right:4px;background:#ff7a6b;color:#fff}
+.wear-grid .tile .bdg.mom{left:4px;background:rgba(255,195,107,.9);color:#3a2410}
+.wear-grid .tile .bdg.ssn{left:4px;background:rgba(111,179,200,.9);color:#0b1a20}
+/* 받는 순간 카드 */
+.gift-card{position:fixed;inset:0;z-index:44;display:flex;align-items:center;justify-content:center;background:rgba(10,8,20,.45);padding:24px}
+.gift-card .gc-in{position:relative;width:min(320px,100%);background:#fffaf0;color:#3a2a20;border-radius:22px;padding:26px 18px 18px;text-align:center;box-shadow:0 14px 30px rgba(0,0,0,.3);animation:gcIn .45s cubic-bezier(.2,1.4,.4,1)}
+.gift-card.mom .gc-in{box-shadow:0 0 0 3px #e8b040,0 0 30px rgba(255,200,90,.6),0 14px 30px rgba(0,0,0,.3)}
+.gift-card .gc-ic{font-size:64px;line-height:1}
+.gift-card h3{font-family:'Gowun Batang',serif;font-size:22px;margin-top:10px}
+.gift-card p{font-size:13px;color:#7a6a58;margin-top:6px;line-height:1.6}
+.gift-card .gc-mom{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#e8b040;color:#3a2410;font-size:11.5px;font-weight:800;padding:4px 12px;border-radius:999px;white-space:nowrap}
+.gift-card .gc-btns{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.gift-card .gc-btns .btn{color:#3a2a20;background:#efe6d6;border-color:transparent}
+.gift-card .gc-btns .btn.primary{background:#ffd36b;color:#3a2410}
+@keyframes gcIn{from{opacity:0;transform:scale(.85) translateY(10px)}}
