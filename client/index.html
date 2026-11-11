@@ -82,6 +82,8 @@
       <span class="conn" id="conn" data-i18n="connecting">연결 중…</span>
       <button class="iconbtn" id="soundBtn" aria-label="소리 끄기">🔊</button>
       <button class="iconbtn" id="langBtn" aria-label="Language / 언어" hidden>EN</button>
+      <button class="iconbtn book-ic" id="bookBtn" aria-label="스킬북" hidden>📖</button>
+      <button class="iconbtn book-ic" id="questBtn" aria-label="이야기 보따리" hidden>📜<i class="dot" id="questDot" hidden></i></button>
       <button class="sun-chip" id="sunChip" aria-label="햇살"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg><b id="sunNum">0</b><i class="sp s1"></i><i class="sp s2"></i><i class="sp s3"></i></button>
       <button class="iconbtn menu-ic" id="menuBtn" aria-label="나의 아침 · 알람 · 설정" data-i18n-aria="menuAria"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
@@ -156,6 +158,19 @@
 <div class="sheet-back" id="sheetBack"></div>
 
 <div class="flash" id="flash"></div>
+<div class="sheet hanji" id="bookSheet" role="dialog" aria-labelledby="bookTitle">
+  <div class="hj-top"><h2 id="bookTitle">📖 스킬북</h2><button class="hj-x" data-close aria-label="닫기">✕</button></div>
+  <div id="bookBody"></div>
+</div>
+<div class="sheet hanji" id="questSheet" role="dialog" aria-labelledby="questTitle">
+  <div class="hj-top"><h2 id="questTitle">📜 이야기 보따리</h2><button class="hj-x" data-close aria-label="닫기">✕</button></div>
+  <div id="questBody"></div>
+</div>
+<div class="sheet hanji" id="lessonSheet" role="dialog" aria-labelledby="lessonTitle">
+  <div class="hj-who"><span class="hj-face">🪶</span><div><small>청학 훈장님</small><h2 id="lessonTitle">오늘은 무엇을 배울 테냐?</h2></div></div>
+  <div id="lessonBody"></div>
+  <p class="hj-foot">배움은 해를 본 날, 하루 한 번이에요. 스킬 하나는 두 번 배우면 익혀져요.</p>
+</div>
 <div class="sheet" id="outfitSheet" role="dialog" aria-labelledby="outfitTitle">
   <div class="wear-top"><h2 id="outfitTitle" data-i18n="wearTitle">옷장</h2><span id="wearCount"></span></div>
   <p class="lead" data-i18n="wearLead">사는 게 아니라 모으는 거예요. 해를 맞고, 다짐을 쓰고, 할미 이야기를 들으면 하나씩 받아요. 입은 건 다른 사람에게도 보여요.</p>

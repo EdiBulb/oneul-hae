@@ -17,7 +17,8 @@ import { NEST } from './mountain-scenery';
 import { stylize } from './look';
 import { PHOENIX_ROCK } from './landmarks';
 import { createNpcs } from './npc';
-import { progDebug } from './progress';
+import { progDebug, canLearnToday, lessonChoices, neededSkills, learn, LESSON, skillById, onProgress } from './progress';
+import { renderBook, renderQuests, pickLesson } from './book';
 import { SPOTS_ON, POND, pondD } from './beach-extras';
 import { createHall, HALL } from './hall';
 import { initGoal, writeGoal, sendToSun } from './goal';
@@ -982,15 +983,34 @@ async function hallWrite() {
   const c = hall.cushionNear(me.root.position.x, me.root.position.z);
   me.root.position.set(c.x, c.y, c.z); me.root.rotation.y = c.face; me.state = 'sit'; onCushion = true; lying = false;
   track('cushion_sit', { written: !!goalToday() });
-  if (goalToday()) { hall.talk(2.5); await talk([{ who: 'crane', text: T.craneAgain }]); hallBusy = false; return; }
-  hall.talk(4); await talk([{ who: 'crane', text: T.craneHow }]);
-  const img = await writeGoal();
-  if (img) {
-    store.goal = { day: dateKey(Date.now()), img }; store.goalCount = (store.goalCount ?? 0) + 1; save(); renderGoalUi();
-    track('goal_written');
-    await talk([{ who: 'me', text: T.goalHold }]);
-    hall.talk(3); await talk([{ who: 'crane', text: T.craneDone }]);
-    await craneGifts();
+  // 1) 오늘의 배움: 해를 본 날, 하루 한 번
+  const saw = !!store.days[dateKey(Date.now())];
+  if (canLearnToday(saw)) {
+    const choices = lessonChoices();
+    if (choices.length) {
+      hall.talk(2.5); await talk([{ who: 'crane', text: '왔느냐. 오늘은 무엇을 배울 테냐?' }]);
+      open('lessonSheet');
+      const id = await pickLesson($('lessonBody'), choices, neededSkills());
+      if (openSheet?.id === 'lessonSheet') close();
+      if (id) {
+        const lv = learn(id), sk = skillById(id);
+        track('skill_learn', { id, lv });
+        hall.talk(4); await talk([{ who: 'crane', text: LESSON[id][lv - 1] }]);
+        toast(lv === 2 ? `📖 ${sk.ko} · 익혔어요!` : `📖 ${sk.ko} · 첫 배움 (한 번 더 배우면 익혀요)`);
+      }
+    }
+  } else if (!saw) { hall.talk(3); await talk([{ who: 'crane', text: '해를 보고 오너라.\n배움은 해를 본 눈으로 하는 게야.' }]); }
+  else { hall.talk(2.5); await talk([{ who: 'crane', text: '오늘 배움은 여기까지.\n배운 건 자고 나면 익는 법이지.' }]); }
+  // 2) 오늘의 다짐 (원래 있던 것): 이제는 물어보고 씀
+  if (!goalToday() && await ask('crane', '오늘의 다짐도 적어 보겠느냐?', ['적을래요', '다음에']) === 0) {
+    const img = await writeGoal();
+    if (img) {
+      store.goal = { day: dateKey(Date.now()), img }; store.goalCount = (store.goalCount ?? 0) + 1; save(); renderGoalUi();
+      track('goal_written');
+      await talk([{ who: 'me', text: T.goalHold }]);
+      hall.talk(3); await talk([{ who: 'crane', text: T.craneDone }]);
+      await craneGifts();
+    }
   }
   hallBusy = false;
 }
@@ -1040,6 +1060,8 @@ npcs.add({
 });
 function updateMago(dt: number, t: number) {
   npcs.update(dt, t);
+  const jiri = place.id === 'jirisan';
+  if ($('bookBtn').hidden === jiri) { $('bookBtn').hidden = !jiri; $('questBtn').hidden = !jiri; }
   if (place.id !== 'jirisan') return;
   // 할미가 먼저 말을 거는 건 처음 만났을 때 한 번뿐 (그 뒤로는 💬가 뜨고, 눌러야 말함: 말이 너무 많다는 피드백)
   const d = Math.hypot(me.root.position.x - MAGO_AT.x, me.root.position.z - MAGO_AT.z);
@@ -1440,9 +1462,15 @@ function close() {
   // 모래에 쓰다가 닫으면 모래 위 미리보기도 지움
   if (openSheet?.id === 'sandSheet') { $('sandPreview').hidden = true; $('sand').classList.remove('previewing'); }
   if (openSheet?.id === 'outfitSheet') endTryOn();
+  if (openSheet?.id === 'lessonSheet') ($('lessonBody') as HTMLElement & { cancel?: () => void }).cancel?.();
   openSheet?.classList.remove('open'); back.classList.remove('open', 'over-sand'); openSheet = null; document.body.classList.remove('dressing');
 }
 back.onclick = close;
+document.querySelectorAll<HTMLButtonElement>('[data-close]').forEach(b => b.onclick = close);
+// 스킬북 · 이야기 보따리
+$('bookBtn').onclick = () => { renderBook($('bookBody')); open('bookSheet'); track('book_open'); };
+$('questBtn').onclick = () => { renderQuests($('questBody')); open('questSheet'); $('questDot').hidden = true; track('quests_open'); };
+onProgress(e => { if (e.kind === 'quest') $('questDot').hidden = false; if (openSheet?.id === 'bookSheet') renderBook($('bookBody')); if (openSheet?.id === 'questSheet') renderQuests($('questBody')); });
 // 풍등은 피드백으로 잠시 내림 (코드는 그대로, 다시 켜려면 true)
 const LANTERN_ON = false;
 $('lanternBtn').hidden = !LANTERN_ON; $('seeWishesBlock').hidden = !LANTERN_ON;

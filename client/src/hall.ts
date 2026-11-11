@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { teacherCrane } from './crane';
 import { stable } from './stable-tex';
 import { animChar, makeChar, setGrowth, textSprite, toon } from './character';
 import { INDOOR, trailX } from './beach-extras';
@@ -24,36 +25,6 @@ function signTex() {
   g.font = '900 70px "Noto Serif KR", "Gowun Batang", serif'; g.fillText('靑 鶴 堂', 256, 70);
   g.font = '700 26px "Noto Sans KR", sans-serif'; g.fillText('병아리 청학당', 256, 128);
   const t = stable(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace; return t;
-}
-
-/** 학 훈장님: 흰 몸에 푸른빛 날개, 머리 위 붉은 점, 검은 갓과 동그란 안경 */
-function crane() {
-  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-  const ol = new THREE.MeshBasicMaterial({ color: 0x3a2a20, side: THREE.BackSide });
-  const outl = (m: THREE.Mesh, k = 1.05) => { const o = new THREE.Mesh(m.geometry, ol); o.position.copy(m.position); o.rotation.copy(m.rotation); o.scale.copy(m.scale).multiplyScalar(k); m.parent!.add(o); };
-  const white = toon(0xf8f6f0), blue = toon(0x6fb3c8), dark = toon(0x2a2a30);
-  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 14), white); torso.scale.set(0.95, 0.85, 1.15); torso.position.y = 0.95; body.add(torso); outl(torso);
-  for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), blue); w.scale.set(0.3, 0.7, 1.05); w.position.set(sx * 0.28, 0.95, 0.06); w.rotation.x = -0.25; body.add(w); outl(w, 1.06); }
-  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.36, 8), dark); tail.rotation.x = -Math.PI / 2 - 0.5; tail.position.set(0, 0.92, 0.42); body.add(tail);
-  // 목 (S자) + 머리
-  const pts = [[0, 1.12, -0.12], [0, 1.35, -0.2], [0, 1.55, -0.12], [0, 1.72, -0.16]].map(([x, y, z]) => new THREE.Vector3(x, y, z));
-  const neck = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.06, 8), white); body.add(neck);
-  const head = new THREE.Group(); head.position.set(0, 1.78, -0.18); body.add(head);
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), white); head.add(skull); outl(skull, 1.08);
-  const red = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), toon(0xe0453a)); red.position.y = 0.075; head.add(red);
-  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.32, 8), toon(0x9a9a92)); beak.rotation.x = -Math.PI / 2; beak.position.set(0, -0.02, -0.25); head.add(beak);
-  const eyeM = new THREE.MeshBasicMaterial({ color: 0x1a1210 });
-  for (const sx of [-1, 1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), eyeM); e.position.set(sx * 0.07, 0.02, -0.09); head.add(e);
-    const glass = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.008, 6, 16), eyeM); glass.position.set(sx * 0.07, 0.02, -0.11); head.add(glass);
-  }
-  // 갓
-  const gat = new THREE.Group(); gat.position.y = 0.1; head.add(gat);
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.012, 24), new THREE.MeshLambertMaterial({ color: 0x18181c, transparent: true, opacity: 0.85 })); gat.add(brim);
-  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.15, 16), dark); crown.position.y = 0.08; gat.add(crown);
-  // 다리
-  for (const sx of [-1, 1]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.7, 6), dark); l.position.set(sx * 0.1, 0.35, 0); g.add(l); }
-  return { g, head, body };
 }
 
 function scrollTex() {
@@ -127,7 +98,7 @@ export function createHall(groundAt: (x: number, z: number) => number) {
     cushionSet(root, x, z, F + 0.04, cm[(r + c) % 3]);
     if ((r * 4 + c) % 4 !== 3) sittingChick(root, x, F + 0.12, z, Math.PI + (c - 1.5) * 0.05, [1, 2, 0, 3, 2, 1][k++ % 6]);
   }
-  const outCrane = crane(); outCrane.g.scale.setScalar(1.25); outCrane.g.position.set(0, F + 0.04, D / 2 - 0.8); root.add(outCrane.g);
+  const outCrane = teacherCrane(); outCrane.g.scale.setScalar(0.95); outCrane.g.position.set(0, F + 0.04, D / 2 - 0.8); root.add(outCrane.g);
   const outLabel = textSprite('학 훈장님', 0.6); outLabel.position.set(0, F + 2.9, D / 2 - 0.8); root.add(outLabel);
 
   // ================= 안 =================
@@ -153,7 +124,7 @@ export function createHall(groundAt: (x: number, z: number) => number) {
   SPOTS.forEach(([x, z], i) => cushionSet(inner, x, z, 0, cm[i % 3]));
   // 훈장님 단 + 큰 서안 + 족자
   const dais = box(3.2, 0.45, 1.7, toon(0x9a6a44)); dais.position.set(0, 0.22, ID / 2 - 1.05); inner.add(dais);
-  const T = crane(); T.g.scale.setScalar(1.5); T.g.position.set(0, 0.45, CRANE_Z); inner.add(T.g);
+  const T = teacherCrane(); T.g.scale.setScalar(1.15); T.g.position.set(0, 0.45, CRANE_Z); inner.add(T.g);
   const bd = toon(0x5a3420);
   const bigDesk = box(1.3, 0.07, 0.5, bd); bigDesk.position.set(0, 0.62, ID / 2 - 2.15); inner.add(bigDesk);
   for (const s of [-1, 1]) { const l = box(0.07, 0.42, 0.44, bd); l.position.set(s * 0.56, 0.41, ID / 2 - 2.15); inner.add(l); }
@@ -190,6 +161,7 @@ export function createHall(groundAt: (x: number, z: number) => number) {
     showHint(on: boolean) { hint.visible = on; },
     update(dt: number, t: number) {
       if (talkT > 0) talkT -= dt;
+      T.update(t * 1000); outCrane.update(t * 1000 + 700);
       T.head.rotation.x = talkT > 0 ? Math.sin(t * 6) * 0.12 : Math.sin(t * 0.7) * 0.05;
       T.body.rotation.y = Math.sin(t * 0.4) * 0.08;
       outCrane.head.rotation.x = Math.sin(t * 0.9) * 0.08;

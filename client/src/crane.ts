@@ -98,7 +98,19 @@ export function blueCrane(pose: 'stand' | 'fly' = 'stand') {
     }
   };
   update(0);
-  return { g, update };
+  return { g, update, head, root };
+}
+
+/** 청학 훈장님: 같은 청학에 동그란 안경과 낡은 갓 (청학당 선생님일 때). 앞은 -z (다른 NPC와 같게) */
+export function teacherCrane() {
+  const c = blueCrane('stand'), g = new THREE.Group(); c.g.rotation.y = Math.PI; g.add(c.g);
+  const ink = new THREE.MeshBasicMaterial({ color: 0x1e1e26 });
+  for (const sd of [-1, 1]) { const gl = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.008, 6, 18), ink); gl.position.set(sd * 0.07, 0.022, 0.075); c.head.add(gl); }
+  const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.05, 4), ink); bridge.rotation.z = Math.PI / 2; bridge.position.set(0, 0.03, 0.08); c.head.add(bridge);
+  const gat = new THREE.Group(); gat.position.y = 0.1; c.head.add(gat);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.012, 24), new THREE.MeshBasicMaterial({ color: 0x1e1e26, transparent: true, opacity: 0.8 })); gat.add(brim);
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.15, 16), toon(0x2a2a34, 0.1)); crown.position.y = 0.08; gat.add(crown);
+  return { g, head: c.head, body: c.root, update: c.update };
 }
 
 /** 청학 문양 (참고 로고를 그대로 쓰지 않고 바꿈): 떠오르는 해 앞을 날아오르는 학 + 발아래 운해 + 구름 소용돌이, 붉은 낙관 '靑鶴' */
