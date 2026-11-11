@@ -14,7 +14,7 @@ export function lined<T extends THREE.Mesh>(m: T, w = 0.03): T {
 const tn = (c: number, e = 0.25) => { const m = toon(c); m.emissive.setHex(c).multiplyScalar(e); return m; };
 const black = new THREE.MeshBasicMaterial({ color: 0x24140c }), white = new THREE.MeshBasicMaterial({ color: 0xffffff });
 /** 눈 한 쌍 + 볼: 얼굴 중심(앞 -z)에 붙임 */
-function face(parent: THREE.Object3D, y: number, z: number, gap: number, s = 1, cheek = 0xf4a0a0) {
+export function face(parent: THREE.Object3D, y: number, z: number, gap: number, s = 1, cheek = 0xf4a0a0) {
   for (const sd of [-1, 1]) {
     const e = new THREE.Mesh(new THREE.SphereGeometry(0.075 * s, 12, 10), black); e.scale.set(0.85, 1.15, 0.5); e.position.set(sd * gap, y, z); parent.add(e);
     const h1 = new THREE.Mesh(new THREE.SphereGeometry(0.026 * s, 8, 6), white); h1.position.set(sd * gap + 0.022 * s, y + 0.03 * s, z - 0.035 * s); parent.add(h1);
